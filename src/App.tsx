@@ -18,6 +18,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/game" element={<Game />} />
+          <Route path="/join/:code" element={<Game />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

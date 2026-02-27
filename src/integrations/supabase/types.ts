@@ -14,7 +14,125 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      room_players: {
+        Row: {
+          color: string
+          id: string
+          is_owner: boolean
+          joined_at: string
+          name: string
+          room_id: string
+          session_id: string
+        }
+        Insert: {
+          color: string
+          id?: string
+          is_owner?: boolean
+          joined_at?: string
+          name: string
+          room_id: string
+          session_id: string
+        }
+        Update: {
+          color?: string
+          id?: string
+          is_owner?: boolean
+          joined_at?: string
+          name?: string
+          room_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_players_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          code: string
+          created_at: string
+          current_round: number
+          id: string
+          max_rounds: number
+          owner_session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_round?: number
+          id?: string
+          max_rounds?: number
+          owner_session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_round?: number
+          id?: string
+          max_rounds?: number
+          owner_session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      round_results: {
+        Row: {
+          accuracy: number
+          created_at: string
+          id: string
+          player_id: string
+          room_id: string
+          round: number
+          time_ms: number
+          wpm: number
+        }
+        Insert: {
+          accuracy?: number
+          created_at?: string
+          id?: string
+          player_id: string
+          room_id: string
+          round: number
+          time_ms?: number
+          wpm?: number
+        }
+        Update: {
+          accuracy?: number
+          created_at?: string
+          id?: string
+          player_id?: string
+          room_id?: string
+          round?: number
+          time_ms?: number
+          wpm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_results_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "room_players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "round_results_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
