@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Keyboard, Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
-import { generateRoomCode } from "@/lib/gameData";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -12,13 +11,12 @@ const Index = () => {
 
   const handleCreate = () => {
     if (!playerName.trim()) return;
-    const code = generateRoomCode();
-    navigate("/game", { state: { playerName: playerName.trim(), roomCode: code, isOwner: true } });
+    navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
   };
 
   const handleJoin = () => {
     if (!playerName.trim() || !joinCode.trim()) return;
-    navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), isOwner: false } });
+    navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
   };
 
   return (
@@ -99,11 +97,8 @@ const Index = () => {
         >
           {mode === "idle" ? (
             <div className="space-y-4">
-              {/* Name input */}
               <div className="glass-card p-6">
-                <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">
-                  Seu nome
-                </label>
+                <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">Seu nome</label>
                 <input
                   type="text"
                   value={playerName}
@@ -114,7 +109,6 @@ const Index = () => {
                 />
               </div>
 
-              {/* Buttons */}
               <div className="grid grid-cols-2 gap-4">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
@@ -146,27 +140,14 @@ const Index = () => {
               </div>
             </div>
           ) : mode === "create" ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-8 text-center"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-display font-bold text-xl text-foreground mb-2">
-                Criar Sala
-              </h3>
-              <p className="text-muted-foreground text-sm mb-6 font-body">
-                Você será o dono da sala e poderá iniciar o jogo
-              </p>
+              <h3 className="font-display font-bold text-xl text-foreground mb-2">Criar Sala</h3>
+              <p className="text-muted-foreground text-sm mb-6 font-body">Você será o dono da sala e poderá iniciar o jogo</p>
               <div className="flex gap-3">
-                <button
-                  onClick={() => setMode("idle")}
-                  className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors"
-                >
-                  Voltar
-                </button>
+                <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -179,20 +160,12 @@ const Index = () => {
               </div>
             </motion.div>
           ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-8"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8">
               <div className="w-16 h-16 rounded-2xl bg-secondary/20 flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-secondary" />
               </div>
-              <h3 className="font-display font-bold text-xl text-foreground mb-2 text-center">
-                Entrar na Sala
-              </h3>
-              <p className="text-muted-foreground text-sm mb-6 font-body text-center">
-                Digite o código da sala para entrar
-              </p>
+              <h3 className="font-display font-bold text-xl text-foreground mb-2 text-center">Entrar na Sala</h3>
+              <p className="text-muted-foreground text-sm mb-6 font-body text-center">Digite o código da sala para entrar</p>
               <input
                 type="text"
                 value={joinCode}
@@ -202,12 +175,7 @@ const Index = () => {
                 className="w-full bg-muted rounded-xl px-4 py-3 text-foreground text-center text-2xl font-display tracking-[0.3em] placeholder:text-muted-foreground/50 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-secondary/50 transition-all mb-4"
               />
               <div className="flex gap-3">
-                <button
-                  onClick={() => setMode("idle")}
-                  className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors"
-                >
-                  Voltar
-                </button>
+                <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -224,11 +192,8 @@ const Index = () => {
         </motion.div>
       </div>
 
-      {/* Footer */}
       <footer className="relative z-10 text-center py-6">
-        <p className="text-xs text-muted-foreground font-body">
-          TypeRace © 2026 — Aprenda digitação jogando 🎮
-        </p>
+        <p className="text-xs text-muted-foreground font-body">TypeRace © 2026 — Aprenda digitação jogando 🎮</p>
       </footer>
     </div>
   );
