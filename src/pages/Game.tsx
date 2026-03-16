@@ -113,22 +113,43 @@ const Game = () => {
   const allPlayersSubmitted = players.length > 0 && currentRoundResults.length >= players.length;
   const isSolo = players.length === 1;
 
-  // Auto-transition when all submit (owner triggers)
+  // Historical results for solo comparison
+  const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
+
+  // Auto-transition when all submit (owner triggers) — always show round results
   useEffect(() => {
     if (allPlayersSubmitted && phase === "playing" && isOwner) {
-      if (isSolo) {
-        // Solo: skip round results, go straight to next round or final
-        const next = currentRound + 1;
-        if (next > challenges.length) {
-          updateRoom({ status: "final_results" });
-        } else {
-          updateRoom({ status: "countdown", current_round: next });
-        }
-      } else {
-        updateRoom({ status: "round_results" });
-      }
+      updateRoom({ status: "round_results" });
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom, isSolo, currentRound]);
+  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+
+  // Fetch historical results for solo comparison when entering round results
+  useEffect(() => {
+    if (phase !== "roundResults" || !isSolo || !room) return;
+
+    const fetchHistorical = async () => {
+      const { data } = await supabase
+        .from("round_results")
+        .select("wpm, accuracy, player_id, room_players!inner(name, color, room_id)")
+        .eq("round", currentRound)
+        .order("wpm", { ascending: false })
+        .limit(20);
+
+      if (data) {
+        // Filter out current room's results to avoid duplicates, then merge
+        const historical = (data as any[])
+          .filter((r: any) => r.room_players.room_id !== room.id)
+          .map((r: any) => ({
+            name: r.room_players.name,
+            color: r.room_players.color,
+            wpm: r.wpm,
+            accuracy: r.accuracy,
+          }));
+        setHistoricalResults(historical);
+      }
+    };
+    fetchHistorical();
+  }, [phase, isSolo, currentRound, room]);
 
   const nextRound = () => {
     const next = currentRound + 1;
