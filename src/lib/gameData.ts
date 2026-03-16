@@ -12,38 +12,72 @@ export const challenges: TypingChallenge[] = [
     round: 1,
     difficulty: "Iniciante",
     label: "Teclas Base",
-    text: "asdf jklç asdf jklç asdf jklç",
+    text: "asdf jklç asdf jklç asdf jklç ffff jjjj dddd kkkk ssss llll",
   },
   {
     id: 2,
     round: 2,
     difficulty: "Fácil",
     label: "Palavras Simples",
-    text: "casa mesa sala porta lado fada gato rato bola mola",
+    text: "casa mesa sala porta lado fada gato rato bola mola vida campo terra água fogo",
   },
   {
     id: 3,
     round: 3,
+    difficulty: "Fácil",
+    label: "Acentos e Cedilha",
+    text: "ação educação coração posição solução informação atenção direção proteção evolução",
+  },
+  {
+    id: 4,
+    round: 4,
     difficulty: "Médio",
     label: "Frases Curtas",
     text: "O gato pulou a cerca e correu pelo jardim verde e bonito.",
   },
   {
-    id: 4,
-    round: 4,
-    difficulty: "Difícil",
-    label: "Frases Longas",
-    text: "A prática constante da digitação melhora a velocidade e a precisão dos dedos no teclado todos os dias.",
-  },
-  {
     id: 5,
     round: 5,
+    difficulty: "Médio",
+    label: "Números e Datas",
+    text: "Em 2024, o Brasil tinha 215 milhões de habitantes. A área total é de 8.515.767 km².",
+  },
+  {
+    id: 6,
+    round: 6,
+    difficulty: "Médio",
+    label: "Pontuação Variada",
+    text: "Você sabia? O recorde mundial de digitação é de 216 palavras por minuto! Incrível, não é?",
+  },
+  {
+    id: 7,
+    round: 7,
+    difficulty: "Difícil",
+    label: "Símbolos e Especiais",
+    text: "O e-mail é user@empresa.com.br e o site é https://www.exemplo.com.br (acesso 24h).",
+  },
+  {
+    id: 8,
+    round: 8,
+    difficulty: "Difícil",
+    label: "Frases Longas",
+    text: "A prática constante da digitação melhora a velocidade e a precisão dos dedos no teclado todos os dias, tornando cada exercício mais natural.",
+  },
+  {
+    id: 9,
+    round: 9,
+    difficulty: "Expert",
+    label: "Texto Técnico",
+    text: "A função calcular(x: number): boolean retorna true se x > 0 && x < 100; caso contrário, retorna false. Use: calcular(42);",
+  },
+  {
+    id: 10,
+    round: 10,
     difficulty: "Expert",
     label: "Texto Completo",
-    text: "Quanto mais você pratica a digitação, mais rápido e preciso você se torna. A chave para o sucesso é a consistência e a dedicação diária aos exercícios de digitação no teclado.",
+    text: "Quanto mais você pratica a digitação, mais rápido e preciso você se torna. A chave para o sucesso é a consistência e a dedicação diária aos exercícios de digitação no teclado. Não desista!",
   },
 ];
-
 export interface Player {
   id: string;
   name: string;
