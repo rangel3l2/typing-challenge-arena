@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2 } from "lucide-react";
+import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import CountdownOverlay from "@/components/CountdownOverlay";
@@ -110,13 +110,24 @@ const Game = () => {
   const currentRound = room?.current_round || 1;
   const currentRoundResults = roundResults.filter(r => r.round === currentRound);
   const allPlayersSubmitted = players.length > 0 && currentRoundResults.length >= players.length;
+  const isSolo = players.length === 1;
 
-  // Auto-transition to results when all submit (owner triggers)
+  // Auto-transition when all submit (owner triggers)
   useEffect(() => {
     if (allPlayersSubmitted && phase === "playing" && isOwner) {
-      updateRoom({ status: "round_results" });
+      if (isSolo) {
+        // Solo: skip round results, go straight to next round or final
+        const next = currentRound + 1;
+        if (next > challenges.length) {
+          updateRoom({ status: "final_results" });
+        } else {
+          updateRoom({ status: "countdown", current_round: next });
+        }
+      } else {
+        updateRoom({ status: "round_results" });
+      }
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+  }, [allPlayersSubmitted, phase, isOwner, updateRoom, isSolo, currentRound]);
 
   const nextRound = () => {
     const next = currentRound + 1;
@@ -388,10 +399,10 @@ const Game = () => {
               <Leaderboard
                 players={leaderboardPlayers}
                 results={getOverallResults()}
-                title="Ranking Final"
+                title={isSolo ? "Seu Resultado Final" : "Ranking da Sala"}
                 showOverall
               />
-              <div className="flex gap-4 mt-8">
+              <div className="flex flex-wrap justify-center gap-4 mt-8">
                 {isOwner && (
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -403,6 +414,15 @@ const Game = () => {
                     Jogar Novamente
                   </motion.button>
                 )}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate("/ranking")}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent/20 text-accent font-display font-bold hover:bg-accent/30 transition-all"
+                >
+                  <Trophy className="w-5 h-5" />
+                  Ranking Global
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
