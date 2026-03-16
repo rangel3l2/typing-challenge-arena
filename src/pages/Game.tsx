@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2 } from "lucide-react";
+import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import CountdownOverlay from "@/components/CountdownOverlay";
