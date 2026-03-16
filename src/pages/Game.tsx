@@ -110,13 +110,24 @@ const Game = () => {
   const currentRound = room?.current_round || 1;
   const currentRoundResults = roundResults.filter(r => r.round === currentRound);
   const allPlayersSubmitted = players.length > 0 && currentRoundResults.length >= players.length;
+  const isSolo = players.length === 1;
 
-  // Auto-transition to results when all submit (owner triggers)
+  // Auto-transition when all submit (owner triggers)
   useEffect(() => {
     if (allPlayersSubmitted && phase === "playing" && isOwner) {
-      updateRoom({ status: "round_results" });
+      if (isSolo) {
+        // Solo: skip round results, go straight to next round or final
+        const next = currentRound + 1;
+        if (next > challenges.length) {
+          updateRoom({ status: "final_results" });
+        } else {
+          updateRoom({ status: "countdown", current_round: next });
+        }
+      } else {
+        updateRoom({ status: "round_results" });
+      }
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+  }, [allPlayersSubmitted, phase, isOwner, updateRoom, isSolo, currentRound]);
 
   const nextRound = () => {
     const next = currentRound + 1;
