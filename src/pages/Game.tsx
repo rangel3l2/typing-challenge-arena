@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
@@ -112,22 +113,43 @@ const Game = () => {
   const allPlayersSubmitted = players.length > 0 && currentRoundResults.length >= players.length;
   const isSolo = players.length === 1;
 
-  // Auto-transition when all submit (owner triggers)
+  // Historical results for solo comparison
+  const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
+
+  // Auto-transition when all submit (owner triggers) — always show round results
   useEffect(() => {
     if (allPlayersSubmitted && phase === "playing" && isOwner) {
-      if (isSolo) {
-        // Solo: skip round results, go straight to next round or final
-        const next = currentRound + 1;
-        if (next > challenges.length) {
-          updateRoom({ status: "final_results" });
-        } else {
-          updateRoom({ status: "countdown", current_round: next });
-        }
-      } else {
-        updateRoom({ status: "round_results" });
-      }
+      updateRoom({ status: "round_results" });
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom, isSolo, currentRound]);
+  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+
+  // Fetch historical results for solo comparison when entering round results
+  useEffect(() => {
+    if (phase !== "roundResults" || !isSolo || !room) return;
+
+    const fetchHistorical = async () => {
+      const { data } = await supabase
+        .from("round_results")
+        .select("wpm, accuracy, player_id, room_players!inner(name, color, room_id)")
+        .eq("round", currentRound)
+        .order("wpm", { ascending: false })
+        .limit(20);
+
+      if (data) {
+        // Filter out current room's results to avoid duplicates, then merge
+        const historical = (data as any[])
+          .filter((r: any) => r.room_players.room_id !== room.id)
+          .map((r: any) => ({
+            name: r.room_players.name,
+            color: r.room_players.color,
+            wpm: r.wpm,
+            accuracy: r.accuracy,
+          }));
+        setHistoricalResults(historical);
+      }
+    };
+    fetchHistorical();
+  }, [phase, isSolo, currentRound, room]);
 
   const nextRound = () => {
     const next = currentRound + 1;
@@ -368,11 +390,88 @@ const Game = () => {
           {/* ROUND RESULTS */}
           {phase === "roundResults" && (
             <motion.div key="roundResults" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
-              <Leaderboard
-                players={leaderboardPlayers}
-                results={leaderboardCurrentResults}
-                title={`Resultado - Rodada ${currentRound}`}
-              />
+              {isSolo ? (
+                <>
+                  {/* Solo: show player result + historical comparison */}
+                  {(() => {
+                    const myResult = leaderboardCurrentResults[0];
+                    if (!myResult) return null;
+                    
+                    // Merge current player with historical into a unified ranking
+                    const allEntries = [
+                      { name: leaderboardPlayers[0]?.name || "Você", color: leaderboardPlayers[0]?.color || "hsl(142 70% 45%)", wpm: myResult.wpm, accuracy: myResult.accuracy, isMe: true },
+                      ...historicalResults.map(h => ({ ...h, isMe: false })),
+                    ].sort((a, b) => b.wpm - a.wpm);
+
+                    const myRank = allEntries.findIndex(e => e.isMe) + 1;
+
+                    return (
+                      <div className="w-full max-w-2xl mx-auto">
+                        <h2 className="text-3xl font-display font-bold text-center mb-2 text-gradient-primary">
+                          Rodada {currentRound}
+                        </h2>
+                        <p className="text-center text-muted-foreground font-body mb-6">
+                          Sua posição: <span className="text-accent font-bold">{myRank}º</span> de {allEntries.length} jogador{allEntries.length !== 1 ? "es" : ""}
+                        </p>
+
+                        {/* Player's own stats highlight */}
+                        <div className="glass-card p-6 mb-6 glow-primary border-primary/30">
+                          <div className="flex items-center justify-center gap-8">
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wider">WPM</p>
+                              <p className="text-4xl font-display font-bold text-primary">{myResult.wpm}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wider">Precisão</p>
+                              <p className="text-4xl font-display font-bold text-foreground">{myResult.accuracy}%</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Historical comparison list */}
+                        {allEntries.length > 1 && (
+                          <>
+                            <h3 className="text-sm font-body font-semibold text-muted-foreground mb-3 text-center">Comparação com outros jogadores nesta rodada</h3>
+                            <div className="space-y-2">
+                              {allEntries.map((entry, index) => (
+                                <motion.div
+                                  key={`${entry.name}-${index}`}
+                                  initial={{ opacity: 0, x: -30 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.06 }}
+                                  className={`glass-card p-3 flex items-center gap-3 ${
+                                    entry.isMe ? "border-primary/40 bg-primary/5" : ""
+                                  }`}
+                                >
+                                  <span className="w-8 text-center font-display font-bold text-muted-foreground">{index + 1}º</span>
+                                  <div
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-foreground font-display font-bold text-sm shrink-0"
+                                    style={{ backgroundColor: entry.color }}
+                                  >
+                                    {entry.name[0]}
+                                  </div>
+                                  <span className="flex-1 font-body font-semibold text-foreground text-sm">
+                                    {entry.name}
+                                    {entry.isMe && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Você</span>}
+                                  </span>
+                                  <span className="font-display font-bold text-primary">{entry.wpm} <span className="text-xs text-muted-foreground">WPM</span></span>
+                                  <span className="font-display font-bold text-foreground text-sm">{entry.accuracy}%</span>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <Leaderboard
+                  players={leaderboardPlayers}
+                  results={leaderboardCurrentResults}
+                  title={`Resultado - Rodada ${currentRound}`}
+                />
+              )}
               {isOwner && (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
