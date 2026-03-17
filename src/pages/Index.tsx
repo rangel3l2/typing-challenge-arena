@@ -5,7 +5,7 @@ import { Keyboard, Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
 
