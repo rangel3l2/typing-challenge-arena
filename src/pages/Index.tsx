@@ -5,17 +5,19 @@ import { Keyboard, Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
 
   const handleCreate = () => {
     if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
   };
 
   const handleJoin = () => {
     if (!playerName.trim() || !joinCode.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
   };
 

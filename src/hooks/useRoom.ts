@@ -35,6 +35,7 @@ export interface RoomState {
   code: string;
   status: string;
   current_round: number;
+  max_rounds: number;
   owner_session_id: string;
 }
 
@@ -120,7 +121,7 @@ export function useRoom(sessionId: string) {
       const code = generateRoomCode();
       const { data: roomData, error: roomErr } = await supabase
         .from("rooms")
-        .insert({ code, owner_session_id: sessionId })
+        .insert({ code, owner_session_id: sessionId, max_rounds: 10 })
         .select()
         .single();
 

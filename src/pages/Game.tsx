@@ -151,9 +151,11 @@ const Game = () => {
     fetchHistorical();
   }, [phase, isSolo, currentRound, room]);
 
+  const maxRounds = room ? Math.min(room.max_rounds || challenges.length, challenges.length) : challenges.length;
+
   const nextRound = () => {
     const next = currentRound + 1;
-    if (next > challenges.length) {
+    if (next > maxRounds) {
       updateRoom({ status: "final_results" });
     } else {
       updateRoom({ status: "countdown", current_round: next });
@@ -479,7 +481,7 @@ const Game = () => {
                   onClick={nextRound}
                   className="mt-8 flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-lg glow-primary hover:brightness-110 transition-all"
                 >
-                  {currentRound >= challenges.length ? "Ver Ranking Final" : "Próxima Rodada"}
+                  {currentRound >= maxRounds ? "Ver Ranking Final" : "Próxima Rodada"}
                   <ArrowRight className="w-5 h-5" />
                 </motion.button>
               )}
