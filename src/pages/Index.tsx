@@ -11,11 +11,13 @@ const Index = () => {
 
   const handleCreate = () => {
     if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
   };
 
   const handleJoin = () => {
     if (!playerName.trim() || !joinCode.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
   };
 
