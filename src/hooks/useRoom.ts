@@ -35,6 +35,7 @@ export interface RoomState {
   code: string;
   status: string;
   current_round: number;
+  max_rounds: number;
   owner_session_id: string;
 }
 
