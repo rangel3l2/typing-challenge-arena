@@ -481,7 +481,7 @@ const Game = () => {
                   onClick={nextRound}
                   className="mt-8 flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-lg glow-primary hover:brightness-110 transition-all"
                 >
-                  {currentRound >= challenges.length ? "Ver Ranking Final" : "Próxima Rodada"}
+                  {currentRound >= maxRounds ? "Ver Ranking Final" : "Próxima Rodada"}
                   <ArrowRight className="w-5 h-5" />
                 </motion.button>
               )}
