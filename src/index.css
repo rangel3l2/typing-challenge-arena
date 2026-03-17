@@ -4,49 +4,49 @@
 
 @layer base {
   :root {
-    --background: 230 25% 8%;
-    --foreground: 210 20% 98%;
+    --background: 30 15% 10%;
+    --foreground: 40 20% 95%;
 
-    --card: 230 20% 12%;
-    --card-foreground: 210 20% 98%;
+    --card: 30 12% 14%;
+    --card-foreground: 40 20% 95%;
 
-    --popover: 230 20% 12%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 30 12% 14%;
+    --popover-foreground: 40 20% 95%;
 
-    --primary: 142 70% 45%;
+    --primary: 140 55% 40%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 270 60% 55%;
+    --secondary: 25 65% 45%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 230 15% 18%;
-    --muted-foreground: 230 10% 55%;
+    --muted: 30 10% 20%;
+    --muted-foreground: 30 10% 55%;
 
-    --accent: 45 95% 55%;
-    --accent-foreground: 45 95% 10%;
+    --accent: 38 80% 55%;
+    --accent-foreground: 38 80% 10%;
 
-    --destructive: 0 75% 55%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 15% 22%;
-    --input: 230 15% 25%;
-    --ring: 142 70% 45%;
+    --border: 30 10% 22%;
+    --input: 30 10% 25%;
+    --ring: 140 55% 40%;
 
     --radius: 0.75rem;
 
-    --game-purple: 270 60% 55%;
-    --game-blue: 210 80% 55%;
-    --game-pink: 330 70% 55%;
-    --game-orange: 25 90% 55%;
+    --game-brown: 25 50% 35%;
+    --game-terracotta: 12 55% 50%;
+    --game-olive: 90 30% 40%;
+    --game-cream: 40 40% 75%;
 
-    --sidebar-background: 230 25% 8%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 142 70% 45%;
+    --sidebar-background: 30 15% 10%;
+    --sidebar-foreground: 40 20% 95%;
+    --sidebar-primary: 140 55% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 230 15% 18%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 230 15% 22%;
-    --sidebar-ring: 142 70% 45%;
+    --sidebar-accent: 30 10% 20%;
+    --sidebar-accent-foreground: 40 20% 95%;
+    --sidebar-border: 30 10% 22%;
+    --sidebar-ring: 140 55% 40%;
   }
 }
 
@@ -70,7 +70,7 @@
   }
 
   .text-gradient-fun {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-game-purple via-game-pink to-game-orange;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-secondary via-game-terracotta to-accent;
   }
 
   .glass-card {
@@ -78,14 +78,14 @@
   }
 
   .glow-primary {
-    box-shadow: 0 0 30px hsl(142 70% 45% / 0.3), 0 0 60px hsl(142 70% 45% / 0.1);
+    box-shadow: 0 0 30px hsl(140 55% 40% / 0.3), 0 0 60px hsl(140 55% 40% / 0.1);
   }
 
   .glow-accent {
-    box-shadow: 0 0 30px hsl(45 95% 55% / 0.3), 0 0 60px hsl(45 95% 55% / 0.1);
+    box-shadow: 0 0 30px hsl(38 80% 55% / 0.3), 0 0 60px hsl(38 80% 55% / 0.1);
   }
 
   .glow-secondary {
-    box-shadow: 0 0 30px hsl(270 60% 55% / 0.3), 0 0 60px hsl(270 60% 55% / 0.1);
+    box-shadow: 0 0 30px hsl(25 65% 45% / 0.3), 0 0 60px hsl(25 65% 45% / 0.1);
   }
 }

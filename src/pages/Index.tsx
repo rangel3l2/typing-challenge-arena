@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Keyboard, Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
+import { Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
+import logoImg from "@/assets/logo.jpeg";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -27,21 +28,7 @@ const Index = () => {
       <div className="absolute top-10 right-20 w-64 h-64 rounded-full bg-secondary/8 animate-float blur-3xl" />
       <div className="absolute bottom-10 left-20 w-80 h-80 rounded-full bg-primary/8 animate-float-reverse blur-3xl" />
       <div className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-accent/6 animate-pulse-glow blur-3xl" />
-      <div className="absolute bottom-1/3 left-1/3 w-48 h-48 rounded-full bg-game-pink/6 animate-float blur-3xl" />
-
-      {/* Floating keyboard keys decoration */}
-      <div className="absolute top-20 left-[15%] animate-float opacity-10">
-        <div className="w-12 h-12 rounded-lg border-2 border-foreground flex items-center justify-center font-display text-xl font-bold">A</div>
-      </div>
-      <div className="absolute top-40 right-[20%] animate-float-reverse opacity-10">
-        <div className="w-12 h-12 rounded-lg border-2 border-foreground flex items-center justify-center font-display text-xl font-bold">S</div>
-      </div>
-      <div className="absolute bottom-40 left-[25%] animate-float opacity-10">
-        <div className="w-12 h-12 rounded-lg border-2 border-foreground flex items-center justify-center font-display text-xl font-bold">D</div>
-      </div>
-      <div className="absolute bottom-20 right-[15%] animate-float-reverse opacity-10">
-        <div className="w-12 h-12 rounded-lg border-2 border-foreground flex items-center justify-center font-display text-xl font-bold">F</div>
-      </div>
+      <div className="absolute bottom-1/3 left-1/3 w-48 h-48 rounded-full bg-game-terracotta/6 animate-float blur-3xl" />
 
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-12">
@@ -52,17 +39,20 @@ const Index = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <motion.div
-              animate={{ rotate: [0, -10, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-            >
-              <Keyboard className="w-12 h-12 text-primary" />
-            </motion.div>
-            <h1 className="text-6xl md:text-7xl font-display font-bold text-gradient-primary">
-              TypeRace
-            </h1>
-          </div>
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="mb-4"
+          >
+            <img
+              src={logoImg}
+              alt="Eu Vou Digitar - Mascote"
+              className="w-32 h-32 md:w-40 md:h-40 rounded-3xl mx-auto shadow-2xl border-4 border-primary/30"
+            />
+          </motion.div>
+          <h1 className="text-5xl md:text-6xl font-display font-bold text-gradient-primary mb-2">
+            Eu Vou Digitar
+          </h1>
           <p className="text-xl text-muted-foreground font-body max-w-md mx-auto">
             Aprenda a digitar de forma divertida e competitiva!
           </p>
@@ -209,7 +199,7 @@ const Index = () => {
       </div>
 
       <footer className="relative z-10 text-center py-6">
-        <p className="text-xs text-muted-foreground font-body">TypeRace © 2026 — Aprenda digitação jogando 🎮</p>
+        <p className="text-xs text-muted-foreground font-body">Eu Vou Digitar © 2026 — Aprenda digitação jogando 🎮</p>
       </footer>
     </div>
   );
