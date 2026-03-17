@@ -151,9 +151,11 @@ const Game = () => {
     fetchHistorical();
   }, [phase, isSolo, currentRound, room]);
 
+  const maxRounds = room ? Math.min(room.max_rounds || challenges.length, challenges.length) : challenges.length;
+
   const nextRound = () => {
     const next = currentRound + 1;
-    if (next > challenges.length) {
+    if (next > maxRounds) {
       updateRoom({ status: "final_results" });
     } else {
       updateRoom({ status: "countdown", current_round: next });
