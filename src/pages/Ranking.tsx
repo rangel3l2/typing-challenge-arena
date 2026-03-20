@@ -32,21 +32,52 @@ const Ranking = () => {
   const fetchGlobalRanking = async () => {
     setLoading(true);
 
-    // Get all results joined with player info
+    // Get all rooms to know max_rounds per room
+    const { data: rooms } = await supabase
+      .from("rooms")
+      .select("id, max_rounds")
+      .in("status", ["final_results", "lobby"]);
+
+    // Get all results joined with player info and room_id
     const { data: results } = await supabase
       .from("round_results")
-      .select("wpm, accuracy, player_id, room_players!inner(name, color)")
+      .select("wpm, accuracy, player_id, room_id, round, room_players!inner(name, color)")
       .order("wpm", { ascending: false });
 
-    if (!results) {
+    if (!results || !rooms) {
       setLoading(false);
       return;
     }
 
-    // Aggregate by player name (since no auth, group by name+color)
+    // Build a map of room max_rounds
+    const roomMaxRounds = new Map<string, number>();
+    rooms.forEach((r: any) => roomMaxRounds.set(r.id, r.max_rounds));
+
+    // Group results by player_id + room_id to check completion
+    const playerRoomResults = new Map<string, Map<string, { rounds: Set<number>; wpms: number[]; accuracies: number[] }>>();
+
+    results.forEach((r: any) => {
+      const pid = r.player_id;
+      const rid = r.room_id;
+      if (!playerRoomResults.has(pid)) playerRoomResults.set(pid, new Map());
+      const roomMap = playerRoomResults.get(pid)!;
+      if (!roomMap.has(rid)) roomMap.set(rid, { rounds: new Set(), wpms: [], accuracies: [] });
+      const entry = roomMap.get(rid)!;
+      entry.rounds.add(r.round);
+      entry.wpms.push(r.wpm);
+      entry.accuracies.push(r.accuracy);
+    });
+
+    // Only include results from rooms where the player completed ALL rounds
     const playerMap = new Map<string, { name: string; color: string; wpms: number[]; accuracies: number[] }>();
 
     results.forEach((r: any) => {
+      const pid = r.player_id;
+      const rid = r.room_id;
+      const maxRounds = roomMaxRounds.get(rid) || 5;
+      const roomEntry = playerRoomResults.get(pid)?.get(rid);
+      if (!roomEntry || roomEntry.rounds.size < maxRounds) return; // skip incomplete
+
       const name = r.room_players.name;
       const color = r.room_players.color;
       const key = name.toLowerCase();
