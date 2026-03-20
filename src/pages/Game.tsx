@@ -53,7 +53,7 @@ const Game = () => {
     if (action === "create" && stateName) {
       createRoom(stateName).then(() => registerIdentity(stateName));
     } else if (action === "join" && stateCode && stateName) {
-      joinRoom(stateCode, stateName);
+      joinRoom(stateCode, stateName).then(() => registerIdentity(stateName));
     } else if (urlCode) {
       // Joining via link - need name input
       setNeedsName(true);
@@ -62,7 +62,7 @@ const Game = () => {
 
   const handleJoinViaLink = () => {
     if (!joinName.trim() || !urlCode) return;
-    joinRoom(urlCode, joinName.trim());
+    joinRoom(urlCode, joinName.trim()).then(() => registerIdentity(joinName.trim()));
     setNeedsName(false);
   };
 
