@@ -51,7 +51,7 @@ const Game = () => {
     setInitialized(true);
 
     if (action === "create" && stateName) {
-      createRoom(stateName);
+      createRoom(stateName).then(() => registerIdentity(stateName));
     } else if (action === "join" && stateCode && stateName) {
       joinRoom(stateCode, stateName);
     } else if (urlCode) {
