@@ -3,12 +3,32 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
+import { useSession } from "@/hooks/useSession";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { restoreFromTag } = useSession();
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
+  const [restoring, setRestoring] = useState(false);
+
+  const handleNameChange = (value: string) => {
+    setPlayerName(value);
+  };
+
+  const handleNameBlur = async () => {
+    // Check if user entered a tag like "Name#123456"
+    const match = playerName.match(/^(.+)#(\d{6})$/);
+    if (match) {
+      setRestoring(true);
+      const result = await restoreFromTag(playerName);
+      if (result) {
+        setPlayerName(result.name);
+      }
+      setRestoring(false);
+    }
+  };
 
   const handleCreate = () => {
     if (!playerName.trim()) return;
@@ -21,6 +41,8 @@ const Index = () => {
     localStorage.setItem("typerace_player_name", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
   };
+
+  const savedCode = localStorage.getItem("typerace_player_code");
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
@@ -104,15 +126,24 @@ const Index = () => {
           {mode === "idle" ? (
             <div className="space-y-4">
               <div className="glass-card p-6">
-                <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">Seu nome</label>
+                <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">
+                  Seu nome {savedCode && <span className="text-xs text-primary/70">(ou cole seu código para restaurar)</span>}
+                </label>
                 <input
                   type="text"
                   value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Digite seu nome..."
-                  maxLength={20}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  onBlur={handleNameBlur}
+                  placeholder={savedCode ? `Ex: MeuNome#${savedCode}` : "Digite seu nome..."}
+                  maxLength={30}
                   className="w-full bg-muted rounded-xl px-4 py-3 text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  disabled={restoring}
                 />
+                {savedCode && (
+                  <p className="text-xs text-muted-foreground/70 mt-2 font-body">
+                    Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

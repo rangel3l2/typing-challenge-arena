@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      player_identities: {
+        Row: {
+          created_at: string
+          name: string
+          player_code: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          player_code: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          player_code?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       room_players: {
         Row: {
           color: string
