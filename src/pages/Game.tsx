@@ -503,6 +503,33 @@ const Game = () => {
                 title={isSolo ? "Seu Resultado Final" : "Ranking da Sala"}
                 showOverall
               />
+
+              {/* Player Code Display */}
+              {playerCode && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="glass-card p-6 mt-6 w-full max-w-md text-center border-accent/30"
+                >
+                  <p className="text-sm text-muted-foreground font-body mb-2">Seu código de identificação:</p>
+                  <p className="text-2xl font-display font-bold text-accent select-all">
+                    {stateName || "Jogador"}#{playerCode}
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 font-body mt-2">
+                    Guarde este código! Cole no campo de nome para restaurar sua conta.
+                  </p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${stateName || "Jogador"}#${playerCode}`);
+                    }}
+                    className="mt-3 px-4 py-2 rounded-xl bg-accent/20 text-accent text-sm font-body font-semibold hover:bg-accent/30 transition-colors"
+                  >
+                    📋 Copiar Código
+                  </button>
+                </motion.div>
+              )}
+
               <div className="flex flex-wrap justify-center gap-4 mt-8">
                 {isOwner && (
                   <motion.button
