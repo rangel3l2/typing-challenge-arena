@@ -16,7 +16,7 @@ const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { code: urlCode } = useParams<{ code?: string }>();
-  const sessionId = useSession();
+  const { sessionId, playerCode, registerIdentity } = useSession();
 
   const { playerName: stateName, roomCode: stateCode, action } = (location.state as {
     playerName?: string;
