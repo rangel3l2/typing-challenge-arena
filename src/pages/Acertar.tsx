@@ -67,10 +67,10 @@ const Acertar = () => {
     roundStartRef.current = Date.now();
   }, [difficulty]);
 
-  // Handle equation balloon click
-  const handleEquationClick = (value: string) => {
-    if (selected.includes(value) || phase !== "equation" || !mathRound) return;
-    const newSelected = [...selected, value];
+  // Handle equation balloon click (use index to avoid duplicate value issues)
+  const handleEquationClick = (idx: number) => {
+    if (selected.includes(String(idx)) || phase !== "equation" || !mathRound) return;
+    const newSelected = [...selected, String(idx)];
     setSelected(newSelected);
 
     // All 3 selected → move to answer phase
