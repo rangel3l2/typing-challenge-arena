@@ -319,8 +319,8 @@ const Acertar = () => {
                   color={getBalloonColor(idx)}
                   x={equationPositions[idx]}
                   durationMs={currentSpeed.durationMs}
-                  onClick={() => handleEquationClick(val)}
-                  selected={selected.includes(val)}
+                  onClick={() => handleEquationClick(idx)}
+                  selected={selected.includes(String(idx))}
                   delay={idx * 0.5}
                 />
               ))}
