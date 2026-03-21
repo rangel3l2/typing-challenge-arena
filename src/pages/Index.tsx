@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Zap, Trophy, ArrowRight, Plus } from "lucide-react";
+import { Users, Zap, Trophy, ArrowRight, Plus, Calculator } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
 import { useSession } from "@/hooks/useSession";
 
