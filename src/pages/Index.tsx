@@ -295,7 +295,7 @@ const Index = () => {
       </div>
 
       <footer className="relative z-10 text-center py-6">
-        <p className="text-xs text-muted-foreground font-body">Eu Vou Digitar © 2026 — Aprenda digitação jogando 🎮</p>
+        <p className="text-xs text-muted-foreground font-body">Eu Vou © 2026 — Aprenda jogando 🎮</p>
       </footer>
     </div>
   );
