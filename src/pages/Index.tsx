@@ -73,11 +73,38 @@ const Index = () => {
             />
           </motion.div>
           <h1 className="text-5xl md:text-6xl font-display font-bold text-gradient-primary mb-2">
-            Eu Vou Digitar
+            Eu Vou...
           </h1>
           <p className="text-xl text-muted-foreground font-body max-w-md mx-auto">
-            Aprenda a digitar de forma divertida e competitiva!
+            Escolha seu jogo e desafie-se!
           </p>
+        </motion.div>
+
+        {/* Game selector */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="flex gap-4 mb-8"
+        >
+          <button
+            onClick={() => setSelectedGame("digitar")}
+            className={`glass-card px-6 py-3 font-display font-bold transition-all flex items-center gap-2 ${
+              selectedGame === "digitar" ? "border-primary/60 text-primary glow-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Zap className="w-5 h-5" />
+            Digitar
+          </button>
+          <button
+            onClick={() => setSelectedGame("acertar")}
+            className={`glass-card px-6 py-3 font-display font-bold transition-all flex items-center gap-2 ${
+              selectedGame === "acertar" ? "border-secondary/60 text-secondary glow-secondary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Calculator className="w-5 h-5" />
+            Acertar 🎈
+          </button>
         </motion.div>
 
         {/* Feature pills */}
