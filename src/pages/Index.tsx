@@ -115,146 +115,183 @@ const Index = () => {
           transition={{ delay: 0.3 }}
           className="flex flex-wrap justify-center gap-3 mb-8"
         >
-          {[
-            { icon: <Zap className="w-4 h-4" />, text: "Velocidade" },
-            { icon: <Users className="w-4 h-4" />, text: "Multiplayer" },
-            { icon: <Trophy className="w-4 h-4" />, text: "Rankings" },
-          ].map((pill) => (
-            <span
-              key={pill.text}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm font-body font-semibold"
-            >
-              {pill.icon}
-              {pill.text}
-            </span>
-          ))}
-        </motion.div>
-
-        {/* Global Ranking Button */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.35 }}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => navigate("/ranking")}
-          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent/20 text-accent font-display font-bold hover:bg-accent/30 transition-colors mb-12"
-        >
-          <Trophy className="w-5 h-5" />
-          Ranking Global
-        </motion.button>
-
-        {/* Action cards */}
-        <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="w-full max-w-md"
-        >
-          {mode === "idle" ? (
-            <div className="space-y-4">
-              <div className="glass-card p-6">
-                <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">
-                  Seu nome {savedCode && <span className="text-xs text-primary/70">(ou cole seu código para restaurar)</span>}
-                </label>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  onBlur={handleNameBlur}
-                  placeholder={savedCode ? `Ex: MeuNome#${savedCode}` : "Digite seu nome..."}
-                  maxLength={30}
-                  className="w-full bg-muted rounded-xl px-4 py-3 text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                  disabled={restoring}
-                />
-                {savedCode && (
-                  <p className="text-xs text-muted-foreground/70 mt-2 font-body">
-                    Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => playerName.trim() ? setMode("create") : null}
-                  disabled={!playerName.trim()}
-                  className="glass-card p-6 flex flex-col items-center gap-3 hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                    <Plus className="w-7 h-7 text-primary" />
-                  </div>
-                  <span className="font-display font-bold text-foreground">Criar Sala</span>
-                  <span className="text-xs text-muted-foreground">Comece um novo jogo</span>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => playerName.trim() ? setMode("join") : null}
-                  disabled={!playerName.trim()}
-                  className="glass-card p-6 flex flex-col items-center gap-3 hover:border-secondary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors">
-                    <Users className="w-7 h-7 text-secondary" />
-                  </div>
-                  <span className="font-display font-bold text-foreground">Entrar na Sala</span>
-                  <span className="text-xs text-muted-foreground">Use um código</span>
-                </motion.button>
-              </div>
-            </div>
-          ) : mode === "create" ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="font-display font-bold text-xl text-foreground mb-2">Criar Sala</h3>
-              <p className="text-muted-foreground text-sm mb-6 font-body">Você será o dono da sala e poderá iniciar o jogo</p>
-              <div className="flex gap-3">
-                <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleCreate}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
-                >
-                  Criar
-                  <ArrowRight className="w-4 h-4" />
-                </motion.button>
-              </div>
-            </motion.div>
+          {selectedGame === "digitar" ? (
+            [
+              { icon: <Zap className="w-4 h-4" />, text: "Velocidade" },
+              { icon: <Users className="w-4 h-4" />, text: "Multiplayer" },
+              { icon: <Trophy className="w-4 h-4" />, text: "Rankings" },
+            ].map((pill) => (
+              <span key={pill.text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm font-body font-semibold">
+                {pill.icon} {pill.text}
+              </span>
+            ))
           ) : (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8">
-              <div className="w-16 h-16 rounded-2xl bg-secondary/20 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-secondary" />
-              </div>
-              <h3 className="font-display font-bold text-xl text-foreground mb-2 text-center">Entrar na Sala</h3>
-              <p className="text-muted-foreground text-sm mb-6 font-body text-center">Digite o código da sala para entrar</p>
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="Código da sala"
-                maxLength={6}
-                className="w-full bg-muted rounded-xl px-4 py-3 text-foreground text-center text-2xl font-display tracking-[0.3em] placeholder:text-muted-foreground/50 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-secondary/50 transition-all mb-4"
-              />
-              <div className="flex gap-3">
-                <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleJoin}
-                  disabled={!joinCode.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary text-secondary-foreground font-display font-bold glow-secondary hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Entrar
-                  <ArrowRight className="w-4 h-4" />
-                </motion.button>
-              </div>
-            </motion.div>
+            [
+              { icon: <Calculator className="w-4 h-4" />, text: "Matemática" },
+              { icon: <Zap className="w-4 h-4" />, text: "Agilidade" },
+              { icon: <Trophy className="w-4 h-4" />, text: "6 Velocidades" },
+            ].map((pill) => (
+              <span key={pill.text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-muted-foreground text-sm font-body font-semibold">
+                {pill.icon} {pill.text}
+              </span>
+            ))
           )}
         </motion.div>
+
+        {/* Global Ranking Button - only for digitar */}
+        {selectedGame === "digitar" && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate("/ranking")}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent/20 text-accent font-display font-bold hover:bg-accent/30 transition-colors mb-12"
+          >
+            <Trophy className="w-5 h-5" />
+            Ranking Global
+          </motion.button>
+        )}
+
+        {/* Acertar: direct play button */}
+        {selectedGame === "acertar" ? (
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="w-full max-w-md"
+          >
+            <div className="glass-card p-8 text-center">
+              <div className="text-5xl mb-4">🎈🦆</div>
+              <h3 className="font-display font-bold text-xl text-foreground mb-2">Eu Vou Acertar</h3>
+              <p className="text-muted-foreground text-sm mb-6 font-body">
+                Estoure balões com patos, resolva contas matemáticas e teste sua agilidade!
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate("/acertar")}
+                className="w-full py-3 rounded-xl bg-secondary text-secondary-foreground font-display font-bold glow-secondary hover:brightness-110 transition-all flex items-center justify-center gap-2"
+              >
+                Jogar! 🎈
+                <ArrowRight className="w-4 h-4" />
+              </motion.button>
+            </div>
+          </motion.div>
+        ) : (
+          /* Digitar: existing action cards */
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="w-full max-w-md"
+          >
+            {mode === "idle" ? (
+              <div className="space-y-4">
+                <div className="glass-card p-6">
+                  <label className="block text-sm font-body font-semibold text-muted-foreground mb-2">
+                    Seu nome {savedCode && <span className="text-xs text-primary/70">(ou cole seu código para restaurar)</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onBlur={handleNameBlur}
+                    placeholder={savedCode ? `Ex: MeuNome#${savedCode}` : "Digite seu nome..."}
+                    maxLength={30}
+                    className="w-full bg-muted rounded-xl px-4 py-3 text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    disabled={restoring}
+                  />
+                  {savedCode && (
+                    <p className="text-xs text-muted-foreground/70 mt-2 font-body">
+                      Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => playerName.trim() ? setMode("create") : null}
+                    disabled={!playerName.trim()}
+                    className="glass-card p-6 flex flex-col items-center gap-3 hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                      <Plus className="w-7 h-7 text-primary" />
+                    </div>
+                    <span className="font-display font-bold text-foreground">Criar Sala</span>
+                    <span className="text-xs text-muted-foreground">Comece um novo jogo</span>
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => playerName.trim() ? setMode("join") : null}
+                    disabled={!playerName.trim()}
+                    className="glass-card p-6 flex flex-col items-center gap-3 hover:border-secondary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors">
+                      <Users className="w-7 h-7 text-secondary" />
+                    </div>
+                    <span className="font-display font-bold text-foreground">Entrar na Sala</span>
+                    <span className="text-xs text-muted-foreground">Use um código</span>
+                  </motion.button>
+                </div>
+              </div>
+            ) : mode === "create" ? (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                  <Plus className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-display font-bold text-xl text-foreground mb-2">Criar Sala</h3>
+                <p className="text-muted-foreground text-sm mb-6 font-body">Você será o dono da sala e poderá iniciar o jogo</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleCreate}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
+                  >
+                    Criar
+                    <ArrowRight className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8">
+                <div className="w-16 h-16 rounded-2xl bg-secondary/20 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-secondary" />
+                </div>
+                <h3 className="font-display font-bold text-xl text-foreground mb-2 text-center">Entrar na Sala</h3>
+                <p className="text-muted-foreground text-sm mb-6 font-body text-center">Digite o código da sala para entrar</p>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Código da sala"
+                  maxLength={6}
+                  className="w-full bg-muted rounded-xl px-4 py-3 text-foreground text-center text-2xl font-display tracking-[0.3em] placeholder:text-muted-foreground/50 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-secondary/50 transition-all mb-4"
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => setMode("idle")} className="flex-1 px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors">Voltar</button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleJoin}
+                    disabled={!joinCode.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary text-secondary-foreground font-display font-bold glow-secondary hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Entrar
+                    <ArrowRight className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
       </div>
 
       <footer className="relative z-10 text-center py-6">
