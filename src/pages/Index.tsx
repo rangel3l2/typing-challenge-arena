@@ -11,6 +11,7 @@ const Index = () => {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
+  const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
 
   const handleNameChange = (value: string) => {
