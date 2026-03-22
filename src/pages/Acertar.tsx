@@ -455,6 +455,41 @@ const Acertar = () => {
               ))}
             </motion.div>
           )}
+          {phase === "gameover" && (
+            <motion.div
+              key="gameover"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute inset-0 flex items-center justify-center z-30"
+            >
+              <div className="glass-card p-8 max-w-md mx-4 text-center">
+                <div className="text-6xl mb-4">🦆💨</div>
+                <h3 className="text-2xl font-display font-bold text-foreground mb-3">
+                  Game Over!
+                </h3>
+                <p className="text-muted-foreground font-body mb-6 text-lg">
+                  {gameOverMsg}
+                </p>
+                <div className="flex gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={startGame}
+                    className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary"
+                  >
+                    <RotateCcw className="w-4 h-4 inline mr-2" />
+                    Tentar de novo
+                  </motion.button>
+                  <button
+                    onClick={() => setGameState("menu")}
+                    className="flex-1 py-3 rounded-xl bg-muted text-foreground font-body font-semibold"
+                  >
+                    Menu
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
