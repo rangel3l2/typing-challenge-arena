@@ -15,7 +15,7 @@ import {
   type BalloonItem,
 } from "@/lib/mathGameData";
 
-type Phase = "equation" | "answer" | "feedback" | "results";
+type Phase = "equation" | "answer" | "feedback" | "results" | "gameover";
 
 interface RoundScore {
   round: number;
