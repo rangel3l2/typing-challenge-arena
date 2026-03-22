@@ -1,15 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Trophy, Zap, RotateCcw } from "lucide-react";
+import { ArrowLeft, Trophy, Zap, RotateCcw, Star } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
 import {
   generateMathRound,
+  generateEquationBalloons,
   generateWrongAnswers,
+  computeFromSelection,
   SPEED_LEVELS,
   ROUNDS_PER_SPEED,
   TOTAL_ROUNDS,
   type MathRound,
+  type BalloonItem,
 } from "@/lib/mathGameData";
 
 type Phase = "equation" | "answer" | "feedback" | "results";
@@ -19,6 +22,7 @@ interface RoundScore {
   correct: boolean;
   timeMs: number;
   speed: number;
+  points: number;
 }
 
 const Acertar = () => {
@@ -27,11 +31,15 @@ const Acertar = () => {
   const [round, setRound] = useState(0);
   const [phase, setPhase] = useState<Phase>("equation");
   const [mathRound, setMathRound] = useState<MathRound | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [balloons, setBalloons] = useState<BalloonItem[]>([]);
+  const [hiddenBalloons, setHiddenBalloons] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<BalloonItem[]>([]);
   const [answerOptions, setAnswerOptions] = useState<number[]>([]);
   const [chosenAnswer, setChosenAnswer] = useState<number | null>(null);
   const [scores, setScores] = useState<RoundScore[]>([]);
   const [countdown, setCountdown] = useState(3);
+  const [roundPoints, setRoundPoints] = useState(10);
+  const [feedbackMsg, setFeedbackMsg] = useState("");
   const roundStartRef = useRef(Date.now());
 
   const currentSpeedIndex = Math.min(Math.floor(round / ROUNDS_PER_SPEED), SPEED_LEVELS.length - 1);
@@ -45,14 +53,12 @@ const Acertar = () => {
     setCountdown(3);
   };
 
-  // Countdown
   useEffect(() => {
     if (gameState !== "playing" || countdown <= 0) return;
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [gameState, countdown]);
 
-  // Start round when countdown ends
   useEffect(() => {
     if (gameState !== "playing" || countdown > 0) return;
     startRound();
@@ -60,38 +66,75 @@ const Acertar = () => {
 
   const startRound = useCallback(() => {
     const mr = generateMathRound(difficulty);
+    const bl = generateEquationBalloons(mr, difficulty);
     setMathRound(mr);
+    setBalloons(bl);
+    setHiddenBalloons(new Set());
     setPhase("equation");
     setSelected([]);
     setChosenAnswer(null);
+    setRoundPoints(10);
+    setFeedbackMsg("");
     roundStartRef.current = Date.now();
   }, [difficulty]);
 
-  // Handle equation balloon click (use index to avoid duplicate value issues)
-  const handleEquationClick = (idx: number) => {
-    if (selected.includes(String(idx)) || phase !== "equation" || !mathRound) return;
-    const newSelected = [...selected, String(idx)];
+  // Check if adding an item would violate the "no two operators" rule
+  const canSelect = (item: BalloonItem): boolean => {
+    if (selected.length >= 3) return false;
+    if (item.type === 'operator') {
+      // Already have an operator selected?
+      return !selected.some(s => s.type === 'operator');
+    }
+    // Number: already have 2 numbers?
+    return selected.filter(s => s.type === 'number').length < 2;
+  };
+
+  const handleDuckClick = (item: BalloonItem) => {
+    if (phase !== "equation" || hiddenBalloons.has(item.id)) return;
+    if (selected.find(s => s.id === item.id)) return;
+    if (!canSelect(item)) {
+      // Invalid selection - flash feedback
+      setFeedbackMsg("⚠️ Selecione: 2 números e 1 operação!");
+      setTimeout(() => setFeedbackMsg(""), 1500);
+      return;
+    }
+
+    const newSelected = [...selected, item];
     setSelected(newSelected);
 
-    // All 3 selected → move to answer phase
     if (newSelected.length >= 3) {
-      const wrongs = generateWrongAnswers(mathRound.answer, 3);
-      const options = [...wrongs, mathRound.answer].sort(() => Math.random() - 0.5);
-      setAnswerOptions(options);
-      setTimeout(() => setPhase("answer"), 600);
+      const eq = computeFromSelection(newSelected);
+      if (eq) {
+        const wrongs = generateWrongAnswers(eq.answer, 3);
+        const options = [...wrongs, eq.answer].sort(() => Math.random() - 0.5);
+        setAnswerOptions(options);
+        setTimeout(() => setPhase("answer"), 800);
+      }
     }
   };
 
-  // Handle answer balloon click
-  const handleAnswerClick = (value: number) => {
+  const handleBalloonClick = (item: BalloonItem) => {
+    if (phase !== "equation" || hiddenBalloons.has(item.id)) return;
+    // Clicked the balloon instead of duck → balloon disappears, -2 points
+    setHiddenBalloons(prev => new Set([...prev, item.id]));
+    setRoundPoints(prev => Math.max(0, prev - 2));
+    setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
+    setTimeout(() => setFeedbackMsg(""), 1500);
+  };
+
+  const handleAnswerDuckClick = (value: number) => {
     if (phase !== "answer" || !mathRound) return;
+    const eq = computeFromSelection(selected);
+    if (!eq) return;
+
     setChosenAnswer(value);
-    const correct = value === mathRound.answer;
+    const correct = value === eq.answer;
+    const finalPoints = correct ? roundPoints : 0;
     const timeMs = Date.now() - roundStartRef.current;
 
-    setScores((prev) => [
+    setScores(prev => [
       ...prev,
-      { round: round + 1, correct, timeMs, speed: currentSpeedIndex + 1 },
+      { round: round + 1, correct, timeMs, speed: currentSpeedIndex + 1, points: finalPoints },
     ]);
 
     setPhase("feedback");
@@ -100,19 +143,28 @@ const Acertar = () => {
       if (round + 1 >= TOTAL_ROUNDS) {
         setGameState("finished");
       } else {
-        setRound((r) => r + 1);
+        setRound(r => r + 1);
         startRound();
       }
-    }, 1500);
+    }, 1800);
   };
 
-  // Balloon positions spread evenly
-  const equationPositions = [20, 50, 80];
+  const handleAnswerBalloonClick = (value: number) => {
+    if (phase !== "answer") return;
+    // Clicked balloon body in answer phase = also penalty
+    setRoundPoints(prev => Math.max(0, prev - 2));
+    setFeedbackMsg("💥 Acerte o pato! -2 pontos");
+    setTimeout(() => setFeedbackMsg(""), 1500);
+  };
+
+  // Spread 8 balloons across the screen
+  const balloonPositions = [8, 20, 32, 44, 56, 68, 80, 92];
   const answerPositions = [15, 38, 62, 85];
 
-  const totalCorrect = scores.filter((s) => s.correct).length;
+  const totalPoints = scores.reduce((a, s) => a + s.points, 0);
+  const maxPoints = scores.length * 10;
+  const totalCorrect = scores.filter(s => s.correct).length;
   const avgTime = scores.length > 0 ? Math.round(scores.reduce((a, s) => a + s.timeMs, 0) / scores.length) : 0;
-  const accuracy = scores.length > 0 ? Math.round((totalCorrect / scores.length) * 100) : 0;
 
   if (gameState === "menu") {
     return (
@@ -130,7 +182,7 @@ const Acertar = () => {
             Eu Vou Acertar
           </h1>
           <p className="text-lg text-muted-foreground font-body max-w-md mx-auto">
-            Estoure balões, resolva contas e teste sua agilidade matemática!
+            Mire no pato, monte a conta e acerte o resultado!
           </p>
         </motion.div>
 
@@ -142,16 +194,20 @@ const Acertar = () => {
         >
           <div className="space-y-3 text-sm text-muted-foreground font-body">
             <div className="flex items-start gap-3">
-              <span className="text-xl">1️⃣</span>
-              <span>3 balões aparecem com números e um operador. Clique nos 3!</span>
+              <span className="text-xl">🦆</span>
+              <span>Clique no <strong>pato</strong> em cima do balão! Clicar no balão faz ele sumir e perde 2 pontos.</span>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-xl">2️⃣</span>
-              <span>Novos balões surgem com respostas. Acerte o resultado!</span>
+              <span className="text-xl">🧮</span>
+              <span>8 balões aparecem. Acerte 3 patos para montar: número + operação + número.</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">🎯</span>
+              <span>Depois acerte o pato com o resultado certo! Errar = perde todos os pontos da rodada.</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">⚡</span>
-              <span>A velocidade aumenta a cada 3 rodadas. São 6 níveis!</span>
+              <span>Velocidade aumenta a cada 3 rodadas. São 6 níveis!</span>
             </div>
           </div>
 
@@ -161,7 +217,7 @@ const Acertar = () => {
             onClick={startGame}
             className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
           >
-            Começar! 🎈
+            Começar! 🦆
           </motion.button>
 
           <button
@@ -191,12 +247,12 @@ const Acertar = () => {
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-primary">{totalCorrect}</div>
-              <div className="text-xs text-muted-foreground font-body">Acertos</div>
+              <div className="text-2xl font-display font-bold text-primary">{totalPoints}</div>
+              <div className="text-xs text-muted-foreground font-body">Pontos</div>
             </div>
             <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-accent">{accuracy}%</div>
-              <div className="text-xs text-muted-foreground font-body">Precisão</div>
+              <div className="text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
+              <div className="text-xs text-muted-foreground font-body">Acertos</div>
             </div>
             <div className="glass-card p-4">
               <div className="text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
@@ -204,19 +260,19 @@ const Acertar = () => {
             </div>
           </div>
 
-          {/* Speed breakdown */}
           <div className="space-y-2 mb-6 text-left">
             {SPEED_LEVELS.map((speed, i) => {
-              const roundScores = scores.filter((s) => s.speed === i + 1);
-              const hits = roundScores.filter((s) => s.correct).length;
+              const roundScores = scores.filter(s => s.speed === i + 1);
+              const pts = roundScores.reduce((a, s) => a + s.points, 0);
+              const maxPts = roundScores.length * 10;
               return (
                 <div key={i} className="flex items-center justify-between text-sm font-body">
                   <span className="text-muted-foreground">
                     <Zap className="w-3 h-3 inline mr-1" />
                     Vel. {speed.level} - {speed.label}
                   </span>
-                  <span className={hits === ROUNDS_PER_SPEED ? "text-primary font-bold" : "text-foreground"}>
-                    {hits}/{ROUNDS_PER_SPEED}
+                  <span className={pts === maxPts ? "text-primary font-bold" : "text-foreground"}>
+                    {pts}/{maxPts} pts
                   </span>
                 </div>
               );
@@ -245,7 +301,7 @@ const Acertar = () => {
     );
   }
 
-  // Playing state
+  // Playing - countdown
   if (countdown > 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -261,6 +317,8 @@ const Acertar = () => {
       </div>
     );
   }
+
+  const eq = selected.length === 3 ? computeFromSelection(selected) : null;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden select-none">
@@ -279,55 +337,82 @@ const Acertar = () => {
             <Zap className="w-4 h-4" />
             Vel. {currentSpeed.level}
           </span>
-          <span className="text-accent font-bold">
+          <span className="text-accent font-bold flex items-center gap-1">
+            <Star className="w-4 h-4" />
+            {roundPoints} pts
+          </span>
+          <span className="text-foreground font-bold">
             <Trophy className="w-4 h-4 inline mr-1" />
-            {totalCorrect}
+            {totalPoints}
           </span>
         </div>
       </div>
 
-      {/* Phase indicator */}
+      {/* Selected equation display */}
       <div className="absolute top-14 left-0 right-0 z-20 text-center">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={phase}
-            initial={{ y: -10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 10, opacity: 0 }}
-            className="inline-block px-4 py-2 rounded-full bg-muted font-body text-sm text-muted-foreground"
-          >
-            {phase === "equation" && "🎯 Clique nos 3 balões para montar a conta!"}
-            {phase === "answer" && `🧮 Qual é o resultado de ${mathRound?.num1} ${mathRound?.operator} ${mathRound?.num2}?`}
-            {phase === "feedback" && (chosenAnswer === mathRound?.answer ? "✅ Correto!" : `❌ Era ${mathRound?.answer}`)}
-          </motion.div>
+          {feedbackMsg ? (
+            <motion.div
+              key="feedback-msg"
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              className="inline-block px-4 py-2 rounded-full bg-destructive/20 text-destructive font-body text-sm font-bold"
+            >
+              {feedbackMsg}
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`phase-${phase}-${selected.length}`}
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              className="inline-block px-4 py-2 rounded-full bg-muted font-body text-sm text-muted-foreground"
+            >
+              {phase === "equation" && (
+                <span>
+                  🦆 Acerte os patos! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}
+                </span>
+              )}
+              {phase === "answer" && eq && (
+                <span>🎯 Qual é {eq.num1} {eq.operator} {eq.num2}? Acerte o pato certo!</span>
+              )}
+              {phase === "feedback" && eq && (
+                <span>
+                  {chosenAnswer === eq.answer
+                    ? `✅ Correto! +${roundPoints} pontos`
+                    : `❌ Era ${eq.answer}! 0 pontos`
+                  }
+                </span>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
       {/* Balloons area */}
       <div className="absolute inset-0 pt-24">
         <AnimatePresence mode="wait">
-          {phase === "equation" && mathRound && (
+          {phase === "equation" && (
             <motion.div key={`eq-${round}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative w-full h-full">
-              {[
-                { val: String(mathRound.num1), idx: 0 },
-                { val: mathRound.operator, idx: 1 },
-                { val: String(mathRound.num2), idx: 2 },
-              ].map(({ val, idx }) => (
+              {balloons.map((item, idx) => (
                 <Balloon
-                  key={`eq-${round}-${idx}`}
-                  label={val}
+                  key={`eq-${round}-${item.id}`}
+                  label={item.label}
                   color={getBalloonColor(idx)}
-                  x={equationPositions[idx]}
+                  x={balloonPositions[idx]}
                   durationMs={currentSpeed.durationMs}
-                  onClick={() => handleEquationClick(idx)}
-                  selected={selected.includes(String(idx))}
-                  delay={idx * 0.5}
+                  onDuckClick={() => handleDuckClick(item)}
+                  onBalloonClick={() => handleBalloonClick(item)}
+                  selected={selected.some(s => s.id === item.id)}
+                  hidden={hiddenBalloons.has(item.id)}
+                  delay={idx * 0.3}
                 />
               ))}
             </motion.div>
           )}
 
-          {(phase === "answer" || phase === "feedback") && mathRound && (
+          {(phase === "answer" || phase === "feedback") && eq && (
             <motion.div key={`ans-${round}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative w-full h-full">
               {answerOptions.map((val, idx) => (
                 <Balloon
@@ -336,9 +421,10 @@ const Acertar = () => {
                   color={getBalloonColor(idx + 3)}
                   x={answerPositions[idx]}
                   durationMs={currentSpeed.durationMs}
-                  onClick={() => handleAnswerClick(val)}
+                  onDuckClick={() => handleAnswerDuckClick(val)}
+                  onBalloonClick={() => handleAnswerBalloonClick(val)}
                   selected={chosenAnswer === val}
-                  correct={phase === "feedback" ? val === mathRound.answer : null}
+                  correct={phase === "feedback" ? val === eq.answer : null}
                   delay={idx * 0.4}
                 />
               ))}
