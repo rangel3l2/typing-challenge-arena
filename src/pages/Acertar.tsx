@@ -25,6 +25,16 @@ interface RoundScore {
   points: number;
 }
 
+const FUNNY_GAMEOVER_MESSAGES = [
+  "Os patos fugiram todos! 🦆💨 Parece que você tem medo de patos...",
+  "Parabéns! Você conseguiu errar TODOS os balões! 🎈💥 Isso é talento!",
+  "Os patos mandaram um recado: 'Tenta de novo, campeão!' 🦆😂",
+  "Alerta: nenhum pato foi acertado! A liga dos patos agradece 🦆🏆",
+  "Você acertou mais balões que patos... o circo tá precisando! 🎪",
+  "Os patos fizeram uma festa porque ninguém acertou eles! 🦆🎉",
+  "Missão: acertar o pato. Status: fracasso espetacular! 💀😂",
+];
+
 const Acertar = () => {
   const navigate = useNavigate();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
@@ -40,6 +50,7 @@ const Acertar = () => {
   const [countdown, setCountdown] = useState(3);
   const [roundPoints, setRoundPoints] = useState(10);
   const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [gameOverMsg, setGameOverMsg] = useState("");
   const roundStartRef = useRef(Date.now());
 
   const currentSpeedIndex = Math.min(Math.floor(round / ROUNDS_PER_SPEED), SPEED_LEVELS.length - 1);
