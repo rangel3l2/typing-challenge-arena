@@ -126,11 +126,25 @@ const Acertar = () => {
 
   const handleBalloonClick = (item: BalloonItem) => {
     if (phase !== "equation" || hiddenBalloons.has(item.id)) return;
-    // Clicked the balloon instead of duck → balloon disappears, -2 points
-    setHiddenBalloons(prev => new Set([...prev, item.id]));
+    const newHidden = new Set([...hiddenBalloons, item.id]);
+    setHiddenBalloons(newHidden);
     setRoundPoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
+
+    // Check if remaining non-hidden balloons can still form a valid equation
+    const remaining = balloons.filter(b => !newHidden.has(b.id) && !selected.some(s => s.id === b.id));
+    const remainingNums = remaining.filter(b => b.type === 'number').length;
+    const remainingOps = remaining.filter(b => b.type === 'operator').length;
+    const needNums = 2 - selected.filter(s => s.type === 'number').length;
+    const needOps = 1 - selected.filter(s => s.type === 'operator').length;
+
+    if (remainingNums < needNums || remainingOps < needOps) {
+      // Can't complete equation - game over for this round
+      const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
+      setGameOverMsg(msg);
+      setPhase("gameover");
+    }
   };
 
   const handleAnswerDuckClick = (value: number) => {
