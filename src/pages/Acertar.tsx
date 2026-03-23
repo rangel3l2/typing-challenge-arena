@@ -251,7 +251,7 @@ const Acertar = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="glass-card p-6 max-w-sm w-full space-y-4 relative z-10"
+          className="glass-card p-4 sm:p-6 max-w-sm w-full space-y-3 sm:space-y-4 relative z-10"
         >
           <div className="space-y-3 text-sm text-muted-foreground font-body">
             <div className="flex items-start gap-3">
