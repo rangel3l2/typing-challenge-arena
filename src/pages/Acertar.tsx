@@ -82,6 +82,7 @@ const Acertar = () => {
     setMathRound(mr);
     setBalloons(bl);
     setHiddenBalloons(new Set());
+    setEscapedBalloons(new Set());
     setPhase("equation");
     setSelected([]);
     setChosenAnswer(null);
