@@ -500,12 +500,12 @@ const Acertar = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="absolute inset-0 flex items-center justify-center z-30"
             >
-              <div className="glass-card p-8 max-w-md mx-4 text-center">
-                <div className="text-6xl mb-4">🦆💨</div>
-                <h3 className="text-2xl font-display font-bold text-foreground mb-3">
+              <div className="glass-card p-5 sm:p-8 max-w-md mx-3 sm:mx-4 text-center">
+                <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🦆💨</div>
+                <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">
                   Game Over!
                 </h3>
-                <p className="text-muted-foreground font-body mb-6 text-lg">
+                <p className="text-muted-foreground font-body mb-4 sm:mb-6 text-sm sm:text-base md:text-lg">
                   {gameOverMsg}
                 </p>
                 <div className="flex gap-3">
