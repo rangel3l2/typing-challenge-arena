@@ -382,28 +382,28 @@ const Acertar = () => {
   const eq = selected.length === 3 ? computeFromSelection(selected) : null;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] bg-background relative overflow-hidden select-none">
       {/* HUD */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-background/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button onClick={() => setGameState("menu")} className="text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <span className="font-display font-bold text-foreground">
-            Rodada {round + 1}/{TOTAL_ROUNDS}
+          <span className="font-display font-bold text-foreground text-xs sm:text-sm md:text-base">
+            R{round + 1}/{TOTAL_ROUNDS}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-sm font-body">
-          <span className="text-primary font-bold flex items-center gap-1">
-            <Zap className="w-4 h-4" />
-            Vel. {currentSpeed.level}
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
+          <span className="text-primary font-bold flex items-center gap-0.5 sm:gap-1">
+            <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+            V{currentSpeed.level}
           </span>
-          <span className="text-accent font-bold flex items-center gap-1">
-            <Star className="w-4 h-4" />
-            {roundPoints} pts
+          <span className="text-accent font-bold flex items-center gap-0.5 sm:gap-1">
+            <Star className="w-3 h-3 sm:w-4 sm:h-4" />
+            {roundPoints}
           </span>
-          <span className="text-foreground font-bold">
-            <Trophy className="w-4 h-4 inline mr-1" />
+          <span className="text-foreground font-bold flex items-center gap-0.5 sm:gap-1">
+            <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
             {totalPoints}
           </span>
         </div>
