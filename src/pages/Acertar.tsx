@@ -218,9 +218,9 @@ const Acertar = () => {
     });
   }, [phase, balloons, hiddenBalloons, selected]);
 
-  // Spread 8 balloons across the screen
-  const balloonPositions = [8, 20, 32, 44, 56, 68, 80, 92];
-  const answerPositions = [15, 38, 62, 85];
+  // Responsive balloon positions - closer together on mobile
+  const balloonPositions = [6, 18, 30, 42, 54, 66, 78, 94];
+  const answerPositions = [12, 35, 58, 88];
 
   const totalPoints = scores.reduce((a, s) => a + s.points, 0);
   const maxPoints = scores.length * 10;
