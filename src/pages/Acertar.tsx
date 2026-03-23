@@ -299,10 +299,10 @@ const Acertar = () => {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="glass-card p-8 max-w-md w-full text-center"
+          className="glass-card p-5 sm:p-8 max-w-md w-full text-center"
         >
-          <div className="text-5xl mb-4">🏆</div>
-          <h2 className="text-3xl font-display font-bold text-gradient-primary mb-6">
+          <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🏆</div>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-gradient-primary mb-4 sm:mb-6">
             Resultado Final
           </h2>
 
