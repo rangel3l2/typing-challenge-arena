@@ -39,6 +39,20 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
   const sway = (x % 2 === 0 ? 1 : -1) * 20;
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
+  const escapedRef = useRef(false);
+
+  // Fire onEscaped when balloon animation finishes (reaches top)
+  useEffect(() => {
+    if (hidden || duckState !== "riding") return;
+    const totalTime = (durationMs + delay * 1000);
+    const timer = setTimeout(() => {
+      if (!escapedRef.current && onEscaped) {
+        escapedRef.current = true;
+        onEscaped();
+      }
+    }, totalTime);
+    return () => clearTimeout(timer);
+  }, [durationMs, delay, hidden, onEscaped, duckState]);
 
   if (hidden) return null;
 
