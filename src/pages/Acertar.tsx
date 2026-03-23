@@ -365,7 +365,7 @@ const Acertar = () => {
   // Playing - countdown
   if (countdown > 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <motion.div
           key={countdown}
           initial={{ scale: 2, opacity: 0 }}
