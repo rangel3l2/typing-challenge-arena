@@ -85,6 +85,7 @@ const Acertar = () => {
     setSelected([]);
     setChosenAnswer(null);
     setRoundPoints(10);
+    setHiddenAnswers(new Set());
     setFeedbackMsg("");
     roundStartRef.current = Date.now();
   }, [difficulty]);
@@ -174,12 +175,23 @@ const Acertar = () => {
     }, 1800);
   };
 
+  const [hiddenAnswers, setHiddenAnswers] = useState<Set<number>>(new Set());
+
   const handleAnswerBalloonClick = (value: number) => {
     if (phase !== "answer") return;
-    // Clicked balloon body in answer phase = also penalty
+    const newHidden = new Set([...hiddenAnswers, value]);
+    setHiddenAnswers(newHidden);
     setRoundPoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
+
+    // Check if all answer balloons are gone
+    const remainingAnswers = answerOptions.filter(v => !newHidden.has(v));
+    if (remainingAnswers.length === 0) {
+      const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
+      setGameOverMsg(msg);
+      setPhase("gameover");
+    }
   };
 
   // Spread 8 balloons across the screen
@@ -450,6 +462,7 @@ const Acertar = () => {
                   onBalloonClick={() => handleAnswerBalloonClick(val)}
                   selected={chosenAnswer === val}
                   correct={phase === "feedback" ? val === eq.answer : null}
+                  hidden={hiddenAnswers.has(val)}
                   delay={idx * 0.4}
                 />
               ))}
