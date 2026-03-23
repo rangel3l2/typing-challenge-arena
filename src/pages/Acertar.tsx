@@ -85,6 +85,7 @@ const Acertar = () => {
     setSelected([]);
     setChosenAnswer(null);
     setRoundPoints(10);
+    setHiddenAnswers(new Set());
     setFeedbackMsg("");
     roundStartRef.current = Date.now();
   }, [difficulty]);
