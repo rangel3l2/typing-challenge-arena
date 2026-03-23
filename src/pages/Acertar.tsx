@@ -410,7 +410,7 @@ const Acertar = () => {
       </div>
 
       {/* Selected equation display */}
-      <div className="absolute top-14 left-0 right-0 z-20 text-center">
+      <div className="absolute top-10 sm:top-14 left-0 right-0 z-20 text-center px-2">
         <AnimatePresence mode="wait">
           {feedbackMsg ? (
             <motion.div
