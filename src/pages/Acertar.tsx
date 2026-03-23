@@ -428,7 +428,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-4 py-2 rounded-full bg-muted font-body text-sm text-muted-foreground"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted font-body text-xs sm:text-sm text-muted-foreground max-w-[90vw]"
             >
               {phase === "equation" && (
                 <span>
