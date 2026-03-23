@@ -89,7 +89,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
       <AnimatePresence>
         {duckState !== "gone" && (
           <motion.div
-            className="text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
+            className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
             onClick={handleDuckClick}
             whileHover={duckState === "riding" ? { scale: 1.3 } : undefined}
             whileTap={duckState === "riding" ? { scale: 0.8 } : undefined}
@@ -117,7 +117,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
       {/* Balloon body */}
       {!balloonGone && (
         <motion.div
-          className="relative w-20 h-24 md:w-24 md:h-28 rounded-full flex items-center justify-center transition-all cursor-pointer"
+          className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 lg:w-24 lg:h-28 rounded-full flex items-center justify-center transition-all cursor-pointer"
           onClick={handleBalloonClick}
           style={{
             background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
@@ -129,10 +129,10 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
           }}
         >
           <div
-            className="absolute top-3 left-4 w-4 h-6 rounded-full opacity-40"
+            className="absolute top-2 left-3 w-3 h-4 sm:w-4 sm:h-6 rounded-full opacity-40"
             style={{ background: 'white' }}
           />
-          <span className="text-white font-display font-bold text-xl md:text-2xl drop-shadow-lg select-none">
+          <span className="text-white font-display font-bold text-base sm:text-lg md:text-xl lg:text-2xl drop-shadow-lg select-none">
             {label}
           </span>
         </motion.div>
@@ -140,7 +140,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
 
       {/* String */}
       {!balloonGone && (
-        <div className="w-[2px] h-8 mx-auto" style={{ background: colors.balloon }} />
+        <div className="w-[2px] h-5 sm:h-6 md:h-8 mx-auto" style={{ background: colors.balloon }} />
       )}
     </motion.div>
   );
