@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface BalloonProps {
@@ -8,6 +8,7 @@ interface BalloonProps {
   durationMs: number;
   onDuckClick: () => void;
   onBalloonClick: () => void;
+  onEscaped?: () => void;
   selected?: boolean;
   correct?: boolean | null;
   delay?: number;
@@ -33,11 +34,25 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, selected, correct, delay = 0, hidden }: BalloonProps) => {
+const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden }: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
   const sway = (x % 2 === 0 ? 1 : -1) * 20;
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
+  const escapedRef = useRef(false);
+
+  // Fire onEscaped when balloon animation finishes (reaches top)
+  useEffect(() => {
+    if (hidden || duckState !== "riding") return;
+    const totalTime = (durationMs + delay * 1000);
+    const timer = setTimeout(() => {
+      if (!escapedRef.current && onEscaped) {
+        escapedRef.current = true;
+        onEscaped();
+      }
+    }, totalTime);
+    return () => clearTimeout(timer);
+  }, [durationMs, delay, hidden, onEscaped, duckState]);
 
   if (hidden) return null;
 

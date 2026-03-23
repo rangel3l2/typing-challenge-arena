@@ -43,6 +43,7 @@ const Acertar = () => {
   const [mathRound, setMathRound] = useState<MathRound | null>(null);
   const [balloons, setBalloons] = useState<BalloonItem[]>([]);
   const [hiddenBalloons, setHiddenBalloons] = useState<Set<number>>(new Set());
+  const [escapedBalloons, setEscapedBalloons] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<BalloonItem[]>([]);
   const [answerOptions, setAnswerOptions] = useState<number[]>([]);
   const [chosenAnswer, setChosenAnswer] = useState<number | null>(null);
@@ -81,6 +82,7 @@ const Acertar = () => {
     setMathRound(mr);
     setBalloons(bl);
     setHiddenBalloons(new Set());
+    setEscapedBalloons(new Set());
     setPhase("equation");
     setSelected([]);
     setChosenAnswer(null);
@@ -193,6 +195,28 @@ const Acertar = () => {
       setPhase("gameover");
     }
   };
+
+  const handleBalloonEscaped = useCallback((item: BalloonItem) => {
+    if (phase !== "equation") return;
+    setEscapedBalloons(prev => {
+      const newEscaped = new Set([...prev, item.id]);
+      // Check if remaining balloons (not hidden, not escaped, not selected) can still form equation
+      const remaining = balloons.filter(b => 
+        !hiddenBalloons.has(b.id) && !newEscaped.has(b.id) && !selected.some(s => s.id === b.id)
+      );
+      const remainingNums = remaining.filter(b => b.type === 'number').length;
+      const remainingOps = remaining.filter(b => b.type === 'operator').length;
+      const needNums = 2 - selected.filter(s => s.type === 'number').length;
+      const needOps = 1 - selected.filter(s => s.type === 'operator').length;
+
+      if (remainingNums < needNums || remainingOps < needOps) {
+        const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
+        setGameOverMsg(msg);
+        setPhase("gameover");
+      }
+      return newEscaped;
+    });
+  }, [phase, balloons, hiddenBalloons, selected]);
 
   // Spread 8 balloons across the screen
   const balloonPositions = [8, 20, 32, 44, 56, 68, 80, 92];
@@ -441,6 +465,7 @@ const Acertar = () => {
                   durationMs={currentSpeed.durationMs}
                   onDuckClick={() => handleDuckClick(item)}
                   onBalloonClick={() => handleBalloonClick(item)}
+                  onEscaped={() => handleBalloonEscaped(item)}
                   selected={selected.some(s => s.id === item.id)}
                   hidden={hiddenBalloons.has(item.id)}
                   delay={idx * 0.3}
