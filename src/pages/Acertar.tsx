@@ -371,7 +371,7 @@ const Acertar = () => {
           initial={{ scale: 2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
-          className="text-8xl font-display font-bold text-primary"
+          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-primary"
         >
           {countdown}
         </motion.div>
