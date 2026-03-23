@@ -452,7 +452,7 @@ const Acertar = () => {
       </div>
 
       {/* Balloons area */}
-      <div className="absolute inset-0 pt-24">
+      <div className="absolute inset-0 pt-20 sm:pt-24">
         <AnimatePresence mode="wait">
           {phase === "equation" && (
             <motion.div key={`eq-${round}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative w-full h-full">
