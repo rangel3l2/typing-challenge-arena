@@ -8,6 +8,7 @@ interface BalloonProps {
   durationMs: number;
   onDuckClick: () => void;
   onBalloonClick: () => void;
+  onEscaped?: () => void;
   selected?: boolean;
   correct?: boolean | null;
   delay?: number;
