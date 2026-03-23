@@ -43,6 +43,7 @@ const Acertar = () => {
   const [mathRound, setMathRound] = useState<MathRound | null>(null);
   const [balloons, setBalloons] = useState<BalloonItem[]>([]);
   const [hiddenBalloons, setHiddenBalloons] = useState<Set<number>>(new Set());
+  const [escapedBalloons, setEscapedBalloons] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<BalloonItem[]>([]);
   const [answerOptions, setAnswerOptions] = useState<number[]>([]);
   const [chosenAnswer, setChosenAnswer] = useState<number | null>(null);
