@@ -465,6 +465,7 @@ const Acertar = () => {
                   durationMs={currentSpeed.durationMs}
                   onDuckClick={() => handleDuckClick(item)}
                   onBalloonClick={() => handleBalloonClick(item)}
+                  onEscaped={() => handleBalloonEscaped(item)}
                   selected={selected.some(s => s.id === item.id)}
                   hidden={hiddenBalloons.has(item.id)}
                   delay={idx * 0.3}
