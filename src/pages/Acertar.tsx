@@ -236,13 +236,13 @@ const Acertar = () => {
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-8 relative z-10"
+          className="text-center mb-6 sm:mb-8 relative z-10"
         >
-          <div className="text-6xl mb-4">🎈🦆</div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-gradient-primary mb-2">
+          <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🎈🦆</div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-gradient-primary mb-2">
             Eu Vou Acertar
           </h1>
-          <p className="text-lg text-muted-foreground font-body max-w-md mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-body max-w-md mx-auto px-2">
             Mire no pato, monte a conta e acerte o resultado!
           </p>
         </motion.div>
