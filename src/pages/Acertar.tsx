@@ -462,6 +462,7 @@ const Acertar = () => {
                   onBalloonClick={() => handleAnswerBalloonClick(val)}
                   selected={chosenAnswer === val}
                   correct={phase === "feedback" ? val === eq.answer : null}
+                  hidden={hiddenAnswers.has(val)}
                   delay={idx * 0.4}
                 />
               ))}
