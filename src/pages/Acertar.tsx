@@ -306,18 +306,18 @@ const Acertar = () => {
             Resultado Final
           </h2>
 
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-primary">{totalPoints}</div>
-              <div className="text-xs text-muted-foreground font-body">Pontos</div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-primary">{totalPoints}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Pontos</div>
             </div>
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
-              <div className="text-xs text-muted-foreground font-body">Acertos</div>
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Acertos</div>
             </div>
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
-              <div className="text-xs text-muted-foreground font-body">Tempo médio</div>
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Tempo médio</div>
             </div>
           </div>
 
