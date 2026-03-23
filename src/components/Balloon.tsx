@@ -84,7 +84,6 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
         x: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
       }}
     >
-    >
       {/* Duck */}
       <AnimatePresence>
         {duckState !== "gone" && (
