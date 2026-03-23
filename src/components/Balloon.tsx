@@ -34,7 +34,7 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, selected, correct, delay = 0, hidden }: BalloonProps) => {
+const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden }: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
   const sway = (x % 2 === 0 ? 1 : -1) * 20;
   const [duckState, setDuckState] = useState<DuckState>("riding");
