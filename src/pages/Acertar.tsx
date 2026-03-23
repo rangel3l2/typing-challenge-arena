@@ -218,9 +218,9 @@ const Acertar = () => {
     });
   }, [phase, balloons, hiddenBalloons, selected]);
 
-  // Spread 8 balloons across the screen
-  const balloonPositions = [8, 20, 32, 44, 56, 68, 80, 92];
-  const answerPositions = [15, 38, 62, 85];
+  // Responsive balloon positions - closer together on mobile
+  const balloonPositions = [6, 18, 30, 42, 54, 66, 78, 94];
+  const answerPositions = [12, 35, 58, 88];
 
   const totalPoints = scores.reduce((a, s) => a + s.points, 0);
   const maxPoints = scores.length * 10;
@@ -229,20 +229,20 @@ const Acertar = () => {
 
   if (gameState === "menu") {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
         <div className="absolute top-10 left-20 w-64 h-64 rounded-full bg-secondary/5 blur-3xl" />
         <div className="absolute bottom-10 right-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
 
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-8 relative z-10"
+          className="text-center mb-6 sm:mb-8 relative z-10"
         >
-          <div className="text-6xl mb-4">🎈🦆</div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-gradient-primary mb-2">
+          <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🎈🦆</div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-gradient-primary mb-2">
             Eu Vou Acertar
           </h1>
-          <p className="text-lg text-muted-foreground font-body max-w-md mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-body max-w-md mx-auto px-2">
             Mire no pato, monte a conta e acerte o resultado!
           </p>
         </motion.div>
@@ -251,7 +251,7 @@ const Acertar = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="glass-card p-6 max-w-sm w-full space-y-4 relative z-10"
+          className="glass-card p-4 sm:p-6 max-w-sm w-full space-y-3 sm:space-y-4 relative z-10"
         >
           <div className="space-y-3 text-sm text-muted-foreground font-body">
             <div className="flex items-start gap-3">
@@ -295,29 +295,29 @@ const Acertar = () => {
 
   if (gameState === "finished") {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="glass-card p-8 max-w-md w-full text-center"
+          className="glass-card p-5 sm:p-8 max-w-md w-full text-center"
         >
-          <div className="text-5xl mb-4">🏆</div>
-          <h2 className="text-3xl font-display font-bold text-gradient-primary mb-6">
+          <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🏆</div>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-gradient-primary mb-4 sm:mb-6">
             Resultado Final
           </h2>
 
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-primary">{totalPoints}</div>
-              <div className="text-xs text-muted-foreground font-body">Pontos</div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-primary">{totalPoints}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Pontos</div>
             </div>
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
-              <div className="text-xs text-muted-foreground font-body">Acertos</div>
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Acertos</div>
             </div>
-            <div className="glass-card p-4">
-              <div className="text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
-              <div className="text-xs text-muted-foreground font-body">Tempo médio</div>
+            <div className="glass-card p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Tempo médio</div>
             </div>
           </div>
 
@@ -365,13 +365,13 @@ const Acertar = () => {
   // Playing - countdown
   if (countdown > 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <motion.div
           key={countdown}
           initial={{ scale: 2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
-          className="text-8xl font-display font-bold text-primary"
+          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-primary"
         >
           {countdown}
         </motion.div>
@@ -382,35 +382,35 @@ const Acertar = () => {
   const eq = selected.length === 3 ? computeFromSelection(selected) : null;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] bg-background relative overflow-hidden select-none">
       {/* HUD */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-background/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button onClick={() => setGameState("menu")} className="text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <span className="font-display font-bold text-foreground">
-            Rodada {round + 1}/{TOTAL_ROUNDS}
+          <span className="font-display font-bold text-foreground text-xs sm:text-sm md:text-base">
+            R{round + 1}/{TOTAL_ROUNDS}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-sm font-body">
-          <span className="text-primary font-bold flex items-center gap-1">
-            <Zap className="w-4 h-4" />
-            Vel. {currentSpeed.level}
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
+          <span className="text-primary font-bold flex items-center gap-0.5 sm:gap-1">
+            <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+            V{currentSpeed.level}
           </span>
-          <span className="text-accent font-bold flex items-center gap-1">
-            <Star className="w-4 h-4" />
-            {roundPoints} pts
+          <span className="text-accent font-bold flex items-center gap-0.5 sm:gap-1">
+            <Star className="w-3 h-3 sm:w-4 sm:h-4" />
+            {roundPoints}
           </span>
-          <span className="text-foreground font-bold">
-            <Trophy className="w-4 h-4 inline mr-1" />
+          <span className="text-foreground font-bold flex items-center gap-0.5 sm:gap-1">
+            <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
             {totalPoints}
           </span>
         </div>
       </div>
 
       {/* Selected equation display */}
-      <div className="absolute top-14 left-0 right-0 z-20 text-center">
+      <div className="absolute top-10 sm:top-14 left-0 right-0 z-20 text-center px-2">
         <AnimatePresence mode="wait">
           {feedbackMsg ? (
             <motion.div
@@ -418,7 +418,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-4 py-2 rounded-full bg-destructive/20 text-destructive font-body text-sm font-bold"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-destructive/20 text-destructive font-body text-xs sm:text-sm font-bold max-w-[90vw]"
             >
               {feedbackMsg}
             </motion.div>
@@ -428,7 +428,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-4 py-2 rounded-full bg-muted font-body text-sm text-muted-foreground"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted font-body text-xs sm:text-sm text-muted-foreground max-w-[90vw]"
             >
               {phase === "equation" && (
                 <span>
@@ -452,7 +452,7 @@ const Acertar = () => {
       </div>
 
       {/* Balloons area */}
-      <div className="absolute inset-0 pt-24">
+      <div className="absolute inset-0 pt-20 sm:pt-24">
         <AnimatePresence mode="wait">
           {phase === "equation" && (
             <motion.div key={`eq-${round}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative w-full h-full">
@@ -500,12 +500,12 @@ const Acertar = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="absolute inset-0 flex items-center justify-center z-30"
             >
-              <div className="glass-card p-8 max-w-md mx-4 text-center">
-                <div className="text-6xl mb-4">🦆💨</div>
-                <h3 className="text-2xl font-display font-bold text-foreground mb-3">
+              <div className="glass-card p-5 sm:p-8 max-w-md mx-3 sm:mx-4 text-center">
+                <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🦆💨</div>
+                <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">
                   Game Over!
                 </h3>
-                <p className="text-muted-foreground font-body mb-6 text-lg">
+                <p className="text-muted-foreground font-body mb-4 sm:mb-6 text-sm sm:text-base md:text-lg">
                   {gameOverMsg}
                 </p>
                 <div className="flex gap-3">
