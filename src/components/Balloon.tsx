@@ -69,6 +69,9 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
         y: { duration: durationMs / 1000, ease: 'linear', delay },
         x: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
       }}
+      onAnimationComplete={(definition: { y?: string }) => {
+        if (definition?.y === '-120vh' && onEscaped) onEscaped();
+      }}
     >
       {/* Duck */}
       <AnimatePresence>
