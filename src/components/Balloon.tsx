@@ -45,7 +45,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
   // Balloon travels from 110vh to -120vh (230vh). Exits top at ~110/230 ≈ 48% of duration.
   useEffect(() => {
     if (hidden || duckState !== "riding") return;
-    const escapeTime = delay * 1000 + durationMs * 0.52;
+    const escapeTime = delay * 1000 + durationMs * 0.42;
     const timer = setTimeout(() => {
       if (!escapedRef.current && onEscaped) {
         escapedRef.current = true;
