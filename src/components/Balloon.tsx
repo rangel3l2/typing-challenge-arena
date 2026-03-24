@@ -36,7 +36,7 @@ type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
 const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden }: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
-  const sway = (x % 2 === 0 ? 1 : -1) * 20;
+  const sway = (x % 2 === 0 ? 1 : -1) * (x < 15 || x > 85 ? 8 : 15);
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
   const escapedRef = useRef(false);
@@ -45,7 +45,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
   // Balloon travels from 110vh to -120vh (230vh). Exits top at ~110/230 ≈ 48% of duration.
   useEffect(() => {
     if (hidden || duckState !== "riding") return;
-    const escapeTime = delay * 1000 + durationMs * 0.52;
+    const escapeTime = delay * 1000 + durationMs * 0.42;
     const timer = setTimeout(() => {
       if (!escapedRef.current && onEscaped) {
         escapedRef.current = true;
