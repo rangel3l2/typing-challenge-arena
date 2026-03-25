@@ -5,27 +5,14 @@ import { ArrowLeft, Trophy, Zap, RotateCcw, Star } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
 import SkyBackground from "@/components/SkyBackground";
 import {
-  generateMathRound,
-  generateEquationBalloons,
-  generateWrongAnswers,
-  computeFromSelection,
+  generatePhaseBalloons,
+  isValidTrio,
+  computeFromTrio,
+  getMaxValueForPhase,
   SPEED_LEVELS,
-  ROUNDS_PER_SPEED,
-  TOTAL_ROUNDS,
   WAVE_DELAY,
-  type MathRound,
   type BalloonItem,
 } from "@/lib/mathGameData";
-
-type Phase = "equation" | "answer" | "feedback" | "results" | "gameover";
-
-interface RoundScore {
-  round: number;
-  correct: boolean;
-  timeMs: number;
-  speed: number;
-  points: number;
-}
 
 const FUNNY_GAMEOVER_MESSAGES = [
   "Os patos fugiram todos! 🦆💨 Parece que você tem medo de patos...",
@@ -37,75 +24,75 @@ const FUNNY_GAMEOVER_MESSAGES = [
   "Missão: acertar o pato. Status: fracasso espetacular! 💀😂",
   "Os patos saíram pra tomar sorvete. Volta depois! 🍦🦆",
   "Nenhum pato foi nocauteado. Eles mandam um abraço! 🦆🤗",
+  "3 números? Sem operação? Que tal estudar matemática? 🧮😂",
+  "Combinação inválida! Os patos estão rindo de você! 🦆🤣",
 ];
 
 const Acertar = () => {
   const navigate = useNavigate();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
-  const [round, setRound] = useState(0);
-  const [phase, setPhase] = useState<Phase>("equation");
-  const [mathRound, setMathRound] = useState<MathRound | null>(null);
+  const [phase, setPhase] = useState(1); // current phase/level
   const [balloons, setBalloons] = useState<BalloonItem[]>([]);
   const [hiddenBalloons, setHiddenBalloons] = useState<Set<number>>(new Set());
   const [escapedBalloons, setEscapedBalloons] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<BalloonItem[]>([]);
-  const [answerOptions, setAnswerOptions] = useState<number[]>([]);
-  const [chosenAnswer, setChosenAnswer] = useState<number | null>(null);
-  const [scores, setScores] = useState<RoundScore[]>([]);
+  const [score, setScore] = useState(0);
+  const [phasePoints, setPhasePoints] = useState(10);
   const [countdown, setCountdown] = useState(3);
-  const [roundPoints, setRoundPoints] = useState(10);
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [gameOverMsg, setGameOverMsg] = useState("");
+  const [isGameOver, setIsGameOver] = useState(false);
   const [visibleBalloonIds, setVisibleBalloonIds] = useState<Set<number>>(new Set());
-  const [hiddenAnswers, setHiddenAnswers] = useState<Set<number>>(new Set());
-  const roundStartRef = useRef(Date.now());
-  const phaseRef = useRef<Phase>("equation");
+  const [triosCompleted, setTriosCompleted] = useState(0);
+
+  const gameOverRef = useRef(false);
   const selectedRef = useRef<BalloonItem[]>([]);
   const hiddenRef = useRef<Set<number>>(new Set());
   const escapedRef = useRef<Set<number>>(new Set());
   const balloonsRef = useRef<BalloonItem[]>([]);
   const waveTimersRef = useRef<NodeJS.Timeout[]>([]);
 
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { hiddenRef.current = hiddenBalloons; }, [hiddenBalloons]);
   useEffect(() => { escapedRef.current = escapedBalloons; }, [escapedBalloons]);
   useEffect(() => { balloonsRef.current = balloons; }, [balloons]);
 
-  const currentSpeedIndex = Math.min(Math.floor(round / ROUNDS_PER_SPEED), SPEED_LEVELS.length - 1);
-  const currentSpeed = SPEED_LEVELS[currentSpeedIndex];
-  const difficulty = currentSpeedIndex + 1;
+  const speedIndex = Math.min(phase - 1, SPEED_LEVELS.length - 1);
+  const currentSpeed = SPEED_LEVELS[speedIndex];
 
   const startGame = () => {
+    gameOverRef.current = false;
     setGameState("playing");
-    setRound(0);
-    setScores([]);
+    setPhase(1);
+    setScore(0);
+    setTriosCompleted(0);
     setCountdown(3);
+    setIsGameOver(false);
   };
 
   useEffect(() => {
     if (gameState !== "playing" || countdown <= 0) return;
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [gameState, countdown]);
 
   useEffect(() => {
     if (gameState !== "playing" || countdown > 0) return;
-    startRound();
+    startPhase();
   }, [gameState, countdown]);
 
-  const triggerGameOver = useCallback(() => {
-    if (phaseRef.current === "gameover") return;
-    const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
+  const triggerGameOver = useCallback((customMsg?: string) => {
+    if (gameOverRef.current) return;
+    gameOverRef.current = true;
+    const msg = customMsg || FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
     setGameOverMsg(msg);
-    setPhase("gameover");
-    // Clear wave timers
+    setIsGameOver(true);
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
   }, []);
 
   const checkCanComplete = useCallback(() => {
-    if (phaseRef.current !== "equation") return;
+    if (gameOverRef.current) return;
     const bl = balloonsRef.current;
     const sel = selectedRef.current;
     const hid = hiddenRef.current;
@@ -114,7 +101,7 @@ const Acertar = () => {
     const remaining = bl.filter(b =>
       !hid.has(b.id) && !esc.has(b.id) && !sel.some(s => s.id === b.id)
     );
-    // Also count visible but not yet spawned
+
     const needNums = 2 - sel.filter(s => s.type === 'number').length;
     const needOps = 1 - sel.filter(s => s.type === 'operator').length;
     const remainingNums = remaining.filter(b => b.type === 'number').length;
@@ -125,36 +112,29 @@ const Acertar = () => {
     }
   }, [triggerGameOver]);
 
-  const startRound = useCallback(() => {
-    // Clear previous wave timers
+  const startPhase = useCallback(() => {
+    if (gameOverRef.current) return;
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
 
-    const mr = generateMathRound(difficulty);
-    const bl = generateEquationBalloons(mr, difficulty);
-    setMathRound(mr);
+    const bl = generatePhaseBalloons(phase);
     setBalloons(bl);
     setHiddenBalloons(new Set());
     setEscapedBalloons(new Set());
-    setPhase("equation");
     setSelected([]);
-    setChosenAnswer(null);
-    setRoundPoints(10);
-    setHiddenAnswers(new Set());
+    setPhasePoints(10);
     setFeedbackMsg("");
-    roundStartRef.current = Date.now();
+    setIsGameOver(false);
 
-    // Spawn balloons in waves of ~4
+    // Spawn in waves of 4
     const totalWaves = Math.ceil(bl.length / 4);
     const initialVisible = new Set<number>();
-    // First wave immediately
     bl.filter(b => b.waveIndex === 0).forEach(b => initialVisible.add(b.id));
     setVisibleBalloonIds(new Set(initialVisible));
 
-    // Subsequent waves
     for (let w = 1; w < totalWaves; w++) {
       const timer = setTimeout(() => {
-        if (phaseRef.current !== "equation") return;
+        if (gameOverRef.current) return;
         const waveIds = bl.filter(b => b.waveIndex === w).map(b => b.id);
         setVisibleBalloonIds(prev => {
           const next = new Set(prev);
@@ -164,66 +144,100 @@ const Acertar = () => {
       }, w * WAVE_DELAY * 1000);
       waveTimersRef.current.push(timer);
     }
-  }, [difficulty]);
+  }, [phase]);
 
-  const canSelect = (item: BalloonItem): boolean => {
-    if (selected.length >= 3) return false;
-    if (item.type === 'operator') {
-      return !selected.some(s => s.type === 'operator');
+  // When phase changes after initial load, start new phase
+  useEffect(() => {
+    if (gameState === "playing" && countdown <= 0 && phase > 1) {
+      startPhase();
     }
-    return selected.filter(s => s.type === 'number').length < 2;
-  };
+  }, [phase]);
 
   const handleDuckClick = useCallback((item: BalloonItem) => {
-    if (phaseRef.current !== "equation" || hiddenRef.current.has(item.id)) return;
+    if (gameOverRef.current || hiddenRef.current.has(item.id)) return;
     if (selectedRef.current.find(s => s.id === item.id)) return;
 
     const currentSelected = selectedRef.current;
-    // canSelect inline
+
+    // If already have 3, ignore (shouldn't happen but safety)
     if (currentSelected.length >= 3) return;
-    if (item.type === 'operator' && currentSelected.some(s => s.type === 'operator')) {
-      setFeedbackMsg("⚠️ Selecione: 2 números e 1 operação!");
-      setTimeout(() => setFeedbackMsg(""), 1500);
-      return;
-    }
-    if (item.type === 'number' && currentSelected.filter(s => s.type === 'number').length >= 2) {
-      setFeedbackMsg("⚠️ Selecione: 2 números e 1 operação!");
-      setTimeout(() => setFeedbackMsg(""), 1500);
-      return;
-    }
 
     const newSelected = [...currentSelected, item];
     setSelected(newSelected);
 
-    if (newSelected.length >= 3) {
-      const eq = computeFromSelection(newSelected);
-      if (eq) {
-        const wrongs = generateWrongAnswers(eq.answer, 3);
-        const options = [...wrongs, eq.answer].sort(() => Math.random() - 0.5);
-        setAnswerOptions(options);
-        // Clear wave timers when moving to answer phase
-        waveTimersRef.current.forEach(t => clearTimeout(t));
-        waveTimersRef.current = [];
-        setTimeout(() => setPhase("answer"), 600);
+    // On the 3rd selection, validate the trio
+    if (newSelected.length === 3) {
+      if (!isValidTrio(newSelected)) {
+        // INVALID COMBO → INSTANT GAME OVER
+        triggerGameOver("Combinação inválida! Precisa ser 2 números e 1 operação! 🦆🤣");
+        return;
       }
+
+      // Valid trio! Compute result, burst the 3 balloons
+      const result = computeFromTrio(newSelected);
+      const trioBalloonIds = newSelected.map(s => s.id);
+
+      // Show result feedback briefly
+      if (result) {
+        setFeedbackMsg(`✅ ${result.num1} ${result.operator} ${result.num2} = ${result.answer} (+${phasePoints} pts)`);
+        setScore(prev => prev + phasePoints);
+      }
+
+      // Hide the 3 balloons
+      setHiddenBalloons(prev => {
+        const next = new Set(prev);
+        trioBalloonIds.forEach(id => next.add(id));
+        hiddenRef.current = next;
+        return next;
+      });
+
+      // Clear selection
+      setTimeout(() => {
+        setSelected([]);
+        setFeedbackMsg("");
+
+        // Check if all 18 are cleared
+        const bl = balloonsRef.current;
+        const hid = hiddenRef.current;
+        const esc = escapedRef.current;
+        const remaining = bl.filter(b => !hid.has(b.id) && !esc.has(b.id));
+
+        if (remaining.length === 0) {
+          // Phase complete! Level up
+          setTriosCompleted(prev => prev + 1);
+          setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
+          setTimeout(() => {
+            setFeedbackMsg("");
+            setPhase(p => p + 1);
+            setPhasePoints(10); // reset phase points
+          }, 1500);
+        } else {
+          // Check if remaining balloons can still form a valid trio
+          queueMicrotask(checkCanComplete);
+        }
+      }, 800);
+
+      setTriosCompleted(prev => prev + 1);
     }
-  }, []);
+  }, [triggerGameOver, phasePoints, phase, checkCanComplete]);
 
   const handleBalloonClick = useCallback((item: BalloonItem) => {
-    if (phaseRef.current !== "equation" || hiddenRef.current.has(item.id)) return;
+    if (gameOverRef.current || hiddenRef.current.has(item.id)) return;
+
+    // Clicking the balloon (not the duck) → penalize and remove that balloon
     setHiddenBalloons(prev => {
       const next = new Set([...prev, item.id]);
       hiddenRef.current = next;
       return next;
     });
-    setRoundPoints(prev => Math.max(0, prev - 2));
+    setPhasePoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
     queueMicrotask(checkCanComplete);
   }, [checkCanComplete]);
 
   const handleBalloonEscaped = useCallback((item: BalloonItem) => {
-    if (phaseRef.current !== "equation") return;
+    if (gameOverRef.current) return;
     setEscapedBalloons(prev => {
       const next = new Set([...prev, item.id]);
       escapedRef.current = next;
@@ -232,98 +246,22 @@ const Acertar = () => {
     queueMicrotask(checkCanComplete);
   }, [checkCanComplete]);
 
-  const handleAnswerDuckClick = useCallback((value: number) => {
-    if (phaseRef.current !== "answer") return;
-    const sel = selectedRef.current;
-    const eq = computeFromSelection(sel);
-    if (!eq) return;
-
-    setChosenAnswer(value);
-    const correct = value === eq.answer;
-    const finalPoints = correct ? roundPoints : 0;
-    const timeMs = Date.now() - roundStartRef.current;
-
-    setScores(prev => [
-      ...prev,
-      { round: round + 1, correct, timeMs, speed: currentSpeedIndex + 1, points: finalPoints },
-    ]);
-
-    setPhase("feedback");
-
-    setTimeout(() => {
-      if (round + 1 >= TOTAL_ROUNDS) {
-        setGameState("finished");
-      } else {
-        setRound(r => r + 1);
-      }
-    }, 1500);
-  }, [round, currentSpeedIndex, roundPoints]);
-
-  // When round changes, start new round
-  useEffect(() => {
-    if (gameState === "playing" && countdown <= 0 && round > 0) {
-      startRound();
-    }
-  }, [round]);
-
-  // Periodic safety check for game over - runs every 500ms during equation phase
+  // Periodic safety check
   useEffect(() => {
     if (gameState !== "playing" || countdown > 0) return;
     const interval = setInterval(() => {
-      checkCanComplete();
-    }, 500);
+      if (!gameOverRef.current) checkCanComplete();
+    }, 300);
     return () => clearInterval(interval);
   }, [gameState, countdown, checkCanComplete]);
 
-  const handleAnswerBalloonClick = useCallback((value: number) => {
-    if (phaseRef.current !== "answer") return;
-    setHiddenAnswers(prev => {
-      const next = new Set([...prev, value]);
-      const remainingAnswers = answerOptions.filter(v => !next.has(v));
-      if (remainingAnswers.length === 0) {
-        triggerGameOver();
-      }
-      return next;
-    });
-    setRoundPoints(prev => Math.max(0, prev - 2));
-    setFeedbackMsg("💥 Acerte o pato! -2 pontos");
-    setTimeout(() => setFeedbackMsg(""), 1500);
-  }, [answerOptions, triggerGameOver]);
+  const maxVal = getMaxValueForPhase(phase);
 
-  const handleAnswerBalloonEscaped = useCallback((value: number) => {
-    if (phaseRef.current !== "answer") return;
-    setHiddenAnswers(prev => {
-      if (prev.has(value)) return prev;
-
-      const next = new Set(prev);
-      next.add(value);
-
-      const remainingAnswers = answerOptions.filter(v => !next.has(v));
-      if (remainingAnswers.length === 0) {
-        queueMicrotask(triggerGameOver);
-      }
-
-      return next;
-    });
-  }, [answerOptions, triggerGameOver]);
-
-  const answerPositions = [
-    { startX: 12, startY: -10 },
-    { startX: 32, startY: -5 },
-    { startX: 52, startY: -8 },
-    { startX: 72, startY: -12 },
-  ];
-
-  const totalPoints = scores.reduce((a, s) => a + s.points, 0);
-  const totalCorrect = scores.filter(s => s.correct).length;
-  const avgTime = scores.length > 0 ? Math.round(scores.reduce((a, s) => a + s.timeMs, 0) / scores.length) : 0;
-
+  // ============ MENU ============
   if (gameState === "menu") {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
         <SkyBackground />
-        
-
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -334,7 +272,7 @@ const Acertar = () => {
             Eu Vou Acertar
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-body max-w-md mx-auto px-2">
-            Mire no pato, monte a conta e acerte o resultado!
+            Mire no pato, monte trios matemáticos e limpe o quadro!
           </p>
         </motion.div>
 
@@ -351,15 +289,15 @@ const Acertar = () => {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🧮</span>
-              <span>16 balões surgem em ondas. Acerte 3 patos: número + operação + número.</span>
+              <span>Forme trios: <strong>2 números + 1 operação</strong>. Qualquer outra combinação = Game Over!</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🎯</span>
-              <span>Depois acerte o pato com o resultado certo!</span>
+              <span>Limpe todos os 18 balões para avançar de fase!</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">⚡</span>
-              <span>6 níveis de velocidade, 3 rodadas cada!</span>
+              <span>A cada fase os números ficam maiores e os balões mais rápidos!</span>
             </div>
           </div>
 
@@ -384,73 +322,7 @@ const Acertar = () => {
     );
   }
 
-  if (gameState === "finished") {
-    return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
-        <SkyBackground />
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="glass-card p-5 sm:p-8 max-w-md w-full text-center"
-        >
-          <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🏆</div>
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-gradient-primary mb-4 sm:mb-6">
-            Resultado Final
-          </h2>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <div className="glass-card p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-display font-bold text-primary">{totalPoints}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Pontos</div>
-            </div>
-            <div className="glass-card p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-display font-bold text-accent">{totalCorrect}/{scores.length}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Acertos</div>
-            </div>
-            <div className="glass-card p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-display font-bold text-secondary">{(avgTime / 1000).toFixed(1)}s</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground font-body">Tempo médio</div>
-            </div>
-          </div>
-          <div className="space-y-2 mb-6 text-left">
-            {SPEED_LEVELS.map((speed, i) => {
-              const roundScores = scores.filter(s => s.speed === i + 1);
-              const pts = roundScores.reduce((a, s) => a + s.points, 0);
-              const maxPts = roundScores.length * 10;
-              return (
-                <div key={i} className="flex items-center justify-between text-sm font-body">
-                  <span className="text-muted-foreground">
-                    <Zap className="w-3 h-3 inline mr-1" />
-                    Vel. {speed.level} - {speed.label}
-                  </span>
-                  <span className={pts === maxPts ? "text-primary font-bold" : "text-foreground"}>
-                    {pts}/{maxPts} pts
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-3">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={startGame}
-              className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary"
-            >
-              <RotateCcw className="w-4 h-4 inline mr-2" />
-              Jogar de novo
-            </motion.button>
-            <button
-              onClick={() => navigate("/")}
-              className="flex-1 py-3 rounded-xl bg-muted text-foreground font-body font-semibold"
-            >
-              Menu
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
+  // ============ COUNTDOWN ============
   if (countdown > 0) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden">
@@ -468,11 +340,13 @@ const Acertar = () => {
     );
   }
 
-  const eq = selected.length === 3 ? computeFromSelection(selected) : null;
+  // ============ PLAYING ============
+  const remainingCount = balloons.filter(b => !hiddenBalloons.has(b.id) && !escapedBalloons.has(b.id)).length;
 
   return (
     <div className="min-h-[100dvh] relative overflow-hidden select-none">
       <SkyBackground />
+
       {/* HUD */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-white/20 backdrop-blur-md border-b border-white/10">
         <div className="flex items-center gap-2 sm:gap-4">
@@ -480,7 +354,10 @@ const Acertar = () => {
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <span className="font-display font-bold text-white text-xs sm:text-sm md:text-base drop-shadow">
-            R{round + 1}/{TOTAL_ROUNDS}
+            Fase {phase}
+          </span>
+          <span className="text-white/70 text-[10px] sm:text-xs font-body drop-shadow">
+            (max: {maxVal})
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
@@ -488,10 +365,13 @@ const Acertar = () => {
             <Zap className="w-3 h-3 sm:w-4 sm:h-4" />V{currentSpeed.level}
           </span>
           <span className="text-amber-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
-            <Star className="w-3 h-3 sm:w-4 sm:h-4" />{roundPoints}
+            <Star className="w-3 h-3 sm:w-4 sm:h-4" />{phasePoints}
           </span>
           <span className="text-white font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
-            <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />{totalPoints}
+            <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />{score}
+          </span>
+          <span className="text-white/60 text-[10px] sm:text-xs drop-shadow">
+            🎈{remainingCount}
           </span>
         </div>
       </div>
@@ -505,40 +385,36 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-500/80 text-white font-body text-xs sm:text-sm font-bold drop-shadow"
+              className={`inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-body text-xs sm:text-sm font-bold drop-shadow ${
+                feedbackMsg.startsWith('✅') || feedbackMsg.startsWith('🎉')
+                  ? 'bg-green-500/80 text-white'
+                  : 'bg-red-500/80 text-white'
+              }`}
             >
               {feedbackMsg}
             </motion.div>
           ) : (
             <motion.div
-              key={`p-${phase}-${selected.length}`}
+              key={`sel-${selected.length}`}
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
               className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/30 backdrop-blur-sm font-body text-xs sm:text-sm text-white font-semibold drop-shadow"
             >
-              {phase === "equation" && (
-                <span>🦆 Acerte os patos! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}</span>
-              )}
-              {phase === "answer" && eq && (
-                <span>🎯 Qual é {eq.num1} {eq.operator} {eq.num2}?</span>
-              )}
-              {phase === "feedback" && eq && (
-                <span>{chosenAnswer === eq.answer ? `✅ Correto! +${roundPoints} pts` : `❌ Era ${eq.answer}! 0 pts`}</span>
-              )}
+              🦆 Forme um trio! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Balloons area */}
+      {/* Balloons */}
       <div className="absolute inset-0 pt-20 sm:pt-24">
-        {phase === "equation" && balloons.map((item, idx) => {
+        {!isGameOver && balloons.map((item, idx) => {
           if (!visibleBalloonIds.has(item.id)) return null;
           return (
             <Balloon
-              key={`eq-${round}-${item.id}`}
-              id={`eq-${round}-${item.id}`}
+              key={`ph${phase}-${item.id}`}
+              id={`ph${phase}-${item.id}`}
               label={item.label}
               color={getBalloonColor(idx)}
               startX={item.startX}
@@ -556,28 +432,8 @@ const Acertar = () => {
           );
         })}
 
-        {(phase === "answer" || phase === "feedback") && eq && answerOptions.map((val, idx) => (
-          <Balloon
-            key={`ans-${round}-${idx}`}
-            id={`ans-${round}-${idx}`}
-            label={String(val)}
-            color={getBalloonColor(idx + 5)}
-            startX={answerPositions[idx].startX}
-            startY={answerPositions[idx].startY}
-            direction="up"
-            durationMs={currentSpeed.durationMs * 1.2}
-            swayAmount={10 + idx * 4}
-            swaySpeed={2.5 + idx * 0.7}
-            onDuckClick={() => handleAnswerDuckClick(val)}
-            onBalloonClick={() => handleAnswerBalloonClick(val)}
-            onEscaped={() => handleAnswerBalloonEscaped(val)}
-            selected={chosenAnswer === val}
-            correct={phase === "feedback" ? val === eq.answer : null}
-            hidden={hiddenAnswers.has(val)}
-          />
-        ))}
-
-        {phase === "gameover" && (
+        {/* Game Over overlay */}
+        {isGameOver && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -586,7 +442,10 @@ const Acertar = () => {
             <div className="glass-card p-5 sm:p-8 max-w-md mx-3 sm:mx-4 text-center">
               <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🦆💨</div>
               <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">Game Over!</h3>
-              <p className="text-muted-foreground font-body mb-4 sm:mb-6 text-sm sm:text-base">{gameOverMsg}</p>
+              <p className="text-muted-foreground font-body mb-2 sm:mb-3 text-sm sm:text-base">{gameOverMsg}</p>
+              <div className="text-sm font-body text-muted-foreground mb-4 sm:mb-6">
+                <span className="font-bold text-primary">Fase alcançada: {phase}</span> · <span className="font-bold text-accent">Pontos: {score}</span>
+              </div>
               <div className="flex gap-3">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
@@ -608,11 +467,11 @@ const Acertar = () => {
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar showing remaining balloons */}
       <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-white/20">
         <div
           className="h-full bg-primary transition-all duration-300"
-          style={{ width: `${((round + 1) / TOTAL_ROUNDS) * 100}%` }}
+          style={{ width: `${((18 - remainingCount) / 18) * 100}%` }}
         />
       </div>
     </div>
