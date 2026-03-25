@@ -290,6 +290,23 @@ const Acertar = () => {
     setTimeout(() => setFeedbackMsg(""), 1500);
   }, [answerOptions, triggerGameOver]);
 
+  const handleAnswerBalloonEscaped = useCallback((value: number) => {
+    if (phaseRef.current !== "answer") return;
+    setHiddenAnswers(prev => {
+      if (prev.has(value)) return prev;
+
+      const next = new Set(prev);
+      next.add(value);
+
+      const remainingAnswers = answerOptions.filter(v => !next.has(v));
+      if (remainingAnswers.length === 0) {
+        queueMicrotask(triggerGameOver);
+      }
+
+      return next;
+    });
+  }, [answerOptions, triggerGameOver]);
+
   const answerPositions = [
     { startX: 12, startY: -10 },
     { startX: 32, startY: -5 },
@@ -553,6 +570,7 @@ const Acertar = () => {
             swaySpeed={2.5 + idx * 0.7}
             onDuckClick={() => handleAnswerDuckClick(val)}
             onBalloonClick={() => handleAnswerBalloonClick(val)}
+            onEscaped={() => handleAnswerBalloonEscaped(val)}
             selected={chosenAnswer === val}
             correct={phase === "feedback" ? val === eq.answer : null}
             hidden={hiddenAnswers.has(val)}
