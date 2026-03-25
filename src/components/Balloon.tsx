@@ -61,7 +61,6 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
 
   const handleDuckClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     if (duckState !== "riding") return;
     setDuckState("falling");
     onDuckClick();
@@ -70,7 +69,6 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
 
   const handleBalloonClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     if (duckState !== "riding" || balloonGone) return;
     setDuckState("flyingAway");
     setBalloonGone(true);
@@ -127,7 +125,7 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
               <motion.div
                 className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
                 onClick={handleDuckClick}
-                onTouchStart={handleDuckClick}
+                onTouchEnd={handleDuckClick}
                 style={{ WebkitTapHighlightColor: 'transparent' }}
                 animate={
                   duckState === "falling"
@@ -153,7 +151,7 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
             <div
               className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               onClick={handleBalloonClick}
-              onTouchStart={handleBalloonClick}
+              onTouchEnd={handleBalloonClick}
               style={{
                 WebkitTapHighlightColor: 'transparent',
                 background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
