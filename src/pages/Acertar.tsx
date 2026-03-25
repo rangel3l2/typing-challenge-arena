@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Trophy, Zap, RotateCcw, Star } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
+import SkyBackground from "@/components/SkyBackground";
 import {
   generateMathRound,
   generateEquationBalloons,
