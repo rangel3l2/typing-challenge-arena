@@ -16,6 +16,18 @@ export interface BalloonItem {
   waveIndex: number;
 }
 
+export interface AnswerBalloon {
+  id: number;
+  label: string;
+  value: number;
+  direction: BalloonDirection;
+  startX: number;
+  startY: number;
+  swayAmount: number;
+  swaySpeed: number;
+  speedMultiplier: number;
+}
+
 function evaluate(a: number, b: number, op: Operator): number {
   switch (op) {
     case '+': return a + b;
@@ -67,7 +79,6 @@ export function getMaxValueForPhase(phase: number): number {
 /** Generate 18 balloons: 12 numbers + 6 operators, spawned in waves of ~4 */
 export function generatePhaseBalloons(phase: number): BalloonItem[] {
   const maxVal = getMaxValueForPhase(phase);
-  const ops: Operator[] = ['+', '-', '×'];
   const items: BalloonItem[] = [];
   let id = 0;
 
@@ -99,14 +110,9 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
   // 6 operators: 2 of each
   const operators: Operator[] = shuffle(['+', '+', '-', '-', '×', '×']);
 
-  // Distribute into waves of ~4 (total 18 → 5 waves: 4+4+4+4+2 or similar)
-  // Mix numbers and operators in each wave
-  // We'll interleave: put 1 operator per ~3 items
   const allItems: { label: string; type: 'number' | 'operator'; value: number | Operator }[] = [];
-  
   let numIdx = 0;
   let opIdx = 0;
-  // Pattern: 2 nums, 1 op, repeat 6 times = 12 nums + 6 ops = 18
   for (let i = 0; i < 6; i++) {
     allItems.push({ label: String(numbers[numIdx]), type: 'number', value: numbers[numIdx] });
     numIdx++;
@@ -116,10 +122,8 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
     opIdx++;
   }
 
-  // Shuffle all items
   shuffle(allItems);
 
-  // Assign to waves of 4 (last wave has 2)
   const ITEMS_PER_WAVE = 4;
   for (let i = 0; i < allItems.length; i++) {
     const wave = Math.floor(i / ITEMS_PER_WAVE);
@@ -128,6 +132,35 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
   }
 
   return items;
+}
+
+/** Generate answer balloons for the answer screen: 1 correct + 3 distractions */
+export function generateAnswerBalloons(correctAnswer: number, count: number = 4): AnswerBalloon[] {
+  const values = new Set<number>([correctAnswer]);
+  const range = Math.max(10, Math.abs(correctAnswer));
+
+  while (values.size < count) {
+    const offset = randInt(1, range);
+    const wrong = correctAnswer + (Math.random() > 0.5 ? offset : -offset);
+    if (wrong !== correctAnswer && wrong >= 0) values.add(wrong);
+  }
+
+  const shuffled = shuffle(Array.from(values));
+  return shuffled.map((val, idx) => {
+    const dir = randomDirection();
+    const mov = randomBalloonMovement(dir);
+    return {
+      id: idx,
+      label: String(val),
+      value: val,
+      direction: dir,
+      startX: mov.startX,
+      startY: mov.startY,
+      swayAmount: mov.swayAmount,
+      swaySpeed: mov.swaySpeed,
+      speedMultiplier: mov.speedMultiplier,
+    };
+  });
 }
 
 /** Check if a selection of 3 items is a valid trio: exactly 2 numbers + 1 operator */
