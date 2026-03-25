@@ -296,7 +296,7 @@ const Acertar = () => {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
         <SkyBackground />
-        <div className="absolute bottom-10 right-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
+        
 
         <motion.div
           initial={{ y: -20, opacity: 0 }}
