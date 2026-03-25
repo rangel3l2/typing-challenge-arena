@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Trophy, Zap, RotateCcw, Star } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
+import SkyBackground from "@/components/SkyBackground";
 import {
   generateMathRound,
   generateEquationBalloons,
@@ -293,9 +294,9 @@ const Acertar = () => {
 
   if (gameState === "menu") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
-        <div className="absolute top-10 left-20 w-64 h-64 rounded-full bg-secondary/5 blur-3xl" />
-        <div className="absolute bottom-10 right-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
+        <SkyBackground />
+        
 
         <motion.div
           initial={{ y: -20, opacity: 0 }}
@@ -359,7 +360,8 @@ const Acertar = () => {
 
   if (gameState === "finished") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
+        <SkyBackground />
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -425,13 +427,14 @@ const Acertar = () => {
 
   if (countdown > 0) {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden">
+        <SkyBackground />
         <motion.div
           key={countdown}
           initial={{ scale: 2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
-          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-primary"
+          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-white drop-shadow-lg relative z-10"
         >
           {countdown}
         </motion.div>
@@ -442,25 +445,26 @@ const Acertar = () => {
   const eq = selected.length === 3 ? computeFromSelection(selected) : null;
 
   return (
-    <div className="min-h-[100dvh] bg-background relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] relative overflow-hidden select-none">
+      <SkyBackground />
       {/* HUD */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-background/80 backdrop-blur-sm">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-white/20 backdrop-blur-md border-b border-white/10">
         <div className="flex items-center gap-2 sm:gap-4">
-          <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-muted-foreground hover:text-foreground">
+          <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-white/70 hover:text-white">
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <span className="font-display font-bold text-foreground text-xs sm:text-sm md:text-base">
+          <span className="font-display font-bold text-white text-xs sm:text-sm md:text-base drop-shadow">
             R{round + 1}/{TOTAL_ROUNDS}
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
-          <span className="text-primary font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-yellow-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Zap className="w-3 h-3 sm:w-4 sm:h-4" />V{currentSpeed.level}
           </span>
-          <span className="text-accent font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-amber-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Star className="w-3 h-3 sm:w-4 sm:h-4" />{roundPoints}
           </span>
-          <span className="text-foreground font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-white font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />{totalPoints}
           </span>
         </div>
@@ -475,7 +479,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-destructive/20 text-destructive font-body text-xs sm:text-sm font-bold"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-500/80 text-white font-body text-xs sm:text-sm font-bold drop-shadow"
             >
               {feedbackMsg}
             </motion.div>
@@ -485,7 +489,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted font-body text-xs sm:text-sm text-muted-foreground"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/30 backdrop-blur-sm font-body text-xs sm:text-sm text-white font-semibold drop-shadow"
             >
               {phase === "equation" && (
                 <span>🦆 Acerte os patos! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}</span>
@@ -578,7 +582,7 @@ const Acertar = () => {
       </div>
 
       {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-muted">
+      <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-white/20">
         <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${((round + 1) / TOTAL_ROUNDS) * 100}%` }}
