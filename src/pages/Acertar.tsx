@@ -219,7 +219,7 @@ const Acertar = () => {
     setRoundPoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
-    setTimeout(checkCanComplete, 50);
+    queueMicrotask(checkCanComplete);
   }, [checkCanComplete]);
 
   const handleBalloonEscaped = useCallback((item: BalloonItem) => {
@@ -229,7 +229,7 @@ const Acertar = () => {
       escapedRef.current = next;
       return next;
     });
-    setTimeout(checkCanComplete, 50);
+    queueMicrotask(checkCanComplete);
   }, [checkCanComplete]);
 
   const handleAnswerDuckClick = useCallback((value: number) => {

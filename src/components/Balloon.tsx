@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useRef, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type BalloonDirection = "up" | "left" | "right";
@@ -48,28 +48,14 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-/** Pure CSS balloon - no framer-motion for main travel animation */
-const Balloon = memo(({
+const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
   id: balloonId, label, color, startX, startY, direction, durationMs, swayAmount, swaySpeed,
-  onDuckClick, onBalloonClick, onEscaped, selected, correct, hidden
-}: BalloonProps) => {
+  onDuckClick, onBalloonClick, onEscaped, selected, correct, hidden,
+}, ref) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
   const escapedRef = useRef(false);
-
-  // Fire onEscaped when balloon exits visible area - use 35% of duration for faster detection
-  useEffect(() => {
-    if (hidden || duckState !== "riding") return;
-    const escapeTime = durationMs * 0.35;
-    const timer = setTimeout(() => {
-      if (!escapedRef.current && onEscaped) {
-        escapedRef.current = true;
-        onEscaped();
-      }
-    }, escapeTime);
-    return () => clearTimeout(timer);
-  }, [durationMs, hidden, onEscaped, duckState]);
 
   if (hidden) return null;
 
@@ -92,11 +78,16 @@ const Balloon = memo(({
     setTimeout(() => setDuckState("gone"), 800);
   };
 
-  // CSS animation names unique to this balloon
+  const handleTravelAnimationEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (hidden || duckState !== "riding" || escapedRef.current || balloonGone) return;
+    escapedRef.current = true;
+    onEscaped?.();
+  };
+
   const travelAnim = `travel-${balloonId}`;
   const swayAnim = `sway-${balloonId}`;
 
-  // Build keyframes
   let travelKeyframes = '';
   let containerStyle: React.CSSProperties = {};
 
@@ -118,18 +109,19 @@ const Balloon = memo(({
     <>
       <style>{travelKeyframes}{swayKeyframes}</style>
       <div
+        ref={ref}
         className="absolute select-none z-10"
         style={{
           ...containerStyle,
           animation: `${travelAnim} ${durationMs / 1000}s linear forwards`,
         }}
+        onAnimationEnd={handleTravelAnimationEnd}
       >
         <div
           style={{
             animation: `${swayAnim} ${swaySpeed}s ease-in-out infinite`,
           }}
         >
-          {/* Duck */}
           <AnimatePresence>
             {duckState !== "gone" && (
               <motion.div
@@ -141,15 +133,15 @@ const Balloon = memo(({
                   duckState === "falling"
                     ? { y: [0, -15, 200], rotate: [0, -20, 120], opacity: [1, 1, 0] }
                     : duckState === "flyingAway"
-                    ? { y: -150, x: (Math.random() > 0.5 ? 100 : -100), opacity: 0, scale: 0.5 }
-                    : { scale: [1, 1.05, 1] }
+                      ? { y: -150, x: (Math.random() > 0.5 ? 100 : -100), opacity: 0, scale: 0.5 }
+                      : { scale: [1, 1.05, 1] }
                 }
                 transition={
                   duckState === "falling"
                     ? { duration: 0.8, ease: "easeIn" }
                     : duckState === "flyingAway"
-                    ? { duration: 0.6, ease: "easeOut" }
-                    : { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                      ? { duration: 0.6, ease: "easeOut" }
+                      : { duration: 2, repeat: Infinity, ease: "easeInOut" }
                 }
               >
                 {duckState === "falling" ? "😵" : "🦆"}
@@ -157,7 +149,6 @@ const Balloon = memo(({
             )}
           </AnimatePresence>
 
-          {/* Balloon body */}
           {!balloonGone && (
             <div
               className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
@@ -183,7 +174,6 @@ const Balloon = memo(({
             </div>
           )}
 
-          {/* String */}
           {!balloonGone && (
             <div className="w-[2px] h-4 sm:h-5 md:h-6 mx-auto" style={{ background: colors.balloon }} />
           )}
@@ -191,7 +181,7 @@ const Balloon = memo(({
       </div>
     </>
   );
-});
+}));
 
 Balloon.displayName = 'Balloon';
 
