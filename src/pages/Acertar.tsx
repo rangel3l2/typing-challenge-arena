@@ -458,13 +458,13 @@ const Acertar = () => {
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
-          <span className="text-primary font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-yellow-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Zap className="w-3 h-3 sm:w-4 sm:h-4" />V{currentSpeed.level}
           </span>
-          <span className="text-accent font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-amber-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Star className="w-3 h-3 sm:w-4 sm:h-4" />{roundPoints}
           </span>
-          <span className="text-foreground font-bold flex items-center gap-0.5 sm:gap-1">
+          <span className="text-white font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
             <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />{totalPoints}
           </span>
         </div>
