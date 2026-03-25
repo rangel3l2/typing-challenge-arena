@@ -448,7 +448,7 @@ const Acertar = () => {
     <div className="min-h-[100dvh] relative overflow-hidden select-none">
       <SkyBackground />
       {/* HUD */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-background/80 backdrop-blur-sm">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-white/20 backdrop-blur-md border-b border-white/10">
         <div className="flex items-center gap-2 sm:gap-4">
           <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
