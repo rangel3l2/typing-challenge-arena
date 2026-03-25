@@ -266,6 +266,15 @@ const Acertar = () => {
     }
   }, [round]);
 
+  // Periodic safety check for game over - runs every 500ms during equation phase
+  useEffect(() => {
+    if (gameState !== "playing" || countdown > 0) return;
+    const interval = setInterval(() => {
+      checkCanComplete();
+    }, 500);
+    return () => clearInterval(interval);
+  }, [gameState, countdown, checkCanComplete]);
+
   const handleAnswerBalloonClick = useCallback((value: number) => {
     if (phaseRef.current !== "answer") return;
     setHiddenAnswers(prev => {
