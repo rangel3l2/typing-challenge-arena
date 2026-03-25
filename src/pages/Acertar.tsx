@@ -294,8 +294,8 @@ const Acertar = () => {
 
   if (gameState === "menu") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
-        <div className="absolute top-10 left-20 w-64 h-64 rounded-full bg-secondary/5 blur-3xl" />
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
+        <SkyBackground />
         <div className="absolute bottom-10 right-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
 
         <motion.div
