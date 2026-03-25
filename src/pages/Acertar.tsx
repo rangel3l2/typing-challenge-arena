@@ -11,6 +11,8 @@ import {
   SPEED_LEVELS,
   ROUNDS_PER_SPEED,
   TOTAL_ROUNDS,
+  WAVE_DELAY,
+  BALLOONS_PER_WAVE,
   type MathRound,
   type BalloonItem,
 } from "@/lib/mathGameData";
@@ -33,6 +35,8 @@ const FUNNY_GAMEOVER_MESSAGES = [
   "Você acertou mais balões que patos... o circo tá precisando! 🎪",
   "Os patos fizeram uma festa porque ninguém acertou eles! 🦆🎉",
   "Missão: acertar o pato. Status: fracasso espetacular! 💀😂",
+  "Os patos saíram pra tomar sorvete. Volta depois! 🍦🦆",
+  "Nenhum pato foi nocauteado. Eles mandam um abraço! 🦆🤗",
 ];
 
 const Acertar = () => {
@@ -52,7 +56,12 @@ const Acertar = () => {
   const [roundPoints, setRoundPoints] = useState(10);
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [gameOverMsg, setGameOverMsg] = useState("");
+  const [activeWaves, setActiveWaves] = useState<Set<number>>(new Set());
   const roundStartRef = useRef(Date.now());
+  const phaseRef = useRef<Phase>("equation");
+
+  // Keep phaseRef in sync
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const currentSpeedIndex = Math.min(Math.floor(round / ROUNDS_PER_SPEED), SPEED_LEVELS.length - 1);
   const currentSpeed = SPEED_LEVELS[currentSpeedIndex];
@@ -76,6 +85,23 @@ const Acertar = () => {
     startRound();
   }, [gameState, countdown]);
 
+  // Wave spawning: activate waves over time
+  useEffect(() => {
+    if (phase !== "equation" || balloons.length === 0) return;
+    const totalWaves = Math.ceil(balloons.length / BALLOONS_PER_WAVE);
+    const timers: NodeJS.Timeout[] = [];
+
+    for (let w = 0; w < totalWaves; w++) {
+      const timer = setTimeout(() => {
+        if (phaseRef.current !== "equation") return;
+        setActiveWaves(prev => new Set([...prev, w]));
+      }, w * WAVE_DELAY * 1000);
+      timers.push(timer);
+    }
+
+    return () => timers.forEach(t => clearTimeout(t));
+  }, [phase, balloons.length]);
+
   const startRound = useCallback(() => {
     const mr = generateMathRound(difficulty);
     const bl = generateEquationBalloons(mr, difficulty);
@@ -89,25 +115,47 @@ const Acertar = () => {
     setRoundPoints(10);
     setHiddenAnswers(new Set());
     setFeedbackMsg("");
+    setActiveWaves(new Set([0])); // Start with wave 0
     roundStartRef.current = Date.now();
   }, [difficulty]);
 
-  // Check if adding an item would violate the "no two operators" rule
   const canSelect = (item: BalloonItem): boolean => {
     if (selected.length >= 3) return false;
     if (item.type === 'operator') {
-      // Already have an operator selected?
       return !selected.some(s => s.type === 'operator');
     }
-    // Number: already have 2 numbers?
     return selected.filter(s => s.type === 'number').length < 2;
   };
+
+  const triggerGameOver = useCallback(() => {
+    const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
+    setGameOverMsg(msg);
+    setPhase("gameover");
+  }, []);
+
+  const checkCanComplete = useCallback((
+    currentBalloons: BalloonItem[],
+    currentHidden: Set<number>,
+    currentEscaped: Set<number>,
+    currentSelected: BalloonItem[]
+  ) => {
+    const remaining = currentBalloons.filter(b =>
+      !currentHidden.has(b.id) && !currentEscaped.has(b.id) && !currentSelected.some(s => s.id === b.id)
+    );
+    const remainingNums = remaining.filter(b => b.type === 'number').length;
+    const remainingOps = remaining.filter(b => b.type === 'operator').length;
+    const needNums = 2 - currentSelected.filter(s => s.type === 'number').length;
+    const needOps = 1 - currentSelected.filter(s => s.type === 'operator').length;
+
+    if (remainingNums < needNums || remainingOps < needOps) {
+      triggerGameOver();
+    }
+  }, [triggerGameOver]);
 
   const handleDuckClick = (item: BalloonItem) => {
     if (phase !== "equation" || hiddenBalloons.has(item.id)) return;
     if (selected.find(s => s.id === item.id)) return;
     if (!canSelect(item)) {
-      // Invalid selection - flash feedback
       setFeedbackMsg("⚠️ Selecione: 2 números e 1 operação!");
       setTimeout(() => setFeedbackMsg(""), 1500);
       return;
@@ -134,20 +182,7 @@ const Acertar = () => {
     setRoundPoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
-
-    // Check if remaining non-hidden balloons can still form a valid equation
-    const remaining = balloons.filter(b => !newHidden.has(b.id) && !selected.some(s => s.id === b.id));
-    const remainingNums = remaining.filter(b => b.type === 'number').length;
-    const remainingOps = remaining.filter(b => b.type === 'operator').length;
-    const needNums = 2 - selected.filter(s => s.type === 'number').length;
-    const needOps = 1 - selected.filter(s => s.type === 'operator').length;
-
-    if (remainingNums < needNums || remainingOps < needOps) {
-      // Can't complete equation - game over for this round
-      const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
-      setGameOverMsg(msg);
-      setPhase("gameover");
-    }
+    checkCanComplete(balloons, newHidden, escapedBalloons, selected);
   };
 
   const handleAnswerDuckClick = (value: number) => {
@@ -187,40 +222,42 @@ const Acertar = () => {
     setFeedbackMsg("💥 Acerte o pato! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
 
-    // Check if all answer balloons are gone
     const remainingAnswers = answerOptions.filter(v => !newHidden.has(v));
     if (remainingAnswers.length === 0) {
-      const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
-      setGameOverMsg(msg);
-      setPhase("gameover");
+      triggerGameOver();
     }
   };
 
   const handleBalloonEscaped = useCallback((item: BalloonItem) => {
-    if (phase !== "equation") return;
+    if (phaseRef.current !== "equation") return;
     setEscapedBalloons(prev => {
       const newEscaped = new Set([...prev, item.id]);
-      // Check if remaining balloons (not hidden, not escaped, not selected) can still form equation
-      const remaining = balloons.filter(b => 
-        !hiddenBalloons.has(b.id) && !newEscaped.has(b.id) && !selected.some(s => s.id === b.id)
-      );
-      const remainingNums = remaining.filter(b => b.type === 'number').length;
-      const remainingOps = remaining.filter(b => b.type === 'operator').length;
-      const needNums = 2 - selected.filter(s => s.type === 'number').length;
-      const needOps = 1 - selected.filter(s => s.type === 'operator').length;
+      // Check immediately
+      setTimeout(() => {
+        if (phaseRef.current !== "equation") return;
+        const remaining = balloons.filter(b =>
+          !hiddenBalloons.has(b.id) && !newEscaped.has(b.id) && !selected.some(s => s.id === b.id)
+        );
+        const remainingNums = remaining.filter(b => b.type === 'number').length;
+        const remainingOps = remaining.filter(b => b.type === 'operator').length;
+        const needNums = 2 - selected.filter(s => s.type === 'number').length;
+        const needOps = 1 - selected.filter(s => s.type === 'operator').length;
 
-      if (remainingNums < needNums || remainingOps < needOps) {
-        const msg = FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
-        setGameOverMsg(msg);
-        setPhase("gameover");
-      }
+        if (remainingNums < needNums || remainingOps < needOps) {
+          triggerGameOver();
+        }
+      }, 0);
       return newEscaped;
     });
-  }, [phase, balloons, hiddenBalloons, selected]);
+  }, [balloons, hiddenBalloons, selected, triggerGameOver]);
 
-  // Responsive balloon positions - ensure all fit within screen (5% to 90%)
-  const balloonPositions = [5, 17, 29, 41, 53, 65, 77, 89];
-  const answerPositions = [15, 38, 62, 85];
+  // Answer balloon positions (responsive)
+  const answerPositions = [
+    { startX: 15, startY: -10 },
+    { startX: 38, startY: -5 },
+    { startX: 62, startY: -8 },
+    { startX: 85, startY: -12 },
+  ];
 
   const totalPoints = scores.reduce((a, s) => a + s.points, 0);
   const maxPoints = scores.length * 10;
@@ -260,7 +297,7 @@ const Acertar = () => {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🧮</span>
-              <span>8 balões aparecem. Acerte 3 patos para montar: número + operação + número.</span>
+              <span>16 balões aparecem em ondas de 4! Acerte 3 patos para montar: número + operação + número.</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🎯</span>
@@ -456,21 +493,29 @@ const Acertar = () => {
         <AnimatePresence mode="wait">
           {phase === "equation" && (
             <motion.div key={`eq-${round}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative w-full h-full">
-              {balloons.map((item, idx) => (
-                <Balloon
-                  key={`eq-${round}-${item.id}`}
-                  label={item.label}
-                  color={getBalloonColor(idx)}
-                  x={balloonPositions[idx]}
-                  durationMs={currentSpeed.durationMs}
-                  onDuckClick={() => handleDuckClick(item)}
-                  onBalloonClick={() => handleBalloonClick(item)}
-                  onEscaped={() => handleBalloonEscaped(item)}
-                  selected={selected.some(s => s.id === item.id)}
-                  hidden={hiddenBalloons.has(item.id)}
-                  delay={idx * 0.3}
-                />
-              ))}
+              {balloons.map((item, idx) => {
+                // Only show if wave is active
+                if (!activeWaves.has(item.waveIndex)) return null;
+                return (
+                  <Balloon
+                    key={`eq-${round}-${item.id}`}
+                    label={item.label}
+                    color={getBalloonColor(idx)}
+                    startX={item.startX}
+                    startY={item.startY}
+                    direction={item.direction}
+                    durationMs={currentSpeed.durationMs * item.speedMultiplier}
+                    swayAmount={item.swayAmount}
+                    swaySpeed={item.swaySpeed}
+                    onDuckClick={() => handleDuckClick(item)}
+                    onBalloonClick={() => handleBalloonClick(item)}
+                    onEscaped={() => handleBalloonEscaped(item)}
+                    selected={selected.some(s => s.id === item.id)}
+                    hidden={hiddenBalloons.has(item.id)}
+                    delay={0}
+                  />
+                );
+              })}
             </motion.div>
           )}
 
@@ -481,14 +526,18 @@ const Acertar = () => {
                   key={`ans-${round}-${idx}`}
                   label={String(val)}
                   color={getBalloonColor(idx + 3)}
-                  x={answerPositions[idx]}
+                  startX={answerPositions[idx].startX}
+                  startY={answerPositions[idx].startY}
+                  direction="up"
                   durationMs={currentSpeed.durationMs}
+                  swayAmount={12 + idx * 3}
+                  swaySpeed={2.5 + idx * 0.5}
                   onDuckClick={() => handleAnswerDuckClick(val)}
                   onBalloonClick={() => handleAnswerBalloonClick(val)}
                   selected={chosenAnswer === val}
                   correct={phase === "feedback" ? val === eq.answer : null}
                   hidden={hiddenAnswers.has(val)}
-                  delay={idx * 0.4}
+                  delay={idx * 0.5}
                 />
               ))}
             </motion.div>

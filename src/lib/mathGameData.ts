@@ -1,3 +1,5 @@
+import type { BalloonDirection } from "@/components/Balloon";
+
 export type Operator = '+' | '-' | '×';
 
 export interface MathRound {
@@ -12,6 +14,14 @@ export interface BalloonItem {
   label: string;
   type: 'number' | 'operator';
   value: number | Operator;
+  // Movement properties
+  direction: BalloonDirection;
+  startX: number;
+  startY: number;
+  swayAmount: number;
+  swaySpeed: number;
+  speedMultiplier: number;
+  waveIndex: number; // which wave (0-3) this balloon belongs to
 }
 
 function evaluate(a: number, b: number, op: Operator): number {
@@ -24,6 +34,29 @@ function evaluate(a: number, b: number, op: Operator): number {
 
 function randInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randFloat(min: number, max: number) {
+  return Math.random() * (max - min) + min;
+}
+
+function randomDirection(): BalloonDirection {
+  const dirs: BalloonDirection[] = ['up', 'up', 'up', 'left', 'right'];
+  return dirs[randInt(0, dirs.length - 1)];
+}
+
+function randomBalloonMovement(direction: BalloonDirection): { startX: number; startY: number; swayAmount: number; swaySpeed: number; speedMultiplier: number } {
+  const swayAmount = randFloat(8, 25);
+  const swaySpeed = randFloat(2, 5);
+  const speedMultiplier = randFloat(0.7, 1.3);
+
+  if (direction === 'up') {
+    return { startX: randInt(8, 88), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
+  } else if (direction === 'left') {
+    return { startX: 0, startY: randInt(20, 70), swayAmount, swaySpeed, speedMultiplier };
+  } else {
+    return { startX: 0, startY: randInt(20, 70), swayAmount, swaySpeed, speedMultiplier };
+  }
 }
 
 export function generateMathRound(difficulty: number): MathRound {
@@ -47,39 +80,95 @@ export function generateMathRound(difficulty: number): MathRound {
   return { num1, num2, operator, answer: evaluate(num1, num2, operator) };
 }
 
-/** Generate 8 balloons for equation phase: includes the correct num1, operator, num2 + 5 distractors */
+/** Generate 16 balloons: 4 operators + 12 numbers (4 tens, 4 hundreds, 4 random) */
 export function generateEquationBalloons(round: MathRound, difficulty: number): BalloonItem[] {
   const ops: Operator[] = ['+', '-', '×'];
   const items: BalloonItem[] = [];
   let id = 0;
 
-  // Add correct pieces
-  items.push({ id: id++, label: String(round.num1), type: 'number', value: round.num1 });
-  items.push({ id: id++, label: String(round.num2), type: 'number', value: round.num2 });
-  items.push({ id: id++, label: round.operator, type: 'operator', value: round.operator });
+  const usedNums = new Set([round.answer]); // avoid answer in equation phase
 
-  // Add distractor numbers (3 of them)
-  const usedNums = new Set([round.num1, round.num2, round.answer]);
-  while (items.filter(i => i.type === 'number').length < 5) {
-    const max = difficulty <= 2 ? 20 : difficulty <= 4 ? 50 : 99;
-    const n = randInt(1, max);
-    if (!usedNums.has(n)) {
+  // Helper to create a balloon item with random movement
+  function makeBalloon(label: string, type: 'number' | 'operator', value: number | Operator, wave: number): BalloonItem {
+    const dir = randomDirection();
+    const mov = randomBalloonMovement(dir);
+    return {
+      id: id++, label, type, value,
+      direction: dir,
+      startX: mov.startX, startY: mov.startY,
+      swayAmount: mov.swayAmount, swaySpeed: mov.swaySpeed,
+      speedMultiplier: mov.speedMultiplier,
+      waveIndex: wave,
+    };
+  }
+
+  // --- NUMBERS: 12 total ---
+  // Ensure correct num1 and num2 are included
+  usedNums.add(round.num1);
+  usedNums.add(round.num2);
+
+  // Wave 0: 4 numbers in tens (10-99), include one correct if in range
+  const tensNums: number[] = [];
+  if (round.num1 >= 10 && round.num1 <= 99) tensNums.push(round.num1);
+  if (round.num2 >= 10 && round.num2 <= 99 && !tensNums.includes(round.num2)) tensNums.push(round.num2);
+  while (tensNums.length < 4) {
+    const n = randInt(10, 99);
+    if (!usedNums.has(n) && !tensNums.includes(n)) {
       usedNums.add(n);
-      items.push({ id: id++, label: String(n), type: 'number', value: n });
+      tensNums.push(n);
     }
   }
 
-  // Add distractor operators (2 of them)
-  const otherOps = ops.filter(o => o !== round.operator);
-  for (const op of otherOps) {
-    items.push({ id: id++, label: op, type: 'operator', value: op });
+  // Wave 1: 4 numbers in hundreds (100-999)
+  const hundredsNums: number[] = [];
+  if (round.num1 >= 100 && round.num1 <= 999) hundredsNums.push(round.num1);
+  if (round.num2 >= 100 && round.num2 <= 999 && !hundredsNums.includes(round.num2)) hundredsNums.push(round.num2);
+  while (hundredsNums.length < 4) {
+    const n = randInt(100, 999);
+    if (!usedNums.has(n) && !hundredsNums.includes(n)) {
+      usedNums.add(n);
+      hundredsNums.push(n);
+    }
   }
 
-  // Shuffle
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = randInt(0, i);
-    [items[i], items[j]] = [items[j], items[i]];
+  // Wave 2: 4 random numbers (mix of tens and hundreds)
+  const randomNums: number[] = [];
+  // Ensure correct numbers that weren't placed yet
+  if (!tensNums.includes(round.num1) && !hundredsNums.includes(round.num1)) randomNums.push(round.num1);
+  if (!tensNums.includes(round.num2) && !hundredsNums.includes(round.num2) && !randomNums.includes(round.num2)) randomNums.push(round.num2);
+  while (randomNums.length < 4) {
+    const n = Math.random() > 0.5 ? randInt(10, 99) : randInt(100, 999);
+    if (!usedNums.has(n) && !randomNums.includes(n)) {
+      usedNums.add(n);
+      randomNums.push(n);
+    }
   }
+
+  // Shuffle within each wave
+  const shuffle = <T,>(arr: T[]) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  shuffle(tensNums);
+  shuffle(hundredsNums);
+  shuffle(randomNums);
+
+  // Add numbers to items
+  for (const n of tensNums) items.push(makeBalloon(String(n), 'number', n, 0));
+  for (const n of hundredsNums) items.push(makeBalloon(String(n), 'number', n, 1));
+  for (const n of randomNums) items.push(makeBalloon(String(n), 'number', n, 2));
+
+  // --- OPERATORS: 4 total (correct + 3 others, but we only have 3 unique ops so add a duplicate) ---
+  const correctOp = round.operator;
+  const otherOps = ops.filter(o => o !== correctOp);
+  const allOps = shuffle([correctOp, ...otherOps, ops[randInt(0, ops.length - 1)]]);
+
+  // Wave 3: operators
+  for (const op of allOps) items.push(makeBalloon(op, 'operator', op, 3));
 
   return items;
 }
@@ -113,13 +202,18 @@ export function computeFromSelection(items: BalloonItem[]): { num1: number; num2
 }
 
 export const SPEED_LEVELS = [
-  { level: 1, label: 'Devagar', durationMs: 12000 },
-  { level: 2, label: 'Normal', durationMs: 9000 },
-  { level: 3, label: 'Rápido', durationMs: 7000 },
-  { level: 4, label: 'Muito Rápido', durationMs: 5000 },
-  { level: 5, label: 'Ultra', durationMs: 3500 },
-  { level: 6, label: 'Insano!', durationMs: 2500 },
+  { level: 1, label: 'Devagar', durationMs: 14000 },
+  { level: 2, label: 'Normal', durationMs: 11000 },
+  { level: 3, label: 'Rápido', durationMs: 8500 },
+  { level: 4, label: 'Muito Rápido', durationMs: 6500 },
+  { level: 5, label: 'Ultra', durationMs: 4500 },
+  { level: 6, label: 'Insano!', durationMs: 3000 },
 ];
 
 export const ROUNDS_PER_SPEED = 3;
 export const TOTAL_ROUNDS = SPEED_LEVELS.length * ROUNDS_PER_SPEED;
+
+/** Delay in seconds between waves */
+export const WAVE_DELAY = 2.5;
+/** Number of balloons per wave */
+export const BALLOONS_PER_WAVE = 4;

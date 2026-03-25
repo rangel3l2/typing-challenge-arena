@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+export type BalloonDirection = "up" | "left" | "right";
+
 interface BalloonProps {
   label: string;
   color: string;
-  x: number;
+  startX: number;
+  startY: number;
+  direction: BalloonDirection;
   durationMs: number;
+  swayAmount: number;
+  swaySpeed: number;
   onDuckClick: () => void;
   onBalloonClick: () => void;
   onEscaped?: () => void;
@@ -24,6 +30,14 @@ const BALLOON_COLORS: Record<string, { balloon: string; highlight: string }> = {
   yellow: { balloon: 'hsl(45 95% 55%)', highlight: 'hsl(45 95% 65%)' },
   pink: { balloon: 'hsl(330 70% 55%)', highlight: 'hsl(330 70% 65%)' },
   teal: { balloon: 'hsl(180 60% 40%)', highlight: 'hsl(180 60% 50%)' },
+  coral: { balloon: 'hsl(15 80% 55%)', highlight: 'hsl(15 80% 65%)' },
+  lime: { balloon: 'hsl(85 60% 45%)', highlight: 'hsl(85 60% 55%)' },
+  indigo: { balloon: 'hsl(240 60% 55%)', highlight: 'hsl(240 60% 65%)' },
+  amber: { balloon: 'hsl(35 90% 50%)', highlight: 'hsl(35 90% 60%)' },
+  rose: { balloon: 'hsl(350 75% 55%)', highlight: 'hsl(350 75% 65%)' },
+  sky: { balloon: 'hsl(195 75% 50%)', highlight: 'hsl(195 75% 60%)' },
+  emerald: { balloon: 'hsl(160 60% 40%)', highlight: 'hsl(160 60% 50%)' },
+  fuchsia: { balloon: 'hsl(295 65% 55%)', highlight: 'hsl(295 65% 65%)' },
 };
 
 const colorKeys = Object.keys(BALLOON_COLORS);
@@ -34,18 +48,45 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden }: BalloonProps) => {
+function getAnimationProps(direction: BalloonDirection, startX: number, startY: number, swayAmount: number, swaySpeed: number) {
+  switch (direction) {
+    case "up":
+      return {
+        initial: { x: 0, y: 0 },
+        animate: { y: '-120vh', x: [0, swayAmount, 0, -swayAmount, 0] },
+        xTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
+      };
+    case "left":
+      return {
+        initial: { x: 0, y: 0 },
+        animate: { x: '-120vw', y: [0, -swayAmount * 2, 0, swayAmount * 2, 0] },
+        xTransition: undefined,
+        ySwayTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
+      };
+    case "right":
+      return {
+        initial: { x: 0, y: 0 },
+        animate: { x: '120vw', y: [0, -swayAmount * 2, 0, swayAmount * 2, 0] },
+        xTransition: undefined,
+        ySwayTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
+      };
+  }
+}
+
+const Balloon = ({
+  label, color, startX, startY, direction, durationMs, swayAmount, swaySpeed,
+  onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden
+}: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
-  const sway = (x % 2 === 0 ? 1 : -1) * (x < 15 || x > 85 ? 8 : 15);
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
   const escapedRef = useRef(false);
 
-  // Fire onEscaped when balloon exits the visible screen (not full animation)
-  // Balloon travels from 110vh to -120vh (230vh). Exits top at ~110/230 ≈ 48% of duration.
+  // Fire onEscaped when balloon exits visible area
   useEffect(() => {
     if (hidden || duckState !== "riding") return;
-    const escapeTime = delay * 1000 + durationMs * 0.42;
+    // Balloon exits at ~45% of duration
+    const escapeTime = delay * 1000 + durationMs * 0.45;
     const timer = setTimeout(() => {
       if (!escapedRef.current && onEscaped) {
         escapedRef.current = true;
@@ -57,7 +98,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
 
   if (hidden) return null;
 
-  const handleDuckClick = (e: React.MouseEvent) => {
+  const handleDuckClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (duckState !== "riding") return;
     setDuckState("falling");
@@ -65,7 +106,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
     setTimeout(() => setDuckState("gone"), 1200);
   };
 
-  const handleBalloonClick = (e: React.MouseEvent) => {
+  const handleBalloonClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (duckState !== "riding" || balloonGone) return;
     setDuckState("flyingAway");
@@ -74,16 +115,38 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
     setTimeout(() => setDuckState("gone"), 1000);
   };
 
+  const anim = getAnimationProps(direction, startX, startY, swayAmount, swaySpeed);
+
+  const mainTransition: Record<string, any> = {};
+  if (direction === "up") {
+    mainTransition.y = { duration: durationMs / 1000, ease: 'linear', delay };
+    mainTransition.x = anim.xTransition;
+  } else if (direction === "left" || direction === "right") {
+    mainTransition.x = { duration: durationMs / 1000, ease: 'linear', delay };
+    mainTransition.y = anim.ySwayTransition;
+  }
+
+  // Position: for "up", start from bottom. For left/right, start from the side.
+  const positionStyle: React.CSSProperties = {};
+  if (direction === "up") {
+    positionStyle.left = `${startX}%`;
+    positionStyle.bottom = `${startY}%`;
+    positionStyle.transform = 'translateX(-50%)';
+  } else if (direction === "left") {
+    positionStyle.right = '-5%';
+    positionStyle.top = `${startY}%`;
+  } else if (direction === "right") {
+    positionStyle.left = '-5%';
+    positionStyle.top = `${startY}%`;
+  }
+
   return (
     <motion.div
-      className="absolute bottom-0 select-none"
-      style={{ left: `${x}%`, transform: 'translateX(-50%)' }}
-      initial={{ y: '110vh' }}
-      animate={{ y: '-120vh', x: [0, sway, 0, -sway, 0] }}
-      transition={{
-        y: { duration: durationMs / 1000, ease: 'linear', delay },
-        x: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-      }}
+      className="absolute select-none z-10"
+      style={positionStyle}
+      initial={anim.initial}
+      animate={anim.animate}
+      transition={mainTransition}
     >
       {/* Duck */}
       <AnimatePresence>
@@ -91,6 +154,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
           <motion.div
             className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
             onClick={handleDuckClick}
+            onTouchEnd={handleDuckClick}
             whileHover={duckState === "riding" ? { scale: 1.3 } : undefined}
             whileTap={duckState === "riding" ? { scale: 0.8 } : undefined}
             title="Clique no pato!"
@@ -119,6 +183,7 @@ const Balloon = ({ label, color, x, durationMs, onDuckClick, onBalloonClick, onE
         <motion.div
           className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 lg:w-24 lg:h-28 rounded-full flex items-center justify-center transition-all cursor-pointer"
           onClick={handleBalloonClick}
+          onTouchEnd={handleBalloonClick}
           style={{
             background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
             boxShadow: selected
