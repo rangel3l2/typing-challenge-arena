@@ -479,7 +479,7 @@ const Acertar = () => {
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-destructive/20 text-destructive font-body text-xs sm:text-sm font-bold"
+              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-500/80 text-white font-body text-xs sm:text-sm font-bold drop-shadow"
             >
               {feedbackMsg}
             </motion.div>
