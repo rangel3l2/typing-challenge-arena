@@ -427,8 +427,8 @@ const Acertar = () => {
 
   if (countdown > 0) {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
-        <motion.div
+      <div className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden">
+        <SkyBackground />
           key={countdown}
           initial={{ scale: 2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
