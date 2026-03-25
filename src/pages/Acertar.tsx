@@ -582,7 +582,7 @@ const Acertar = () => {
       </div>
 
       {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-muted">
+      <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-white/20">
         <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${((round + 1) / TOTAL_ROUNDS) * 100}%` }}
