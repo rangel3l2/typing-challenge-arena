@@ -429,11 +429,12 @@ const Acertar = () => {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden">
         <SkyBackground />
+        <motion.div
           key={countdown}
           initial={{ scale: 2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
-          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-primary"
+          className="text-6xl sm:text-7xl md:text-8xl font-display font-bold text-white drop-shadow-lg relative z-10"
         >
           {countdown}
         </motion.div>
