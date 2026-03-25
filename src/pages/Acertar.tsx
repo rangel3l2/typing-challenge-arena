@@ -453,7 +453,7 @@ const Acertar = () => {
           <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-white/70 hover:text-white">
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <span className="font-display font-bold text-foreground text-xs sm:text-sm md:text-base">
+          <span className="font-display font-bold text-white text-xs sm:text-sm md:text-base drop-shadow">
             R{round + 1}/{TOTAL_ROUNDS}
           </span>
         </div>
