@@ -1,5 +1,5 @@
-import { useState, useRef, memo, forwardRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRef, useState, memo } from "react";
+import { motion } from "framer-motion";
 
 export type BalloonDirection = "up" | "left" | "right";
 
@@ -48,37 +48,58 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
-  id: balloonId, label, color, startX, startY, direction, durationMs, swayAmount, swaySpeed,
-  onDuckClick, onBalloonClick, onEscaped, selected, correct, hidden,
-}, ref) => {
+const BalloonComponent = ({
+  id: balloonId,
+  label,
+  color,
+  startX,
+  startY,
+  direction,
+  durationMs,
+  swayAmount,
+  swaySpeed,
+  onDuckClick,
+  onBalloonClick,
+  onEscaped,
+  selected,
+  correct,
+  hidden,
+}: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
   const [duckState, setDuckState] = useState<DuckState>("riding");
   const [balloonGone, setBalloonGone] = useState(false);
   const escapedRef = useRef(false);
+  const interactionLockedRef = useRef(false);
 
   if (hidden) return null;
 
-  const handleDuckClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleDuckClick = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    if (duckState !== "riding") return;
+    if (e.button && e.button !== 0) return;
+    if (duckState !== "riding" || interactionLockedRef.current) return;
+
+    interactionLockedRef.current = true;
     setDuckState("falling");
     onDuckClick();
-    setTimeout(() => setDuckState("gone"), 1000);
+    window.setTimeout(() => setDuckState("gone"), 800);
   };
 
-  const handleBalloonClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleBalloonClick = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    if (duckState !== "riding" || balloonGone) return;
+    if (e.button && e.button !== 0) return;
+    if (duckState !== "riding" || balloonGone || interactionLockedRef.current) return;
+
+    interactionLockedRef.current = true;
     setDuckState("flyingAway");
     setBalloonGone(true);
     onBalloonClick();
-    setTimeout(() => setDuckState("gone"), 800);
+    window.setTimeout(() => setDuckState("gone"), 650);
   };
 
   const handleTravelAnimationEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
-    if (hidden || duckState !== "riding" || escapedRef.current || balloonGone) return;
+    if (hidden || duckState !== "riding" || escapedRef.current || balloonGone || interactionLockedRef.current) return;
+
     escapedRef.current = true;
     onEscaped?.();
   };
@@ -107,11 +128,11 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
     <>
       <style>{travelKeyframes}{swayKeyframes}</style>
       <div
-        ref={ref}
-        className="absolute select-none z-10"
+        className="absolute select-none z-10 will-change-transform"
         style={{
           ...containerStyle,
           animation: `${travelAnim} ${durationMs / 1000}s linear forwards`,
+          touchAction: "manipulation",
         }}
         onAnimationEnd={handleTravelAnimationEnd}
       >
@@ -120,40 +141,41 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
             animation: `${swayAnim} ${swaySpeed}s ease-in-out infinite`,
           }}
         >
-          <AnimatePresence>
-            {duckState !== "gone" && (
-              <motion.div
-                className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
-                onClick={handleDuckClick}
-                onTouchEnd={handleDuckClick}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-                animate={
-                  duckState === "falling"
-                    ? { y: [0, -15, 200], rotate: [0, -20, 120], opacity: [1, 1, 0] }
-                    : duckState === "flyingAway"
-                      ? { y: -150, x: (Math.random() > 0.5 ? 100 : -100), opacity: 0, scale: 0.5 }
-                      : { scale: [1, 1.05, 1] }
-                }
-                transition={
-                  duckState === "falling"
-                    ? { duration: 0.8, ease: "easeIn" }
-                    : duckState === "flyingAway"
-                      ? { duration: 0.6, ease: "easeOut" }
-                      : { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                }
-              >
-                {duckState === "falling" ? "😵" : "🦆"}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {duckState !== "gone" && (
+            <motion.div
+              className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
+              onPointerUp={handleDuckClick}
+              style={{
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: "manipulation",
+                pointerEvents: duckState === "riding" ? "auto" : "none",
+              }}
+              animate={
+                duckState === "falling"
+                  ? { y: [0, -15, 200], rotate: [0, -20, 120], opacity: [1, 1, 0] }
+                  : duckState === "flyingAway"
+                    ? { y: -150, x: -80, opacity: 0, scale: 0.5 }
+                    : { scale: [1, 1.05, 1] }
+              }
+              transition={
+                duckState === "falling"
+                  ? { duration: 0.8, ease: "easeIn" }
+                  : duckState === "flyingAway"
+                    ? { duration: 0.6, ease: "easeOut" }
+                    : { duration: 2, repeat: Infinity, ease: "easeInOut" }
+              }
+            >
+              {duckState === "falling" ? "😵" : "🦆"}
+            </motion.div>
+          )}
 
           {!balloonGone && (
             <div
               className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
-              onClick={handleBalloonClick}
-              onTouchEnd={handleBalloonClick}
+              onPointerUp={handleBalloonClick}
               style={{
                 WebkitTapHighlightColor: 'transparent',
+                touchAction: "manipulation",
                 background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
                 boxShadow: selected
                   ? `0 0 15px ${colors.balloon}`
@@ -179,7 +201,24 @@ const Balloon = memo(forwardRef<HTMLDivElement, BalloonProps>(({
       </div>
     </>
   );
-}));
+};
+
+const Balloon = memo(BalloonComponent, (prev, next) => {
+  return (
+    prev.id === next.id &&
+    prev.label === next.label &&
+    prev.color === next.color &&
+    prev.startX === next.startX &&
+    prev.startY === next.startY &&
+    prev.direction === next.direction &&
+    prev.durationMs === next.durationMs &&
+    prev.swayAmount === next.swayAmount &&
+    prev.swaySpeed === next.swaySpeed &&
+    prev.selected === next.selected &&
+    prev.correct === next.correct &&
+    prev.hidden === next.hidden
+  );
+});
 
 Balloon.displayName = 'Balloon';
 
