@@ -6,13 +6,17 @@ import Balloon, { getBalloonColor } from "@/components/Balloon";
 import SkyBackground from "@/components/SkyBackground";
 import {
   generatePhaseBalloons,
+  generateAnswerBalloons,
   isValidTrio,
   computeFromTrio,
   getMaxValueForPhase,
   SPEED_LEVELS,
   WAVE_DELAY,
   type BalloonItem,
+  type AnswerBalloon,
 } from "@/lib/mathGameData";
+
+type Screen = "board" | "answer";
 
 const FUNNY_GAMEOVER_MESSAGES = [
   "Os patos fugiram todos! 🦆💨 Parece que você tem medo de patos...",
@@ -31,31 +35,50 @@ const FUNNY_GAMEOVER_MESSAGES = [
 const Acertar = () => {
   const navigate = useNavigate();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
-  const [phase, setPhase] = useState(1); // current phase/level
+  const [currentScreen, setCurrentScreen] = useState<Screen>("board");
+  const [phase, setPhase] = useState(1);
+  
+  // Board state
   const [balloons, setBalloons] = useState<BalloonItem[]>([]);
   const [hiddenBalloons, setHiddenBalloons] = useState<Set<number>>(new Set());
   const [escapedBalloons, setEscapedBalloons] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<BalloonItem[]>([]);
+  const [visibleBalloonIds, setVisibleBalloonIds] = useState<Set<number>>(new Set());
+  
+  // Answer screen state
+  const [answerBalloons, setAnswerBalloons] = useState<AnswerBalloon[]>([]);
+  const [currentEquation, setCurrentEquation] = useState<{ num1: number; num2: number; operator: string; answer: number } | null>(null);
+  const [pendingTrioIds, setPendingTrioIds] = useState<number[]>([]);
+  const [hiddenAnswers, setHiddenAnswers] = useState<Set<number>>(new Set());
+  const [escapedAnswers, setEscapedAnswers] = useState<Set<number>>(new Set());
+  
+  // Scoring
   const [score, setScore] = useState(0);
   const [phasePoints, setPhasePoints] = useState(10);
   const [countdown, setCountdown] = useState(3);
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [gameOverMsg, setGameOverMsg] = useState("");
   const [isGameOver, setIsGameOver] = useState(false);
-  const [visibleBalloonIds, setVisibleBalloonIds] = useState<Set<number>>(new Set());
-  const [triosCompleted, setTriosCompleted] = useState(0);
 
   const gameOverRef = useRef(false);
   const selectedRef = useRef<BalloonItem[]>([]);
   const hiddenRef = useRef<Set<number>>(new Set());
   const escapedRef = useRef<Set<number>>(new Set());
   const balloonsRef = useRef<BalloonItem[]>([]);
+  const screenRef = useRef<Screen>("board");
+  const hiddenAnswersRef = useRef<Set<number>>(new Set());
+  const escapedAnswersRef = useRef<Set<number>>(new Set());
+  const answerBalloonsRef = useRef<AnswerBalloon[]>([]);
   const waveTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { hiddenRef.current = hiddenBalloons; }, [hiddenBalloons]);
   useEffect(() => { escapedRef.current = escapedBalloons; }, [escapedBalloons]);
   useEffect(() => { balloonsRef.current = balloons; }, [balloons]);
+  useEffect(() => { screenRef.current = currentScreen; }, [currentScreen]);
+  useEffect(() => { hiddenAnswersRef.current = hiddenAnswers; }, [hiddenAnswers]);
+  useEffect(() => { escapedAnswersRef.current = escapedAnswers; }, [escapedAnswers]);
+  useEffect(() => { answerBalloonsRef.current = answerBalloons; }, [answerBalloons]);
 
   const speedIndex = Math.min(phase - 1, SPEED_LEVELS.length - 1);
   const currentSpeed = SPEED_LEVELS[speedIndex];
@@ -65,9 +88,9 @@ const Acertar = () => {
     setGameState("playing");
     setPhase(1);
     setScore(0);
-    setTriosCompleted(0);
     setCountdown(3);
     setIsGameOver(false);
+    setCurrentScreen("board");
   };
 
   useEffect(() => {
@@ -91,8 +114,8 @@ const Acertar = () => {
     waveTimersRef.current = [];
   }, []);
 
-  const checkCanComplete = useCallback(() => {
-    if (gameOverRef.current) return;
+  const checkCanCompleteBoard = useCallback(() => {
+    if (gameOverRef.current || screenRef.current !== "board") return;
     const bl = balloonsRef.current;
     const sel = selectedRef.current;
     const hid = hiddenRef.current;
@@ -112,6 +135,17 @@ const Acertar = () => {
     }
   }, [triggerGameOver]);
 
+  const checkAnswerScreen = useCallback(() => {
+    if (gameOverRef.current || screenRef.current !== "answer") return;
+    const abs = answerBalloonsRef.current;
+    const hid = hiddenAnswersRef.current;
+    const esc = escapedAnswersRef.current;
+    const remaining = abs.filter(b => !hid.has(b.id) && !esc.has(b.id));
+    if (remaining.length === 0) {
+      triggerGameOver("Todos os balões de resposta escaparam! 🦆💨");
+    }
+  }, [triggerGameOver]);
+
   const startPhase = useCallback(() => {
     if (gameOverRef.current) return;
     waveTimersRef.current.forEach(t => clearTimeout(t));
@@ -125,6 +159,11 @@ const Acertar = () => {
     setPhasePoints(10);
     setFeedbackMsg("");
     setIsGameOver(false);
+    setCurrentScreen("board");
+    setCurrentEquation(null);
+    setPendingTrioIds([]);
+    setHiddenAnswers(new Set());
+    setEscapedAnswers(new Set());
 
     // Spawn in waves of 4
     const totalWaves = Math.ceil(bl.length / 4);
@@ -134,7 +173,7 @@ const Acertar = () => {
 
     for (let w = 1; w < totalWaves; w++) {
       const timer = setTimeout(() => {
-        if (gameOverRef.current) return;
+        if (gameOverRef.current || screenRef.current !== "board") return;
         const waveIds = bl.filter(b => b.waveIndex === w).map(b => b.id);
         setVisibleBalloonIds(prev => {
           const next = new Set(prev);
@@ -146,85 +185,58 @@ const Acertar = () => {
     }
   }, [phase]);
 
-  // When phase changes after initial load, start new phase
+  // When phase changes after initial load
   useEffect(() => {
     if (gameState === "playing" && countdown <= 0 && phase > 1) {
       startPhase();
     }
   }, [phase]);
 
-  const handleDuckClick = useCallback((item: BalloonItem) => {
-    if (gameOverRef.current || hiddenRef.current.has(item.id)) return;
+  // === BOARD: Duck click (select for trio) ===
+  const handleBoardDuckClick = useCallback((item: BalloonItem) => {
+    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id)) return;
     if (selectedRef.current.find(s => s.id === item.id)) return;
 
     const currentSelected = selectedRef.current;
-
-    // If already have 3, ignore (shouldn't happen but safety)
     if (currentSelected.length >= 3) return;
 
     const newSelected = [...currentSelected, item];
     setSelected(newSelected);
 
-    // On the 3rd selection, validate the trio
     if (newSelected.length === 3) {
       if (!isValidTrio(newSelected)) {
-        // INVALID COMBO → INSTANT GAME OVER
         triggerGameOver("Combinação inválida! Precisa ser 2 números e 1 operação! 🦆🤣");
         return;
       }
 
-      // Valid trio! Compute result, burst the 3 balloons
       const result = computeFromTrio(newSelected);
+      if (!result) return;
+
+      // Pause wave timers
+      waveTimersRef.current.forEach(t => clearTimeout(t));
+      waveTimersRef.current = [];
+
+      // Store pending trio and equation, transition to answer screen
       const trioBalloonIds = newSelected.map(s => s.id);
+      setPendingTrioIds(trioBalloonIds);
+      setCurrentEquation(result);
 
-      // Show result feedback briefly
-      if (result) {
-        setFeedbackMsg(`✅ ${result.num1} ${result.operator} ${result.num2} = ${result.answer} (+${phasePoints} pts)`);
-        setScore(prev => prev + phasePoints);
-      }
+      // Generate answer balloons
+      const abs = generateAnswerBalloons(result.answer, 4);
+      setAnswerBalloons(abs);
+      setHiddenAnswers(new Set());
+      setEscapedAnswers(new Set());
 
-      // Hide the 3 balloons
-      setHiddenBalloons(prev => {
-        const next = new Set(prev);
-        trioBalloonIds.forEach(id => next.add(id));
-        hiddenRef.current = next;
-        return next;
-      });
-
-      // Clear selection
+      // Short delay for visual feedback then switch screen
       setTimeout(() => {
-        setSelected([]);
-        setFeedbackMsg("");
-
-        // Check if all 18 are cleared
-        const bl = balloonsRef.current;
-        const hid = hiddenRef.current;
-        const esc = escapedRef.current;
-        const remaining = bl.filter(b => !hid.has(b.id) && !esc.has(b.id));
-
-        if (remaining.length === 0) {
-          // Phase complete! Level up
-          setTriosCompleted(prev => prev + 1);
-          setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
-          setTimeout(() => {
-            setFeedbackMsg("");
-            setPhase(p => p + 1);
-            setPhasePoints(10); // reset phase points
-          }, 1500);
-        } else {
-          // Check if remaining balloons can still form a valid trio
-          queueMicrotask(checkCanComplete);
-        }
-      }, 800);
-
-      setTriosCompleted(prev => prev + 1);
+        setCurrentScreen("answer");
+      }, 500);
     }
-  }, [triggerGameOver, phasePoints, phase, checkCanComplete]);
+  }, [triggerGameOver]);
 
-  const handleBalloonClick = useCallback((item: BalloonItem) => {
-    if (gameOverRef.current || hiddenRef.current.has(item.id)) return;
-
-    // Clicking the balloon (not the duck) → penalize and remove that balloon
+  // === BOARD: Balloon click (penalty) ===
+  const handleBoardBalloonClick = useCallback((item: BalloonItem) => {
+    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id)) return;
     setHiddenBalloons(prev => {
       const next = new Set([...prev, item.id]);
       hiddenRef.current = next;
@@ -233,27 +245,113 @@ const Acertar = () => {
     setPhasePoints(prev => Math.max(0, prev - 2));
     setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
     setTimeout(() => setFeedbackMsg(""), 1500);
-    queueMicrotask(checkCanComplete);
-  }, [checkCanComplete]);
+    queueMicrotask(checkCanCompleteBoard);
+  }, [checkCanCompleteBoard]);
 
-  const handleBalloonEscaped = useCallback((item: BalloonItem) => {
-    if (gameOverRef.current) return;
+  // === BOARD: Balloon escaped ===
+  const handleBoardBalloonEscaped = useCallback((item: BalloonItem) => {
+    if (gameOverRef.current || screenRef.current !== "board") return;
     setEscapedBalloons(prev => {
       const next = new Set([...prev, item.id]);
       escapedRef.current = next;
       return next;
     });
-    queueMicrotask(checkCanComplete);
-  }, [checkCanComplete]);
+    queueMicrotask(checkCanCompleteBoard);
+  }, [checkCanCompleteBoard]);
+
+  // === ANSWER: Duck click (pick answer) ===
+  const handleAnswerDuckClick = useCallback((ab: AnswerBalloon) => {
+    if (gameOverRef.current || screenRef.current !== "answer" || !currentEquation) return;
+    if (hiddenAnswersRef.current.has(ab.id) || escapedAnswersRef.current.has(ab.id)) return;
+
+    if (ab.value === currentEquation.answer) {
+      // CORRECT! Burst the pending trio and return to board
+      const pts = phasePoints;
+      setScore(prev => prev + pts);
+      setFeedbackMsg(`✅ ${currentEquation.num1} ${currentEquation.operator} ${currentEquation.num2} = ${currentEquation.answer} (+${pts} pts)`);
+
+      // Hide the trio from the board
+      setHiddenBalloons(prev => {
+        const next = new Set(prev);
+        pendingTrioIds.forEach(id => next.add(id));
+        hiddenRef.current = next;
+        return next;
+      });
+
+      // Return to board after brief delay
+      setTimeout(() => {
+        setSelected([]);
+        setCurrentScreen("board");
+        setCurrentEquation(null);
+        setPendingTrioIds([]);
+        setFeedbackMsg("");
+
+        // Check if board is cleared
+        const bl = balloonsRef.current;
+        const hid = hiddenRef.current;
+        const esc = escapedRef.current;
+        const remaining = bl.filter(b => !hid.has(b.id) && !esc.has(b.id));
+
+        if (remaining.length === 0) {
+          setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
+          setTimeout(() => {
+            setFeedbackMsg("");
+            setPhase(p => p + 1);
+            setPhasePoints(10);
+          }, 1500);
+        } else {
+          // Resume wave timers for remaining balloons
+          // Re-show all remaining visible
+          const allVisible = new Set<number>();
+          bl.forEach(b => {
+            if (!hid.has(b.id) && !esc.has(b.id)) allVisible.add(b.id);
+          });
+          setVisibleBalloonIds(allVisible);
+          queueMicrotask(checkCanCompleteBoard);
+        }
+      }, 1000);
+    } else {
+      // WRONG answer — lose all phase points, game over
+      triggerGameOver(`Resposta errada! ${currentEquation.num1} ${currentEquation.operator} ${currentEquation.num2} = ${currentEquation.answer}, não ${ab.value}! 🦆😵`);
+    }
+  }, [currentEquation, phasePoints, pendingTrioIds, phase, triggerGameOver, checkCanCompleteBoard]);
+
+  // === ANSWER: Balloon click (penalty) ===
+  const handleAnswerBalloonClick = useCallback((ab: AnswerBalloon) => {
+    if (gameOverRef.current || screenRef.current !== "answer") return;
+    if (hiddenAnswersRef.current.has(ab.id)) return;
+    setHiddenAnswers(prev => {
+      const next = new Set([...prev, ab.id]);
+      hiddenAnswersRef.current = next;
+      return next;
+    });
+    setPhasePoints(prev => Math.max(0, prev - 2));
+    setFeedbackMsg("💥 Acerte o pato! -2 pontos");
+    setTimeout(() => setFeedbackMsg(""), 1500);
+    queueMicrotask(checkAnswerScreen);
+  }, [checkAnswerScreen]);
+
+  // === ANSWER: Balloon escaped ===
+  const handleAnswerBalloonEscaped = useCallback((ab: AnswerBalloon) => {
+    if (gameOverRef.current || screenRef.current !== "answer") return;
+    setEscapedAnswers(prev => {
+      const next = new Set([...prev, ab.id]);
+      escapedAnswersRef.current = next;
+      return next;
+    });
+    queueMicrotask(checkAnswerScreen);
+  }, [checkAnswerScreen]);
 
   // Periodic safety check
   useEffect(() => {
     if (gameState !== "playing" || countdown > 0) return;
     const interval = setInterval(() => {
-      if (!gameOverRef.current) checkCanComplete();
+      if (gameOverRef.current) return;
+      if (screenRef.current === "board") checkCanCompleteBoard();
+      else checkAnswerScreen();
     }, 300);
     return () => clearInterval(interval);
-  }, [gameState, countdown, checkCanComplete]);
+  }, [gameState, countdown, checkCanCompleteBoard, checkAnswerScreen]);
 
   const maxVal = getMaxValueForPhase(phase);
 
@@ -272,7 +370,7 @@ const Acertar = () => {
             Eu Vou Acertar
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground font-body max-w-md mx-auto px-2">
-            Mire no pato, monte trios matemáticos e limpe o quadro!
+            Mire no pato, monte trios e acerte o resultado!
           </p>
         </motion.div>
 
@@ -285,19 +383,19 @@ const Acertar = () => {
           <div className="space-y-3 text-sm text-muted-foreground font-body">
             <div className="flex items-start gap-3">
               <span className="text-xl">🦆</span>
-              <span>Clique no <strong>pato</strong> em cima do balão!</span>
+              <span>Clique no <strong>pato</strong> para selecionar!</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🧮</span>
-              <span>Forme trios: <strong>2 números + 1 operação</strong>. Qualquer outra combinação = Game Over!</span>
+              <span>Forme trios: <strong>2 números + 1 operação</strong>. Combinação errada = Game Over!</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">🎯</span>
-              <span>Limpe todos os 18 balões para avançar de fase!</span>
+              <span>Depois acerte o balão com o <strong>resultado correto</strong> da conta!</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xl">⚡</span>
-              <span>A cada fase os números ficam maiores e os balões mais rápidos!</span>
+              <span>Limpe todos os 18 balões para avançar de fase!</span>
             </div>
           </div>
 
@@ -395,26 +493,33 @@ const Acertar = () => {
             </motion.div>
           ) : (
             <motion.div
-              key={`sel-${selected.length}`}
+              key={`scr-${currentScreen}-${selected.length}`}
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 10, opacity: 0 }}
               className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/30 backdrop-blur-sm font-body text-xs sm:text-sm text-white font-semibold drop-shadow"
             >
-              🦆 Forme um trio! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}
+              {currentScreen === "board" && (
+                <span>🦆 Forme um trio! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}</span>
+              )}
+              {currentScreen === "answer" && currentEquation && (
+                <span>🎯 Qual é {currentEquation.num1} {currentEquation.operator} {currentEquation.num2}?</span>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Balloons */}
+      {/* Game area */}
       <div className="absolute inset-0 pt-20 sm:pt-24">
-        {!isGameOver && balloons.map((item, idx) => {
+
+        {/* BOARD SCREEN: equation balloons */}
+        {currentScreen === "board" && !isGameOver && balloons.map((item, idx) => {
           if (!visibleBalloonIds.has(item.id)) return null;
           return (
             <Balloon
-              key={`ph${phase}-${item.id}`}
-              id={`ph${phase}-${item.id}`}
+              key={`ph${phase}-b-${item.id}`}
+              id={`ph${phase}-b-${item.id}`}
               label={item.label}
               color={getBalloonColor(idx)}
               startX={item.startX}
@@ -423,14 +528,55 @@ const Acertar = () => {
               durationMs={currentSpeed.durationMs * item.speedMultiplier}
               swayAmount={item.swayAmount}
               swaySpeed={item.swaySpeed}
-              onDuckClick={() => handleDuckClick(item)}
-              onBalloonClick={() => handleBalloonClick(item)}
-              onEscaped={() => handleBalloonEscaped(item)}
+              onDuckClick={() => handleBoardDuckClick(item)}
+              onBalloonClick={() => handleBoardBalloonClick(item)}
+              onEscaped={() => handleBoardBalloonEscaped(item)}
               selected={selected.some(s => s.id === item.id)}
               hidden={hiddenBalloons.has(item.id)}
             />
           );
         })}
+
+        {/* ANSWER SCREEN: answer balloons + equation display */}
+        {currentScreen === "answer" && !isGameOver && (
+          <>
+            {/* Equation highlight */}
+            {currentEquation && (
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-20"
+              >
+                <div className="glass-card px-6 sm:px-8 py-3 sm:py-4 text-center">
+                  <div className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-white drop-shadow-lg">
+                    {currentEquation.num1} {currentEquation.operator} {currentEquation.num2} = ?
+                  </div>
+                  <p className="text-xs sm:text-sm text-white/70 font-body mt-1">Acerte o pato com a resposta certa!</p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Answer balloons */}
+            {answerBalloons.map((ab, idx) => (
+              <Balloon
+                key={`ph${phase}-a-${ab.id}`}
+                id={`ph${phase}-a-${ab.id}`}
+                label={ab.label}
+                color={getBalloonColor(idx + 10)}
+                startX={ab.startX}
+                startY={ab.startY}
+                direction={ab.direction}
+                durationMs={currentSpeed.durationMs * ab.speedMultiplier * 1.2}
+                swayAmount={ab.swayAmount}
+                swaySpeed={ab.swaySpeed}
+                onDuckClick={() => handleAnswerDuckClick(ab)}
+                onBalloonClick={() => handleAnswerBalloonClick(ab)}
+                onEscaped={() => handleAnswerBalloonEscaped(ab)}
+                hidden={hiddenAnswers.has(ab.id) || escapedAnswers.has(ab.id)}
+              />
+            ))}
+          </>
+        )}
 
         {/* Game Over overlay */}
         {isGameOver && (
@@ -444,7 +590,7 @@ const Acertar = () => {
               <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">Game Over!</h3>
               <p className="text-muted-foreground font-body mb-2 sm:mb-3 text-sm sm:text-base">{gameOverMsg}</p>
               <div className="text-sm font-body text-muted-foreground mb-4 sm:mb-6">
-                <span className="font-bold text-primary">Fase alcançada: {phase}</span> · <span className="font-bold text-accent">Pontos: {score}</span>
+                <span className="font-bold text-primary">Fase: {phase}</span> · <span className="font-bold text-accent">Pontos: {score}</span>
               </div>
               <div className="flex gap-3">
                 <motion.button
@@ -467,7 +613,7 @@ const Acertar = () => {
         )}
       </div>
 
-      {/* Progress bar showing remaining balloons */}
+      {/* Progress bar */}
       <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-white/20">
         <div
           className="h-full bg-primary transition-all duration-300"
