@@ -360,7 +360,8 @@ const Acertar = () => {
 
   if (gameState === "finished") {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center px-3 sm:px-4">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
+        <SkyBackground />
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
