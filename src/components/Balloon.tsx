@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type BalloonDirection = "up" | "left" | "right";
 
 interface BalloonProps {
+  id: string;
   label: string;
   color: string;
   startX: number;
@@ -17,7 +18,6 @@ interface BalloonProps {
   onEscaped?: () => void;
   selected?: boolean;
   correct?: boolean | null;
-  delay?: number;
   hidden?: boolean;
 }
 
@@ -48,34 +48,10 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
-function getAnimationProps(direction: BalloonDirection, startX: number, startY: number, swayAmount: number, swaySpeed: number) {
-  switch (direction) {
-    case "up":
-      return {
-        initial: { x: 0, y: 0 },
-        animate: { y: '-120vh', x: [0, swayAmount, 0, -swayAmount, 0] },
-        xTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-    case "left":
-      return {
-        initial: { x: 0, y: 0 },
-        animate: { x: '-120vw', y: [0, -swayAmount * 2, 0, swayAmount * 2, 0] },
-        xTransition: undefined,
-        ySwayTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-    case "right":
-      return {
-        initial: { x: 0, y: 0 },
-        animate: { x: '120vw', y: [0, -swayAmount * 2, 0, swayAmount * 2, 0] },
-        xTransition: undefined,
-        ySwayTransition: { duration: swaySpeed, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-  }
-}
-
-const Balloon = ({
-  label, color, startX, startY, direction, durationMs, swayAmount, swaySpeed,
-  onDuckClick, onBalloonClick, onEscaped, selected, correct, delay = 0, hidden
+/** Pure CSS balloon - no framer-motion for main travel animation */
+const Balloon = memo(({
+  id: balloonId, label, color, startX, startY, direction, durationMs, swayAmount, swaySpeed,
+  onDuckClick, onBalloonClick, onEscaped, selected, correct, hidden
 }: BalloonProps) => {
   const colors = BALLOON_COLORS[color] || BALLOON_COLORS.red;
   const [duckState, setDuckState] = useState<DuckState>("riding");
@@ -85,8 +61,7 @@ const Balloon = ({
   // Fire onEscaped when balloon exits visible area
   useEffect(() => {
     if (hidden || duckState !== "riding") return;
-    // Balloon exits at ~45% of duration
-    const escapeTime = delay * 1000 + durationMs * 0.45;
+    const escapeTime = durationMs * 0.5;
     const timer = setTimeout(() => {
       if (!escapedRef.current && onEscaped) {
         escapedRef.current = true;
@@ -94,121 +69,130 @@ const Balloon = ({
       }
     }, escapeTime);
     return () => clearTimeout(timer);
-  }, [durationMs, delay, hidden, onEscaped, duckState]);
+  }, [durationMs, hidden, onEscaped, duckState]);
 
   if (hidden) return null;
 
   const handleDuckClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (duckState !== "riding") return;
     setDuckState("falling");
     onDuckClick();
-    setTimeout(() => setDuckState("gone"), 1200);
+    setTimeout(() => setDuckState("gone"), 1000);
   };
 
   const handleBalloonClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (duckState !== "riding" || balloonGone) return;
     setDuckState("flyingAway");
     setBalloonGone(true);
     onBalloonClick();
-    setTimeout(() => setDuckState("gone"), 1000);
+    setTimeout(() => setDuckState("gone"), 800);
   };
 
-  const anim = getAnimationProps(direction, startX, startY, swayAmount, swaySpeed);
+  // CSS animation names unique to this balloon
+  const travelAnim = `travel-${balloonId}`;
+  const swayAnim = `sway-${balloonId}`;
 
-  const mainTransition: Record<string, any> = {};
-  if (direction === "up") {
-    mainTransition.y = { duration: durationMs / 1000, ease: 'linear', delay };
-    mainTransition.x = anim.xTransition;
-  } else if (direction === "left" || direction === "right") {
-    mainTransition.x = { duration: durationMs / 1000, ease: 'linear', delay };
-    mainTransition.y = anim.ySwayTransition;
+  // Build keyframes
+  let travelKeyframes = '';
+  let containerStyle: React.CSSProperties = {};
+
+  if (direction === 'up') {
+    containerStyle = { left: `${startX}%`, bottom: '-15%', transform: 'translateX(-50%)' };
+    travelKeyframes = `@keyframes ${travelAnim} { from { bottom: -15%; } to { bottom: 120%; } }`;
+  } else if (direction === 'left') {
+    containerStyle = { right: '-10%', top: `${startY}%` };
+    travelKeyframes = `@keyframes ${travelAnim} { from { right: -10%; } to { right: 120%; } }`;
+  } else {
+    containerStyle = { left: '-10%', top: `${startY}%` };
+    travelKeyframes = `@keyframes ${travelAnim} { from { left: -10%; } to { left: 120%; } }`;
   }
 
-  // Position: for "up", start from bottom. For left/right, start from the side.
-  const positionStyle: React.CSSProperties = {};
-  if (direction === "up") {
-    positionStyle.left = `${startX}%`;
-    positionStyle.bottom = `${startY}%`;
-    positionStyle.transform = 'translateX(-50%)';
-  } else if (direction === "left") {
-    positionStyle.right = '-5%';
-    positionStyle.top = `${startY}%`;
-  } else if (direction === "right") {
-    positionStyle.left = '-5%';
-    positionStyle.top = `${startY}%`;
-  }
+  const swayProp = direction === 'up' ? 'translateX' : 'translateY';
+  const swayKeyframes = `@keyframes ${swayAnim} { 0%, 100% { transform: ${swayProp}(0px); } 25% { transform: ${swayProp}(${swayAmount}px); } 75% { transform: ${swayProp}(${-swayAmount}px); } }`;
 
   return (
-    <motion.div
-      className="absolute select-none z-10"
-      style={positionStyle}
-      initial={anim.initial}
-      animate={anim.animate}
-      transition={mainTransition}
-    >
-      {/* Duck */}
-      <AnimatePresence>
-        {duckState !== "gone" && (
-          <motion.div
-            className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
-            onClick={handleDuckClick}
-            onTouchEnd={handleDuckClick}
-            whileHover={duckState === "riding" ? { scale: 1.3 } : undefined}
-            whileTap={duckState === "riding" ? { scale: 0.8 } : undefined}
-            title="Clique no pato!"
-            animate={
-              duckState === "falling"
-                ? { y: [0, -20, 300], rotate: [0, -30, 180], opacity: [1, 1, 0] }
-                : duckState === "flyingAway"
-                ? { y: -200, x: (Math.random() > 0.5 ? 150 : -150), rotate: 20, opacity: 0, scale: 0.5 }
-                : {}
-            }
-            transition={
-              duckState === "falling"
-                ? { duration: 1.2, ease: "easeIn" }
-                : duckState === "flyingAway"
-                ? { duration: 0.8, ease: "easeOut" }
-                : undefined
-            }
-          >
-            {duckState === "falling" ? "😵" : "🦆"}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Balloon body */}
-      {!balloonGone && (
-        <motion.div
-          className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 lg:w-24 lg:h-28 rounded-full flex items-center justify-center transition-all cursor-pointer"
-          onClick={handleBalloonClick}
-          onTouchEnd={handleBalloonClick}
+    <>
+      <style>{travelKeyframes}{swayKeyframes}</style>
+      <div
+        className="absolute select-none z-10"
+        style={{
+          ...containerStyle,
+          animation: `${travelAnim} ${durationMs / 1000}s linear forwards`,
+        }}
+      >
+        <div
           style={{
-            background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
-            boxShadow: selected
-              ? `0 0 20px ${colors.balloon}, 0 0 40px ${colors.balloon}`
-              : `0 4px 15px rgba(0,0,0,0.3)`,
-            border: selected ? '3px solid white' : correct === true ? '3px solid hsl(140 70% 50%)' : correct === false ? '3px solid hsl(0 70% 50%)' : '2px solid rgba(255,255,255,0.2)',
-            opacity: correct === false ? 0.5 : 1,
+            animation: `${swayAnim} ${swaySpeed}s ease-in-out infinite`,
           }}
         >
-          <div
-            className="absolute top-2 left-3 w-3 h-4 sm:w-4 sm:h-6 rounded-full opacity-40"
-            style={{ background: 'white' }}
-          />
-          <span className="text-white font-display font-bold text-base sm:text-lg md:text-xl lg:text-2xl drop-shadow-lg select-none">
-            {label}
-          </span>
-        </motion.div>
-      )}
+          {/* Duck */}
+          <AnimatePresence>
+            {duckState !== "gone" && (
+              <motion.div
+                className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
+                onClick={handleDuckClick}
+                onTouchStart={handleDuckClick}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                animate={
+                  duckState === "falling"
+                    ? { y: [0, -15, 200], rotate: [0, -20, 120], opacity: [1, 1, 0] }
+                    : duckState === "flyingAway"
+                    ? { y: -150, x: (Math.random() > 0.5 ? 100 : -100), opacity: 0, scale: 0.5 }
+                    : { scale: [1, 1.05, 1] }
+                }
+                transition={
+                  duckState === "falling"
+                    ? { duration: 0.8, ease: "easeIn" }
+                    : duckState === "flyingAway"
+                    ? { duration: 0.6, ease: "easeOut" }
+                    : { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                }
+              >
+                {duckState === "falling" ? "😵" : "🦆"}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      {/* String */}
-      {!balloonGone && (
-        <div className="w-[2px] h-5 sm:h-6 md:h-8 mx-auto" style={{ background: colors.balloon }} />
-      )}
-    </motion.div>
+          {/* Balloon body */}
+          {!balloonGone && (
+            <div
+              className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+              onClick={handleBalloonClick}
+              onTouchStart={handleBalloonClick}
+              style={{
+                WebkitTapHighlightColor: 'transparent',
+                background: `radial-gradient(circle at 35% 30%, ${colors.highlight}, ${colors.balloon})`,
+                boxShadow: selected
+                  ? `0 0 15px ${colors.balloon}`
+                  : `0 4px 10px rgba(0,0,0,0.25)`,
+                border: selected ? '3px solid white' : correct === true ? '3px solid hsl(140 70% 50%)' : correct === false ? '3px solid hsl(0 70% 50%)' : '2px solid rgba(255,255,255,0.15)',
+                opacity: correct === false ? 0.5 : 1,
+              }}
+            >
+              <div
+                className="absolute top-2 left-3 w-3 h-4 sm:w-4 sm:h-5 rounded-full opacity-30"
+                style={{ background: 'white' }}
+              />
+              <span className="text-white font-display font-bold text-sm sm:text-base md:text-lg drop-shadow-lg select-none">
+                {label}
+              </span>
+            </div>
+          )}
+
+          {/* String */}
+          {!balloonGone && (
+            <div className="w-[2px] h-4 sm:h-5 md:h-6 mx-auto" style={{ background: colors.balloon }} />
+          )}
+        </div>
+      </div>
+    </>
   );
-};
+});
+
+Balloon.displayName = 'Balloon';
 
 export default Balloon;
