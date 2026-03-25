@@ -58,10 +58,10 @@ const Balloon = memo(({
   const [balloonGone, setBalloonGone] = useState(false);
   const escapedRef = useRef(false);
 
-  // Fire onEscaped when balloon exits visible area
+  // Fire onEscaped when balloon exits visible area - use 35% of duration for faster detection
   useEffect(() => {
     if (hidden || duckState !== "riding") return;
-    const escapeTime = durationMs * 0.5;
+    const escapeTime = durationMs * 0.35;
     const timer = setTimeout(() => {
       if (!escapedRef.current && onEscaped) {
         escapedRef.current = true;

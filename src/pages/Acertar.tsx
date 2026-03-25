@@ -266,6 +266,15 @@ const Acertar = () => {
     }
   }, [round]);
 
+  // Periodic safety check for game over - runs every 500ms during equation phase
+  useEffect(() => {
+    if (gameState !== "playing" || countdown > 0) return;
+    const interval = setInterval(() => {
+      checkCanComplete();
+    }, 500);
+    return () => clearInterval(interval);
+  }, [gameState, countdown, checkCanComplete]);
+
   const handleAnswerBalloonClick = useCallback((value: number) => {
     if (phaseRef.current !== "answer") return;
     setHiddenAnswers(prev => {
@@ -282,10 +291,10 @@ const Acertar = () => {
   }, [answerOptions, triggerGameOver]);
 
   const answerPositions = [
-    { startX: 15, startY: -10 },
-    { startX: 40, startY: -5 },
-    { startX: 65, startY: -8 },
-    { startX: 88, startY: -12 },
+    { startX: 12, startY: -10 },
+    { startX: 32, startY: -5 },
+    { startX: 52, startY: -8 },
+    { startX: 72, startY: -12 },
   ];
 
   const totalPoints = scores.reduce((a, s) => a + s.points, 0);

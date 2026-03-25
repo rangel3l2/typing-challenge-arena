@@ -46,16 +46,17 @@ function randomDirection(): BalloonDirection {
 }
 
 function randomBalloonMovement(direction: BalloonDirection): { startX: number; startY: number; swayAmount: number; swaySpeed: number; speedMultiplier: number } {
-  const swayAmount = randFloat(8, 25);
+  const swayAmount = randFloat(6, 18);
   const swaySpeed = randFloat(2, 5);
   const speedMultiplier = randFloat(0.7, 1.3);
 
   if (direction === 'up') {
-    return { startX: randInt(8, 88), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
+    // Keep balloons well within screen: 10-75% to account for balloon width + sway
+    return { startX: randInt(12, 72), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
   } else if (direction === 'left') {
-    return { startX: 0, startY: randInt(20, 70), swayAmount, swaySpeed, speedMultiplier };
+    return { startX: 0, startY: randInt(25, 65), swayAmount, swaySpeed, speedMultiplier };
   } else {
-    return { startX: 0, startY: randInt(20, 70), swayAmount, swaySpeed, speedMultiplier };
+    return { startX: 0, startY: randInt(25, 65), swayAmount, swaySpeed, speedMultiplier };
   }
 }
 
