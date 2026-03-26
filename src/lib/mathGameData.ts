@@ -14,6 +14,14 @@ export interface BalloonItem {
   swaySpeed: number;
   speedMultiplier: number;
   waveIndex: number;
+  /** Bézier curve amplitude – how much the path bends perpendicular to travel */
+  curveAmplitude: number;
+  /** Phase offset (radians) for the sine perturbation layered on top */
+  sinePhase: number;
+  /** Sine frequency multiplier for organic wobble */
+  sineFreq: number;
+  /** Delay in ms within the wave so balloons don't launch at exact same instant */
+  staggerMs: number;
 }
 
 export interface AnswerBalloon {
@@ -26,6 +34,10 @@ export interface AnswerBalloon {
   swayAmount: number;
   swaySpeed: number;
   speedMultiplier: number;
+  curveAmplitude: number;
+  sinePhase: number;
+  sineFreq: number;
+  staggerMs: number;
 }
 
 function evaluate(a: number, b: number, op: Operator): number {
@@ -44,42 +56,71 @@ function randFloat(min: number, max: number) {
   return Math.random() * (max - min) + min;
 }
 
+// ─── Advanced Flight Physics ───────────────────────────────────────────
+// Balloons come from bottom, left, and right (never from above).
+// Each balloon gets a Bézier-curved path with sine perturbation for organic motion.
+// Within each wave, balloons are placed in non-overlapping "lanes" along the
+// perpendicular axis to their travel direction, guaranteeing ≥50% overlap-free travel.
+
+/** Weighted random direction: 50% up, 25% left-to-right, 25% right-to-left */
 function randomDirection(): BalloonDirection {
-  // Force 'up' only – ensures clean spacing in a single axis
-  return 'up';
+  const r = Math.random();
+  if (r < 0.50) return 'up';
+  if (r < 0.75) return 'right'; // enters from left, moves right
+  return 'left';                // enters from right, moves left
 }
 
 /**
- * Distribute `count` balloons across the horizontal range [minX, maxX]
- * so they never overlap. Each balloon gets a dedicated lane with small jitter.
+ * Distribute `count` items into evenly-spaced lanes within [min, max].
+ * Each lane gets a small random jitter so positions look natural but never overlap.
+ * The minimum guaranteed gap ≈ laneWidth * 0.6 (enough to keep balloons apart for ≥50% of travel).
  */
-function spacedPositions(count: number, minX: number, maxX: number): number[] {
+function assignLanes(count: number, min: number, max: number): number[] {
   if (count <= 0) return [];
-  if (count === 1) return [Math.round((minX + maxX) / 2)];
-
-  const laneWidth = (maxX - minX) / count;
+  if (count === 1) return [Math.round((min + max) / 2 + randFloat(-3, 3))];
+  const laneWidth = (max - min) / count;
   const positions: number[] = [];
   for (let i = 0; i < count; i++) {
-    const center = minX + laneWidth * i + laneWidth / 2;
-    const jitter = randFloat(-laneWidth * 0.2, laneWidth * 0.2);
-    positions.push(Math.round(Math.max(minX, Math.min(maxX, center + jitter))));
+    const center = min + laneWidth * (i + 0.5);
+    // Jitter up to ±15% of lane width keeps balloons within their lane
+    const jitter = randFloat(-laneWidth * 0.15, laneWidth * 0.15);
+    positions.push(Math.round(Math.max(min, Math.min(max, center + jitter))));
   }
   return shuffle(positions);
 }
 
-function randomBalloonMovement(direction: BalloonDirection) {
-  const swayAmount = randFloat(4, 10);
-  const swaySpeed = randFloat(2, 5);
-  const speedMultiplier = randFloat(0.85, 1.15);
+/** Generate organic flight parameters for a single balloon */
+function generateFlightParams(direction: BalloonDirection, lanePos: number) {
+  // Perpendicular sway (sine wobble layered on the Bézier curve)
+  const swayAmount = randFloat(8, 20);
+  const swaySpeed = randFloat(2.5, 5);
 
-  // startX will be overridden by spacedPositions when used in waves
+  // Speed variation: not too extreme so spacing holds
+  const speedMultiplier = randFloat(0.82, 1.18);
+
+  // Bézier curve amplitude: how far the path bends (in %) perpendicular to travel
+  const curveAmplitude = randFloat(5, 18) * (Math.random() > 0.5 ? 1 : -1);
+
+  // Sine perturbation params for micro-wobble
+  const sinePhase = randFloat(0, Math.PI * 2);
+  const sineFreq = randFloat(1.5, 3.5);
+
+  let startX: number, startY: number;
+
   if (direction === 'up') {
-    return { startX: randInt(10, 80), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
+    startX = lanePos;             // lane assigns horizontal position
+    startY = randInt(-18, -8);    // starts below screen
   } else if (direction === 'left') {
-    return { startX: 0, startY: randInt(25, 65), swayAmount, swaySpeed, speedMultiplier };
+    // Enters from right edge, travels left
+    startX = 105;                 // off-screen right
+    startY = lanePos;             // lane assigns vertical position
   } else {
-    return { startX: 0, startY: randInt(25, 65), swayAmount, swaySpeed, speedMultiplier };
+    // Enters from left edge, travels right
+    startX = -10;                 // off-screen left
+    startY = lanePos;             // lane assigns vertical position
   }
+
+  return { startX, startY, swayAmount, swaySpeed, speedMultiplier, curveAmplitude, sinePhase, sineFreq };
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -100,19 +141,6 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
   const maxVal = getMaxValueForPhase(phase);
   const items: BalloonItem[] = [];
   let id = 0;
-
-  function makeBalloon(label: string, type: 'number' | 'operator', value: number | Operator, wave: number): BalloonItem {
-    const dir = randomDirection();
-    const mov = randomBalloonMovement(dir);
-    return {
-      id: id++, label, type, value,
-      direction: dir,
-      startX: mov.startX, startY: mov.startY,
-      swayAmount: mov.swayAmount, swaySpeed: mov.swaySpeed,
-      speedMultiplier: mov.speedMultiplier,
-      waveIndex: wave,
-    };
-  }
 
   // 12 unique numbers
   const usedNums = new Set<number>();
@@ -144,22 +172,54 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
   shuffle(allItems);
 
   const ITEMS_PER_WAVE = 4;
-  for (let i = 0; i < allItems.length; i++) {
-    const wave = Math.floor(i / ITEMS_PER_WAVE);
-    const item = allItems[i];
-    items.push(makeBalloon(item.label, item.type, item.value, wave));
-  }
 
-  // Assign spaced horizontal positions per wave so balloons don't overlap
-  const waves = new Map<number, BalloonItem[]>();
-  for (const b of items) {
-    if (!waves.has(b.waveIndex)) waves.set(b.waveIndex, []);
-    waves.get(b.waveIndex)!.push(b);
-  }
-  for (const [, waveBalloons] of waves) {
-    const positions = spacedPositions(waveBalloons.length, 8, 88);
-    for (let i = 0; i < waveBalloons.length; i++) {
-      waveBalloons[i].startX = positions[i];
+  // Group into waves and assign directions + lanes per wave
+  const totalWaves = Math.ceil(allItems.length / ITEMS_PER_WAVE);
+  for (let w = 0; w < totalWaves; w++) {
+    const waveItems = allItems.slice(w * ITEMS_PER_WAVE, (w + 1) * ITEMS_PER_WAVE);
+
+    // Decide directions for this wave's balloons
+    const directions: BalloonDirection[] = waveItems.map(() => randomDirection());
+
+    // Group by direction to assign lanes per direction axis
+    const byDir: Record<BalloonDirection, number[]> = { up: [], left: [], right: [] };
+    directions.forEach((d, i) => byDir[d].push(i));
+
+    // Assign lanes: 'up' gets horizontal lanes, 'left'/'right' get vertical lanes
+    const upLanes = assignLanes(byDir.up.length, 8, 88);
+    const leftLanes = assignLanes(byDir.left.length, 15, 75);
+    const rightLanes = assignLanes(byDir.right.length, 15, 75);
+
+    let upIdx = 0, leftIdx = 0, rightIdx = 0;
+
+    for (let i = 0; i < waveItems.length; i++) {
+      const dir = directions[i];
+      let lanePos: number;
+      if (dir === 'up') lanePos = upLanes[upIdx++];
+      else if (dir === 'left') lanePos = leftLanes[leftIdx++];
+      else lanePos = rightLanes[rightIdx++];
+
+      const flight = generateFlightParams(dir, lanePos);
+      const item = waveItems[i];
+
+      items.push({
+        id: id++,
+        label: item.label,
+        type: item.type,
+        value: item.value,
+        direction: dir,
+        startX: flight.startX,
+        startY: flight.startY,
+        swayAmount: flight.swayAmount,
+        swaySpeed: flight.swaySpeed,
+        speedMultiplier: flight.speedMultiplier,
+        curveAmplitude: flight.curveAmplitude,
+        sinePhase: flight.sinePhase,
+        sineFreq: flight.sineFreq,
+        waveIndex: w,
+        // Stagger within wave: 0–600ms offset so they don't launch simultaneously
+        staggerMs: i * randInt(100, 200),
+      });
     }
   }
 
@@ -178,20 +238,39 @@ export function generateAnswerBalloons(correctAnswer: number, count: number = 4)
   }
 
   const valuesArr = shuffle(Array.from(values));
-  const positions = spacedPositions(valuesArr.length, 10, 85);
+
+  // Assign directions and lanes
+  const directions: BalloonDirection[] = valuesArr.map(() => randomDirection());
+  const byDir: Record<BalloonDirection, number[]> = { up: [], left: [], right: [] };
+  directions.forEach((d, i) => byDir[d].push(i));
+
+  const upLanes = assignLanes(byDir.up.length, 10, 85);
+  const leftLanes = assignLanes(byDir.left.length, 20, 70);
+  const rightLanes = assignLanes(byDir.right.length, 20, 70);
+  let upIdx = 0, leftIdx = 0, rightIdx = 0;
+
   return valuesArr.map((val, idx) => {
-    const dir = randomDirection();
-    const mov = randomBalloonMovement(dir);
+    const dir = directions[idx];
+    let lanePos: number;
+    if (dir === 'up') lanePos = upLanes[upIdx++];
+    else if (dir === 'left') lanePos = leftLanes[leftIdx++];
+    else lanePos = rightLanes[rightIdx++];
+
+    const flight = generateFlightParams(dir, lanePos);
     return {
       id: idx,
       label: String(val),
       value: val,
       direction: dir,
-      startX: positions[idx],
-      startY: mov.startY,
-      swayAmount: mov.swayAmount,
-      swaySpeed: mov.swaySpeed,
-      speedMultiplier: mov.speedMultiplier,
+      startX: flight.startX,
+      startY: flight.startY,
+      swayAmount: flight.swayAmount,
+      swaySpeed: flight.swaySpeed,
+      speedMultiplier: flight.speedMultiplier,
+      curveAmplitude: flight.curveAmplitude,
+      sinePhase: flight.sinePhase,
+      sineFreq: flight.sineFreq,
+      staggerMs: idx * randInt(120, 250),
     };
   });
 }
