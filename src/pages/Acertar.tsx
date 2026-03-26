@@ -70,6 +70,44 @@ const Acertar = () => {
   const escapedAnswersRef = useRef<Set<number>>(new Set());
   const answerBalloonsRef = useRef<AnswerBalloon[]>([]);
   const waveTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const interactionLockRef = useRef(false);
+  const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearUiTimer = useCallback((timerRef: React.MutableRefObject<NodeJS.Timeout | null>) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const setTemporaryFeedback = useCallback((message: string, duration = 1500) => {
+    setFeedbackMsg(message);
+    clearUiTimer(feedbackTimerRef);
+    feedbackTimerRef.current = setTimeout(() => {
+      setFeedbackMsg("");
+      feedbackTimerRef.current = null;
+    }, duration);
+  }, [clearUiTimer]);
+
+  const unlockInteraction = useCallback(() => {
+    interactionLockRef.current = false;
+  }, []);
+
+  const lockInteractionFor = useCallback((duration = 0) => {
+    interactionLockRef.current = true;
+    clearUiTimer(transitionTimerRef);
+
+    if (duration <= 0) {
+      transitionTimerRef.current = null;
+      return;
+    }
+
+    transitionTimerRef.current = setTimeout(() => {
+      unlockInteraction();
+      transitionTimerRef.current = null;
+    }, duration);
+  }, [clearUiTimer, unlockInteraction]);
 
   useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { hiddenRef.current = hiddenBalloons; }, [hiddenBalloons]);
@@ -107,12 +145,13 @@ const Acertar = () => {
   const triggerGameOver = useCallback((customMsg?: string) => {
     if (gameOverRef.current) return;
     gameOverRef.current = true;
+    lockInteractionFor();
     const msg = customMsg || FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
     setGameOverMsg(msg);
     setIsGameOver(true);
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
-  }, []);
+  }, [lockInteractionFor]);
 
   const checkCanCompleteBoard = useCallback(() => {
     if (gameOverRef.current || screenRef.current !== "board") return;
@@ -148,6 +187,9 @@ const Acertar = () => {
 
   const startPhase = useCallback(() => {
     if (gameOverRef.current) return;
+    unlockInteraction();
+    clearUiTimer(feedbackTimerRef);
+    clearUiTimer(transitionTimerRef);
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
 
@@ -164,6 +206,8 @@ const Acertar = () => {
     setPendingTrioIds([]);
     setHiddenAnswers(new Set());
     setEscapedAnswers(new Set());
+    setAnswerBalloons([]);
+    setVisibleBalloonIds(new Set());
 
     // Spawn in waves of 4
     const totalWaves = Math.ceil(bl.length / 4);
@@ -183,7 +227,15 @@ const Acertar = () => {
       }, w * WAVE_DELAY * 1000);
       waveTimersRef.current.push(timer);
     }
-  }, [phase]);
+  }, [phase, clearUiTimer, unlockInteraction]);
+
+  useEffect(() => {
+    return () => {
+      waveTimersRef.current.forEach(t => clearTimeout(t));
+      clearUiTimer(feedbackTimerRef);
+      clearUiTimer(transitionTimerRef);
+    };
+  }, [clearUiTimer]);
 
   // When phase changes after initial load
   useEffect(() => {
@@ -194,7 +246,7 @@ const Acertar = () => {
 
   // === BOARD: Duck click (select for trio) ===
   const handleBoardDuckClick = useCallback((item: BalloonItem) => {
-    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id)) return;
+    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id) || interactionLockRef.current) return;
     if (selectedRef.current.find(s => s.id === item.id)) return;
 
     const currentSelected = selectedRef.current;
@@ -204,6 +256,8 @@ const Acertar = () => {
     setSelected(newSelected);
 
     if (newSelected.length === 3) {
+      lockInteractionFor();
+
       if (!isValidTrio(newSelected)) {
         triggerGameOver("Combinação inválida! Precisa ser 2 números e 1 operação! 🦆🤣");
         return;
@@ -227,26 +281,23 @@ const Acertar = () => {
       setHiddenAnswers(new Set());
       setEscapedAnswers(new Set());
 
-      // Short delay for visual feedback then switch screen
-      setTimeout(() => {
-        setCurrentScreen("answer");
-      }, 500);
+      setCurrentScreen("answer");
+      unlockInteraction();
     }
-  }, [triggerGameOver]);
+  }, [lockInteractionFor, triggerGameOver, unlockInteraction]);
 
   // === BOARD: Balloon click (penalty) ===
   const handleBoardBalloonClick = useCallback((item: BalloonItem) => {
-    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id)) return;
+    if (gameOverRef.current || screenRef.current !== "board" || hiddenRef.current.has(item.id) || interactionLockRef.current) return;
     setHiddenBalloons(prev => {
       const next = new Set([...prev, item.id]);
       hiddenRef.current = next;
       return next;
     });
     setPhasePoints(prev => Math.max(0, prev - 2));
-    setFeedbackMsg("💥 Acerte o pato, não o balão! -2 pontos");
-    setTimeout(() => setFeedbackMsg(""), 1500);
+    setTemporaryFeedback("💥 Acerte o pato, não o balão! -2 pontos");
     queueMicrotask(checkCanCompleteBoard);
-  }, [checkCanCompleteBoard]);
+  }, [checkCanCompleteBoard, setTemporaryFeedback]);
 
   // === BOARD: Balloon escaped ===
   const handleBoardBalloonEscaped = useCallback((item: BalloonItem) => {
@@ -261,8 +312,10 @@ const Acertar = () => {
 
   // === ANSWER: Duck click (pick answer) ===
   const handleAnswerDuckClick = useCallback((ab: AnswerBalloon) => {
-    if (gameOverRef.current || screenRef.current !== "answer" || !currentEquation) return;
+    if (gameOverRef.current || screenRef.current !== "answer" || !currentEquation || interactionLockRef.current) return;
     if (hiddenAnswersRef.current.has(ab.id) || escapedAnswersRef.current.has(ab.id)) return;
+
+    lockInteractionFor();
 
     if (ab.value === currentEquation.answer) {
       // CORRECT! Burst the pending trio and return to board
@@ -279,11 +332,13 @@ const Acertar = () => {
       });
 
       // Return to board after brief delay
-      setTimeout(() => {
+      clearUiTimer(transitionTimerRef);
+      transitionTimerRef.current = setTimeout(() => {
         setSelected([]);
         setCurrentScreen("board");
         setCurrentEquation(null);
         setPendingTrioIds([]);
+        setAnswerBalloons([]);
         setFeedbackMsg("");
 
         // Check if board is cleared
@@ -294,10 +349,11 @@ const Acertar = () => {
 
         if (remaining.length === 0) {
           setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
-          setTimeout(() => {
+          transitionTimerRef.current = setTimeout(() => {
             setFeedbackMsg("");
             setPhase(p => p + 1);
             setPhasePoints(10);
+            transitionTimerRef.current = null;
           }, 1500);
         } else {
           // Resume wave timers for remaining balloons
@@ -307,18 +363,22 @@ const Acertar = () => {
             if (!hid.has(b.id) && !esc.has(b.id)) allVisible.add(b.id);
           });
           setVisibleBalloonIds(allVisible);
+          unlockInteraction();
           queueMicrotask(checkCanCompleteBoard);
+        }
+        if (remaining.length === 0) {
+          interactionLockRef.current = true;
         }
       }, 1000);
     } else {
       // WRONG answer — lose all phase points, game over
       triggerGameOver(`Resposta errada! ${currentEquation.num1} ${currentEquation.operator} ${currentEquation.num2} = ${currentEquation.answer}, não ${ab.value}! 🦆😵`);
     }
-  }, [currentEquation, phasePoints, pendingTrioIds, phase, triggerGameOver, checkCanCompleteBoard]);
+  }, [currentEquation, phasePoints, pendingTrioIds, phase, triggerGameOver, checkCanCompleteBoard, clearUiTimer, lockInteractionFor, unlockInteraction]);
 
   // === ANSWER: Balloon click (penalty) ===
   const handleAnswerBalloonClick = useCallback((ab: AnswerBalloon) => {
-    if (gameOverRef.current || screenRef.current !== "answer") return;
+    if (gameOverRef.current || screenRef.current !== "answer" || interactionLockRef.current) return;
     if (hiddenAnswersRef.current.has(ab.id)) return;
     setHiddenAnswers(prev => {
       const next = new Set([...prev, ab.id]);
@@ -326,10 +386,9 @@ const Acertar = () => {
       return next;
     });
     setPhasePoints(prev => Math.max(0, prev - 2));
-    setFeedbackMsg("💥 Acerte o pato! -2 pontos");
-    setTimeout(() => setFeedbackMsg(""), 1500);
+    setTemporaryFeedback("💥 Acerte o pato! -2 pontos");
     queueMicrotask(checkAnswerScreen);
-  }, [checkAnswerScreen]);
+  }, [checkAnswerScreen, setTemporaryFeedback]);
 
   // === ANSWER: Balloon escaped ===
   const handleAnswerBalloonEscaped = useCallback((ab: AnswerBalloon) => {
