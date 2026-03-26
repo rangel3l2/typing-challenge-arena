@@ -13,6 +13,10 @@ interface BalloonProps {
   durationMs: number;
   swayAmount: number;
   swaySpeed: number;
+  curveAmplitude?: number;
+  sinePhase?: number;
+  sineFreq?: number;
+  staggerMs?: number;
   onDuckClick: () => void;
   onBalloonClick: () => void;
   onEscaped?: () => void;
@@ -48,6 +52,53 @@ export function getBalloonColor(index: number) {
 
 type DuckState = "riding" | "falling" | "flyingAway" | "gone";
 
+// ─── Bézier + Sine curved path keyframe generator ──────────────────────
+// Generates multi-step CSS keyframes following a quadratic Bézier curve
+// with sine perturbation for organic, game-quality balloon flight.
+function generateCurvedKeyframes(
+  animName: string,
+  direction: BalloonDirection,
+  startX: number,
+  startY: number,
+  curveAmp: number,
+  sinePh: number,
+  sineFr: number,
+): { keyframes: string; initialStyle: React.CSSProperties } {
+  const STEPS = 16;
+  let p0x: number, p0y: number, p1x: number, p1y: number, p2x: number, p2y: number;
+
+  if (direction === 'up') {
+    p0x = startX; p0y = 115;
+    p2x = startX; p2y = -20;
+    p1x = startX + curveAmp; p1y = 48;
+  } else if (direction === 'left') {
+    p0x = 108; p0y = startY;
+    p2x = -15; p2y = startY;
+    p1x = 50; p1y = startY + curveAmp;
+  } else {
+    p0x = -12; p0y = startY;
+    p2x = 112; p2y = startY;
+    p1x = 50; p1y = startY + curveAmp;
+  }
+
+  let frames = '';
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS;
+    const pct = Math.round(t * 100);
+    const bezX = (1 - t) ** 2 * p0x + 2 * (1 - t) * t * p1x + t ** 2 * p2x;
+    const bezY = (1 - t) ** 2 * p0y + 2 * (1 - t) * t * p1y + t ** 2 * p2y;
+    const sinV = Math.sin(t * Math.PI * sineFr + sinePh) * 2.5;
+    const x = direction === 'up' ? bezX + sinV : bezX;
+    const y = direction === 'up' ? bezY : bezY + sinV;
+    frames += `${pct}%{left:${x.toFixed(1)}%;top:${y.toFixed(1)}%}`;
+  }
+
+  return {
+    keyframes: `@keyframes ${animName}{${frames}}`,
+    initialStyle: { left: `${p0x}%`, top: `${p0y}%`, transform: 'translate(-50%,-50%)' },
+  };
+}
+
 const BalloonComponent = ({
   id: balloonId,
   label,
@@ -58,6 +109,10 @@ const BalloonComponent = ({
   durationMs,
   swayAmount,
   swaySpeed,
+  curveAmplitude = 0,
+  sinePhase = 0,
+  sineFreq = 2,
+  staggerMs = 0,
   onDuckClick,
   onBalloonClick,
   onEscaped,
@@ -107,22 +162,16 @@ const BalloonComponent = ({
   const travelAnim = `travel-${balloonId}`;
   const swayAnim = `sway-${balloonId}`;
 
-  let travelKeyframes = '';
-  let containerStyle: React.CSSProperties = {};
-
-  if (direction === 'up') {
-    containerStyle = { left: `${startX}%`, bottom: '-15%', transform: 'translateX(-50%)' };
-    travelKeyframes = `@keyframes ${travelAnim} { from { bottom: -15%; } to { bottom: 120%; } }`;
-  } else if (direction === 'left') {
-    containerStyle = { right: '-10%', top: `${startY}%` };
-    travelKeyframes = `@keyframes ${travelAnim} { from { right: -10%; } to { right: 120%; } }`;
-  } else {
-    containerStyle = { left: '-10%', top: `${startY}%` };
-    travelKeyframes = `@keyframes ${travelAnim} { from { left: -10%; } to { left: 120%; } }`;
-  }
+  const { keyframes: travelKeyframes, initialStyle: containerStyle } = generateCurvedKeyframes(
+    travelAnim, direction, startX, startY, curveAmplitude, sinePhase, sineFreq,
+  );
 
   const swayProp = direction === 'up' ? 'translateX' : 'translateY';
-  const swayKeyframes = `@keyframes ${swayAnim} { 0%, 100% { transform: ${swayProp}(0px); } 25% { transform: ${swayProp}(${swayAmount}px); } 75% { transform: ${swayProp}(${-swayAmount}px); } }`;
+  const sa = Math.abs(swayAmount);
+  const swayKeyframes = `@keyframes ${swayAnim}{0%,100%{transform:translate(-50%,-50%) ${swayProp}(0px)}20%{transform:translate(-50%,-50%) ${swayProp}(${sa * 0.6}px)}40%{transform:translate(-50%,-50%) ${swayProp}(${-sa * 0.3}px)}60%{transform:translate(-50%,-50%) ${swayProp}(${sa}px)}80%{transform:translate(-50%,-50%) ${swayProp}(${-sa * 0.7}px)}}`;
+
+  const totalDur = durationMs / 1000;
+  const delayS = staggerMs / 1000;
 
   return (
     <>
@@ -131,7 +180,7 @@ const BalloonComponent = ({
         className="absolute select-none z-10 will-change-transform"
         style={{
           ...containerStyle,
-          animation: `${travelAnim} ${durationMs / 1000}s linear forwards`,
+          animation: `${travelAnim} ${totalDur}s cubic-bezier(0.25,0.1,0.25,1) ${delayS}s both`,
           touchAction: "manipulation",
         }}
         onAnimationEnd={handleTravelAnimationEnd}
@@ -216,7 +265,11 @@ const Balloon = memo(BalloonComponent, (prev, next) => {
     prev.swaySpeed === next.swaySpeed &&
     prev.selected === next.selected &&
     prev.correct === next.correct &&
-    prev.hidden === next.hidden
+  prev.hidden === next.hidden &&
+  prev.curveAmplitude === next.curveAmplitude &&
+  prev.sinePhase === next.sinePhase &&
+  prev.sineFreq === next.sineFreq &&
+  prev.staggerMs === next.staggerMs
   );
 });
 
