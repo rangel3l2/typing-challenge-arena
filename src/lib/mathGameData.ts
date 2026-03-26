@@ -45,17 +45,36 @@ function randFloat(min: number, max: number) {
 }
 
 function randomDirection(): BalloonDirection {
-  const dirs: BalloonDirection[] = ['up', 'up', 'up', 'left', 'right'];
-  return dirs[randInt(0, dirs.length - 1)];
+  // Force 'up' only – ensures clean spacing in a single axis
+  return 'up';
+}
+
+/**
+ * Distribute `count` balloons across the horizontal range [minX, maxX]
+ * so they never overlap. Each balloon gets a dedicated lane with small jitter.
+ */
+function spacedPositions(count: number, minX: number, maxX: number): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [Math.round((minX + maxX) / 2)];
+
+  const laneWidth = (maxX - minX) / count;
+  const positions: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const center = minX + laneWidth * i + laneWidth / 2;
+    const jitter = randFloat(-laneWidth * 0.2, laneWidth * 0.2);
+    positions.push(Math.round(Math.max(minX, Math.min(maxX, center + jitter))));
+  }
+  return shuffle(positions);
 }
 
 function randomBalloonMovement(direction: BalloonDirection) {
-  const swayAmount = randFloat(6, 18);
+  const swayAmount = randFloat(4, 10);
   const swaySpeed = randFloat(2, 5);
-  const speedMultiplier = randFloat(0.7, 1.3);
+  const speedMultiplier = randFloat(0.85, 1.15);
 
+  // startX will be overridden by spacedPositions when used in waves
   if (direction === 'up') {
-    return { startX: randInt(12, 72), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
+    return { startX: randInt(10, 80), startY: randInt(-15, -5), swayAmount, swaySpeed, speedMultiplier };
   } else if (direction === 'left') {
     return { startX: 0, startY: randInt(25, 65), swayAmount, swaySpeed, speedMultiplier };
   } else {
@@ -131,6 +150,19 @@ export function generatePhaseBalloons(phase: number): BalloonItem[] {
     items.push(makeBalloon(item.label, item.type, item.value, wave));
   }
 
+  // Assign spaced horizontal positions per wave so balloons don't overlap
+  const waves = new Map<number, BalloonItem[]>();
+  for (const b of items) {
+    if (!waves.has(b.waveIndex)) waves.set(b.waveIndex, []);
+    waves.get(b.waveIndex)!.push(b);
+  }
+  for (const [, waveBalloons] of waves) {
+    const positions = spacedPositions(waveBalloons.length, 8, 88);
+    for (let i = 0; i < waveBalloons.length; i++) {
+      waveBalloons[i].startX = positions[i];
+    }
+  }
+
   return items;
 }
 
@@ -145,8 +177,9 @@ export function generateAnswerBalloons(correctAnswer: number, count: number = 4)
     if (wrong !== correctAnswer && wrong >= 0) values.add(wrong);
   }
 
-  const shuffled = shuffle(Array.from(values));
-  return shuffled.map((val, idx) => {
+  const valuesArr = shuffle(Array.from(values));
+  const positions = spacedPositions(valuesArr.length, 10, 85);
+  return valuesArr.map((val, idx) => {
     const dir = randomDirection();
     const mov = randomBalloonMovement(dir);
     return {
@@ -154,7 +187,7 @@ export function generateAnswerBalloons(correctAnswer: number, count: number = 4)
       label: String(val),
       value: val,
       direction: dir,
-      startX: mov.startX,
+      startX: positions[idx],
       startY: mov.startY,
       swayAmount: mov.swayAmount,
       swaySpeed: mov.swaySpeed,
