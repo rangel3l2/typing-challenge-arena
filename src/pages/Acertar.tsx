@@ -587,6 +587,10 @@ const Acertar = () => {
               durationMs={currentSpeed.durationMs * item.speedMultiplier}
               swayAmount={item.swayAmount}
               swaySpeed={item.swaySpeed}
+              curveAmplitude={item.curveAmplitude}
+              sinePhase={item.sinePhase}
+              sineFreq={item.sineFreq}
+              staggerMs={item.staggerMs}
               onDuckClick={() => handleBoardDuckClick(item)}
               onBalloonClick={() => handleBoardBalloonClick(item)}
               onEscaped={() => handleBoardBalloonEscaped(item)}
@@ -628,6 +632,10 @@ const Acertar = () => {
                 durationMs={currentSpeed.durationMs * ab.speedMultiplier * 1.2}
                 swayAmount={ab.swayAmount}
                 swaySpeed={ab.swaySpeed}
+              curveAmplitude={ab.curveAmplitude}
+              sinePhase={ab.sinePhase}
+              sineFreq={ab.sineFreq}
+              staggerMs={ab.staggerMs}
                 onDuckClick={() => handleAnswerDuckClick(ab)}
                 onBalloonClick={() => handleAnswerBalloonClick(ab)}
                 onEscaped={() => handleAnswerBalloonEscaped(ab)}
