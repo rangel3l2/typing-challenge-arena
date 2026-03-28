@@ -6,7 +6,6 @@ import Balloon, { getBalloonColor } from "@/components/Balloon";
 import SkyBackground from "@/components/SkyBackground";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
-import SkyBackground from "@/components/SkyBackground";
 import {
   generatePhaseBalloons,
   generateAnswerBalloons,
