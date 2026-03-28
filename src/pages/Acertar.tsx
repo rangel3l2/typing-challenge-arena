@@ -398,6 +398,7 @@ const Acertar = () => {
       return next;
     });
     setPhasePoints(prev => Math.max(0, prev - 2));
+    playBalloonPopSound();
     setTemporaryFeedback("💥 Acerte o pato! -2 pontos");
     queueMicrotask(checkAnswerScreen);
   }, [checkAnswerScreen, setTemporaryFeedback]);
