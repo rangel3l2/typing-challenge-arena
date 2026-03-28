@@ -145,7 +145,58 @@ const Acertar = () => {
   const speedIndex = Math.min(phase - 1, SPEED_LEVELS.length - 1);
   const currentSpeed = SPEED_LEVELS[speedIndex];
 
-  const startGame = () => {
+  const handleNameInput = async (value: string) => {
+    setPlayerName(value);
+    // Check if it's a restore tag
+    if (value.match(/^.+#\d{6}$/)) {
+      const restored = await restoreFromTag(value);
+      if (restored) {
+        setPlayerName(restored.name);
+        localStorage.setItem("typerace_player_name", restored.name);
+      }
+    }
+  };
+
+  const saveScoreToDb = useCallback(async (finalScore: number, finalPhase: number) => {
+    if (scoreSaved || !playerName.trim()) return;
+    setScoreSaved(true);
+
+    const name = playerName.trim();
+    localStorage.setItem("typerace_player_name", name);
+    const code = await registerIdentity(name);
+    setCurrentPlayerCode(code);
+
+    await supabase.from("acertar_scores").insert({
+      session_id: sessionId,
+      player_name: name,
+      player_code: code,
+      score: finalScore,
+      phase_reached: finalPhase,
+    } as any);
+
+    // Fetch end-game ranking (top 10 recent scores)
+    const { data: ranking } = await supabase
+      .from("acertar_scores")
+      .select("player_name, player_code, score, phase_reached")
+      .order("score", { ascending: false })
+      .limit(10);
+
+    if (ranking) {
+      setEndGameRanking(ranking.map((r: any) => ({
+        playerName: r.player_name,
+        playerCode: r.player_code,
+        score: r.score,
+        phaseReached: r.phase_reached,
+      })));
+    }
+  }, [playerName, scoreSaved, sessionId, registerIdentity]);
+
+  const startGame = async () => {
+    if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
+    const code = await registerIdentity(playerName.trim());
+    setCurrentPlayerCode(code);
+
     gameOverRef.current = false;
     setGameState("playing");
     setPhase(1);
@@ -153,6 +204,9 @@ const Acertar = () => {
     setCountdown(3);
     setIsGameOver(false);
     setCurrentScreen("board");
+    setScoreSaved(false);
+    setEndGameRanking([]);
+    setCopied(false);
   };
 
   useEffect(() => {
