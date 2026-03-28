@@ -329,6 +329,7 @@ const Acertar = () => {
 
     if (ab.value === currentEquation.answer) {
       // CORRECT! Burst the pending trio and return to board
+      playCorrectSound();
       const pts = phasePoints;
       setScore(prev => prev + pts);
       setFeedbackMsg(`✅ ${currentEquation.num1} ${currentEquation.operator} ${currentEquation.num2} = ${currentEquation.answer} (+${pts} pts)`);
