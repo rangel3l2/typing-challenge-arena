@@ -15,6 +15,13 @@ import {
   type BalloonItem,
   type AnswerBalloon,
 } from "@/lib/mathGameData";
+import {
+  playCorrectSound,
+  playBalloonPopSound,
+  playGameOverSound,
+  playDuckSelectSound,
+  playPhaseCompleteSound,
+} from "@/lib/gameSounds";
 
 type Screen = "board" | "answer";
 
