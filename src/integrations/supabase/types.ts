@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      acertar_scores: {
+        Row: {
+          created_at: string
+          id: string
+          phase_reached: number
+          player_code: string
+          player_name: string
+          score: number
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phase_reached?: number
+          player_code: string
+          player_name: string
+          score?: number
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phase_reached?: number
+          player_code?: string
+          player_name?: string
+          score?: number
+          session_id?: string
+        }
+        Relationships: []
+      }
       player_identities: {
         Row: {
           created_at: string
