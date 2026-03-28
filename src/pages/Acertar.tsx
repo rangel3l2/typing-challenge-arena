@@ -153,6 +153,7 @@ const Acertar = () => {
     if (gameOverRef.current) return;
     gameOverRef.current = true;
     lockInteractionFor();
+    playGameOverSound();
     const msg = customMsg || FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
     setGameOverMsg(msg);
     setIsGameOver(true);
