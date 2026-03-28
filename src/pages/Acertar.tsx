@@ -143,6 +143,8 @@ const Acertar = () => {
   useEffect(() => { hiddenAnswersRef.current = hiddenAnswers; }, [hiddenAnswers]);
   useEffect(() => { escapedAnswersRef.current = escapedAnswers; }, [escapedAnswers]);
   useEffect(() => { answerBalloonsRef.current = answerBalloons; }, [answerBalloons]);
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const speedIndex = Math.min(phase - 1, SPEED_LEVELS.length - 1);
   const currentSpeed = SPEED_LEVELS[speedIndex];
