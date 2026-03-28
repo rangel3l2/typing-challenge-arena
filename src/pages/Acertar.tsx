@@ -234,7 +234,9 @@ const Acertar = () => {
     setIsGameOver(true);
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
-  }, [lockInteractionFor]);
+    // Save score async
+    saveScoreToDb(scoreRef.current, phaseRef.current);
+  }, [lockInteractionFor, saveScoreToDb]);
 
   const checkCanCompleteBoard = useCallback(() => {
     if (gameOverRef.current || screenRef.current !== "board") return;
