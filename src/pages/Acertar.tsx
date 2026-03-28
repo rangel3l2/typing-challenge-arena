@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Trophy, Zap, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, Trophy, Zap, RotateCcw, Star, Copy, Check } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
 import SkyBackground from "@/components/SkyBackground";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/useSession";
 import {
   generatePhaseBalloons,
   generateAnswerBalloons,
@@ -39,8 +41,16 @@ const FUNNY_GAMEOVER_MESSAGES = [
   "Combinação inválida! Os patos estão rindo de você! 🦆🤣",
 ];
 
+interface GameOverRankEntry {
+  playerName: string;
+  playerCode: string;
+  score: number;
+  phaseReached: number;
+}
+
 const Acertar = () => {
   const navigate = useNavigate();
+  const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
   const [currentScreen, setCurrentScreen] = useState<Screen>("board");
   const [phase, setPhase] = useState(1);
@@ -59,6 +69,11 @@ const Acertar = () => {
   const [hiddenAnswers, setHiddenAnswers] = useState<Set<number>>(new Set());
   const [escapedAnswers, setEscapedAnswers] = useState<Set<number>>(new Set());
   
+  // Player identity
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
+  const [currentPlayerCode, setCurrentPlayerCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   // Scoring
   const [score, setScore] = useState(0);
   const [phasePoints, setPhasePoints] = useState(10);
@@ -66,6 +81,8 @@ const Acertar = () => {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [gameOverMsg, setGameOverMsg] = useState("");
   const [isGameOver, setIsGameOver] = useState(false);
+  const [scoreSaved, setScoreSaved] = useState(false);
+  const [endGameRanking, setEndGameRanking] = useState<GameOverRankEntry[]>([]);
 
   const gameOverRef = useRef(false);
   const selectedRef = useRef<BalloonItem[]>([]);
@@ -80,6 +97,8 @@ const Acertar = () => {
   const interactionLockRef = useRef(false);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scoreRef = useRef(0);
+  const phaseRef = useRef(1);
 
   const clearUiTimer = useCallback((timerRef: React.MutableRefObject<NodeJS.Timeout | null>) => {
     if (timerRef.current) {
@@ -124,11 +143,64 @@ const Acertar = () => {
   useEffect(() => { hiddenAnswersRef.current = hiddenAnswers; }, [hiddenAnswers]);
   useEffect(() => { escapedAnswersRef.current = escapedAnswers; }, [escapedAnswers]);
   useEffect(() => { answerBalloonsRef.current = answerBalloons; }, [answerBalloons]);
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const speedIndex = Math.min(phase - 1, SPEED_LEVELS.length - 1);
   const currentSpeed = SPEED_LEVELS[speedIndex];
 
-  const startGame = () => {
+  const handleNameInput = async (value: string) => {
+    setPlayerName(value);
+    // Check if it's a restore tag
+    if (value.match(/^.+#\d{6}$/)) {
+      const restored = await restoreFromTag(value);
+      if (restored) {
+        setPlayerName(restored.name);
+        localStorage.setItem("typerace_player_name", restored.name);
+      }
+    }
+  };
+
+  const saveScoreToDb = useCallback(async (finalScore: number, finalPhase: number) => {
+    if (scoreSaved || !playerName.trim()) return;
+    setScoreSaved(true);
+
+    const name = playerName.trim();
+    localStorage.setItem("typerace_player_name", name);
+    const code = await registerIdentity(name);
+    setCurrentPlayerCode(code);
+
+    await supabase.from("acertar_scores").insert({
+      session_id: sessionId,
+      player_name: name,
+      player_code: code,
+      score: finalScore,
+      phase_reached: finalPhase,
+    } as any);
+
+    // Fetch end-game ranking (top 10 recent scores)
+    const { data: ranking } = await supabase
+      .from("acertar_scores")
+      .select("player_name, player_code, score, phase_reached")
+      .order("score", { ascending: false })
+      .limit(10);
+
+    if (ranking) {
+      setEndGameRanking(ranking.map((r: any) => ({
+        playerName: r.player_name,
+        playerCode: r.player_code,
+        score: r.score,
+        phaseReached: r.phase_reached,
+      })));
+    }
+  }, [playerName, scoreSaved, sessionId, registerIdentity]);
+
+  const startGame = async () => {
+    if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
+    const code = await registerIdentity(playerName.trim());
+    setCurrentPlayerCode(code);
+
     gameOverRef.current = false;
     setGameState("playing");
     setPhase(1);
@@ -136,6 +208,9 @@ const Acertar = () => {
     setCountdown(3);
     setIsGameOver(false);
     setCurrentScreen("board");
+    setScoreSaved(false);
+    setEndGameRanking([]);
+    setCopied(false);
   };
 
   useEffect(() => {
@@ -159,7 +234,9 @@ const Acertar = () => {
     setIsGameOver(true);
     waveTimersRef.current.forEach(t => clearTimeout(t));
     waveTimersRef.current = [];
-  }, [lockInteractionFor]);
+    // Save score async
+    saveScoreToDb(scoreRef.current, phaseRef.current);
+  }, [lockInteractionFor, saveScoreToDb]);
 
   const checkCanCompleteBoard = useCallback(() => {
     if (gameOverRef.current || screenRef.current !== "board") return;
@@ -471,11 +548,26 @@ const Acertar = () => {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs text-muted-foreground font-body mb-1">
+              Seu nome (ou cole seu código Nome#123456)
+            </label>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => handleNameInput(e.target.value)}
+              placeholder="Digite seu nome..."
+              className="w-full px-4 py-2.5 rounded-xl bg-muted text-foreground font-body text-sm border border-border focus:border-primary focus:outline-none transition-colors"
+              maxLength={30}
+            />
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={startGame}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
+            disabled={!playerName.trim()}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Começar! 🦆
           </motion.button>
@@ -663,15 +755,63 @@ const Acertar = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 flex items-center justify-center z-30"
+            className="absolute inset-0 flex items-center justify-center z-30 overflow-y-auto py-8"
           >
             <div className="glass-card p-5 sm:p-8 max-w-md mx-3 sm:mx-4 text-center">
               <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🦆💨</div>
               <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">Game Over!</h3>
               <p className="text-muted-foreground font-body mb-2 sm:mb-3 text-sm sm:text-base">{gameOverMsg}</p>
-              <div className="text-sm font-body text-muted-foreground mb-4 sm:mb-6">
+              <div className="text-sm font-body text-muted-foreground mb-3">
                 <span className="font-bold text-primary">Fase: {phase}</span> · <span className="font-bold text-accent">Pontos: {score}</span>
               </div>
+
+              {/* Player tag */}
+              {currentPlayerCode && (
+                <div className="mb-4">
+                  <p className="text-xs text-muted-foreground font-body mb-1">Seu código de jogador:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="font-display font-bold text-foreground text-sm bg-muted px-3 py-1.5 rounded-lg">
+                      {playerName}#{currentPlayerCode}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${playerName}#${currentPlayerCode}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* End-game ranking */}
+              {endGameRanking.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-muted-foreground font-body mb-2 font-semibold">🏆 Ranking desta partida</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {endGameRanking.map((entry, idx) => {
+                      const isMe = entry.playerCode === currentPlayerCode;
+                      return (
+                        <div
+                          key={`${entry.playerCode}-${idx}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-body ${
+                            isMe ? "bg-primary/20 text-primary font-bold" : "bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="w-5 text-center font-display font-bold">{idx + 1}</span>
+                          <span className="flex-1 text-left truncate">{entry.playerName}</span>
+                          <span className="font-bold">Fase {entry.phaseReached}</span>
+                          <span className="font-bold text-primary">{entry.score} pts</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
@@ -679,15 +819,21 @@ const Acertar = () => {
                   onClick={startGame}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary"
                 >
-                  <RotateCcw className="w-4 h-4 inline mr-2" />Tentar de novo
+                  <RotateCcw className="w-4 h-4 inline mr-2" />Jogar de novo
                 </motion.button>
                 <button
-                  onClick={() => setGameState("menu")}
+                  onClick={() => navigate("/ranking?tab=acertar")}
                   className="flex-1 py-3 rounded-xl bg-muted text-foreground font-body font-semibold"
                 >
-                  Menu
+                  <Trophy className="w-4 h-4 inline mr-2" />Ranking
                 </button>
               </div>
+              <button
+                onClick={() => setGameState("menu")}
+                className="w-full mt-2 py-2 text-muted-foreground font-body text-sm hover:text-foreground transition-colors"
+              >
+                Voltar ao menu
+              </button>
             </div>
           </motion.div>
         )}
