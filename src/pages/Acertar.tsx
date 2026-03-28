@@ -548,11 +548,26 @@ const Acertar = () => {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs text-muted-foreground font-body mb-1">
+              Seu nome (ou cole seu código Nome#123456)
+            </label>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => handleNameInput(e.target.value)}
+              placeholder="Digite seu nome..."
+              className="w-full px-4 py-2.5 rounded-xl bg-muted text-foreground font-body text-sm border border-border focus:border-primary focus:outline-none transition-colors"
+              maxLength={30}
+            />
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={startGame}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
+            disabled={!playerName.trim()}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Começar! 🦆
           </motion.button>
