@@ -41,8 +41,16 @@ const FUNNY_GAMEOVER_MESSAGES = [
   "Combinação inválida! Os patos estão rindo de você! 🦆🤣",
 ];
 
+interface GameOverRankEntry {
+  playerName: string;
+  playerCode: string;
+  score: number;
+  phaseReached: number;
+}
+
 const Acertar = () => {
   const navigate = useNavigate();
+  const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
   const [currentScreen, setCurrentScreen] = useState<Screen>("board");
   const [phase, setPhase] = useState(1);
