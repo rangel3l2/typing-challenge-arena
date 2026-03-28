@@ -359,6 +359,7 @@ const Acertar = () => {
         const remaining = bl.filter(b => !hid.has(b.id) && !esc.has(b.id));
 
         if (remaining.length === 0) {
+          playPhaseCompleteSound();
           setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
           transitionTimerRef.current = setTimeout(() => {
             setFeedbackMsg("");
