@@ -97,6 +97,8 @@ const Acertar = () => {
   const interactionLockRef = useRef(false);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scoreRef = useRef(0);
+  const phaseRef = useRef(1);
 
   const clearUiTimer = useCallback((timerRef: React.MutableRefObject<NodeJS.Timeout | null>) => {
     if (timerRef.current) {
