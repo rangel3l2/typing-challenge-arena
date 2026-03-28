@@ -755,15 +755,63 @@ const Acertar = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 flex items-center justify-center z-30"
+            className="absolute inset-0 flex items-center justify-center z-30 overflow-y-auto py-8"
           >
             <div className="glass-card p-5 sm:p-8 max-w-md mx-3 sm:mx-4 text-center">
               <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🦆💨</div>
               <h3 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">Game Over!</h3>
               <p className="text-muted-foreground font-body mb-2 sm:mb-3 text-sm sm:text-base">{gameOverMsg}</p>
-              <div className="text-sm font-body text-muted-foreground mb-4 sm:mb-6">
+              <div className="text-sm font-body text-muted-foreground mb-3">
                 <span className="font-bold text-primary">Fase: {phase}</span> · <span className="font-bold text-accent">Pontos: {score}</span>
               </div>
+
+              {/* Player tag */}
+              {currentPlayerCode && (
+                <div className="mb-4">
+                  <p className="text-xs text-muted-foreground font-body mb-1">Seu código de jogador:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="font-display font-bold text-foreground text-sm bg-muted px-3 py-1.5 rounded-lg">
+                      {playerName}#{currentPlayerCode}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${playerName}#${currentPlayerCode}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* End-game ranking */}
+              {endGameRanking.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-muted-foreground font-body mb-2 font-semibold">🏆 Ranking desta partida</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {endGameRanking.map((entry, idx) => {
+                      const isMe = entry.playerCode === currentPlayerCode;
+                      return (
+                        <div
+                          key={`${entry.playerCode}-${idx}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-body ${
+                            isMe ? "bg-primary/20 text-primary font-bold" : "bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="w-5 text-center font-display font-bold">{idx + 1}</span>
+                          <span className="flex-1 text-left truncate">{entry.playerName}</span>
+                          <span className="font-bold">Fase {entry.phaseReached}</span>
+                          <span className="font-bold text-primary">{entry.score} pts</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
@@ -771,15 +819,21 @@ const Acertar = () => {
                   onClick={startGame}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary"
                 >
-                  <RotateCcw className="w-4 h-4 inline mr-2" />Tentar de novo
+                  <RotateCcw className="w-4 h-4 inline mr-2" />Jogar de novo
                 </motion.button>
                 <button
-                  onClick={() => setGameState("menu")}
+                  onClick={() => navigate("/ranking?tab=acertar")}
                   className="flex-1 py-3 rounded-xl bg-muted text-foreground font-body font-semibold"
                 >
-                  Menu
+                  <Trophy className="w-4 h-4 inline mr-2" />Ranking
                 </button>
               </div>
+              <button
+                onClick={() => setGameState("menu")}
+                className="w-full mt-2 py-2 text-muted-foreground font-body text-sm hover:text-foreground transition-colors"
+              >
+                Voltar ao menu
+              </button>
             </div>
           </motion.div>
         )}
