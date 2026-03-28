@@ -15,6 +15,13 @@ import {
   type BalloonItem,
   type AnswerBalloon,
 } from "@/lib/mathGameData";
+import {
+  playCorrectSound,
+  playBalloonPopSound,
+  playGameOverSound,
+  playDuckSelectSound,
+  playPhaseCompleteSound,
+} from "@/lib/gameSounds";
 
 type Screen = "board" | "answer";
 
@@ -146,6 +153,7 @@ const Acertar = () => {
     if (gameOverRef.current) return;
     gameOverRef.current = true;
     lockInteractionFor();
+    playGameOverSound();
     const msg = customMsg || FUNNY_GAMEOVER_MESSAGES[Math.floor(Math.random() * FUNNY_GAMEOVER_MESSAGES.length)];
     setGameOverMsg(msg);
     setIsGameOver(true);
@@ -254,6 +262,7 @@ const Acertar = () => {
 
     const newSelected = [...currentSelected, item];
     setSelected(newSelected);
+    playDuckSelectSound();
 
     if (newSelected.length === 3) {
       lockInteractionFor();
@@ -295,6 +304,7 @@ const Acertar = () => {
       return next;
     });
     setPhasePoints(prev => Math.max(0, prev - 2));
+    playBalloonPopSound();
     setTemporaryFeedback("💥 Acerte o pato, não o balão! -2 pontos");
     queueMicrotask(checkCanCompleteBoard);
   }, [checkCanCompleteBoard, setTemporaryFeedback]);
@@ -319,6 +329,7 @@ const Acertar = () => {
 
     if (ab.value === currentEquation.answer) {
       // CORRECT! Burst the pending trio and return to board
+      playCorrectSound();
       const pts = phasePoints;
       setScore(prev => prev + pts);
       setFeedbackMsg(`✅ ${currentEquation.num1} ${currentEquation.operator} ${currentEquation.num2} = ${currentEquation.answer} (+${pts} pts)`);
@@ -348,6 +359,7 @@ const Acertar = () => {
         const remaining = bl.filter(b => !hid.has(b.id) && !esc.has(b.id));
 
         if (remaining.length === 0) {
+          playPhaseCompleteSound();
           setFeedbackMsg(`🎉 Fase ${phase} completa! Próxima fase...`);
           transitionTimerRef.current = setTimeout(() => {
             setFeedbackMsg("");
@@ -386,6 +398,7 @@ const Acertar = () => {
       return next;
     });
     setPhasePoints(prev => Math.max(0, prev - 2));
+    playBalloonPopSound();
     setTemporaryFeedback("💥 Acerte o pato! -2 pontos");
     queueMicrotask(checkAnswerScreen);
   }, [checkAnswerScreen, setTemporaryFeedback]);
