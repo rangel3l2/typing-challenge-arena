@@ -262,6 +262,7 @@ const Acertar = () => {
 
     const newSelected = [...currentSelected, item];
     setSelected(newSelected);
+    playDuckSelectSound();
 
     if (newSelected.length === 3) {
       lockInteractionFor();
