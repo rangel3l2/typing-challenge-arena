@@ -69,6 +69,11 @@ const Acertar = () => {
   const [hiddenAnswers, setHiddenAnswers] = useState<Set<number>>(new Set());
   const [escapedAnswers, setEscapedAnswers] = useState<Set<number>>(new Set());
   
+  // Player identity
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
+  const [currentPlayerCode, setCurrentPlayerCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   // Scoring
   const [score, setScore] = useState(0);
   const [phasePoints, setPhasePoints] = useState(10);
@@ -76,6 +81,8 @@ const Acertar = () => {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [gameOverMsg, setGameOverMsg] = useState("");
   const [isGameOver, setIsGameOver] = useState(false);
+  const [scoreSaved, setScoreSaved] = useState(false);
+  const [endGameRanking, setEndGameRanking] = useState<GameOverRankEntry[]>([]);
 
   const gameOverRef = useRef(false);
   const selectedRef = useRef<BalloonItem[]>([]);
