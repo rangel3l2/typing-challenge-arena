@@ -171,21 +171,20 @@ const Index = () => {
           )}
         </motion.div>
 
-        {/* Global Ranking Button - only for digitar */}
-        {selectedGame === "digitar" && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.35 }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate("/ranking")}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent/20 text-accent font-display font-bold hover:bg-accent/30 transition-colors mb-12"
-          >
-            <Trophy className="w-5 h-5" />
-            Ranking Global
-          </motion.button>
-        )}
+        {/* Global Ranking Button */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => navigate("/ranking")}
+          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-accent/20 text-accent font-display font-bold hover:bg-accent/30 transition-colors mb-12"
+          aria-label="Ver ranking global de jogos educacionais"
+        >
+          <Trophy className="w-5 h-5" />
+          Ranking Global
+        </motion.button>
 
         {/* Acertar: direct play button */}
         {selectedGame === "acertar" ? (
