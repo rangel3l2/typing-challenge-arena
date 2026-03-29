@@ -47,14 +47,44 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
+      {/* SEO: Hidden semantic content for crawlers */}
+      <header className="sr-only">
+        <nav aria-label="Navegação principal">
+          <ul>
+            <li><a href="/">Início - Eu Vou Jogar</a></li>
+            <li><a href="/acertar">Eu Vou Acertar - Jogo de Matemática</a></li>
+            <li><a href="/ranking">Ranking Global - Jogos Educacionais</a></li>
+          </ul>
+        </nav>
+      </header>
+
+      {/* SEO: Rich text content for indexing */}
+      <section className="sr-only" aria-label="Sobre o Eu Vou Jogar">
+        <h2>Jogos Educacionais e Infantis Online Grátis</h2>
+        <p>Eu Vou Jogar é a melhor plataforma de jogos educacionais e jogos infantis online grátis do Brasil. Nossos jogos educativos ajudam crianças e adultos a aprender digitação e matemática de forma divertida e competitiva.</p>
+        <h3>Eu Vou Digitar - Jogo de Digitação Multiplayer</h3>
+        <p>Aprenda a digitar rápido com o Eu Vou Digitar! Crie salas, desafie amigos em tempo real e suba no ranking global. O melhor jogo educacional de digitação online.</p>
+        <h3>Eu Vou Acertar - Jogo de Matemática com Balões</h3>
+        <p>Teste sua agilidade mental com o Eu Vou Acertar! Estoure balões, resolva operações matemáticas e avance por 6 fases de dificuldade crescente. Jogo infantil educativo de matemática.</p>
+        <h3>Por que escolher o Eu Vou Jogar?</h3>
+        <ul>
+          <li>100% gratuito - sem necessidade de cadastro</li>
+          <li>Jogos educacionais para todas as idades</li>
+          <li>Multiplayer em tempo real</li>
+          <li>Ranking global competitivo</li>
+          <li>Jogos infantis seguros e divertidos</li>
+          <li>Funciona no celular e no computador</li>
+        </ul>
+      </section>
+
       {/* Background decorations */}
-      <div className="absolute top-10 right-20 w-64 h-64 rounded-full bg-secondary/8 animate-float blur-3xl" />
-      <div className="absolute bottom-10 left-20 w-80 h-80 rounded-full bg-primary/8 animate-float-reverse blur-3xl" />
-      <div className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-accent/6 animate-pulse-glow blur-3xl" />
-      <div className="absolute bottom-1/3 left-1/3 w-48 h-48 rounded-full bg-game-terracotta/6 animate-float blur-3xl" />
+      <div className="absolute top-10 right-20 w-64 h-64 rounded-full bg-secondary/8 animate-float blur-3xl" aria-hidden="true" />
+      <div className="absolute bottom-10 left-20 w-80 h-80 rounded-full bg-primary/8 animate-float-reverse blur-3xl" aria-hidden="true" />
+      <div className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-accent/6 animate-pulse-glow blur-3xl" aria-hidden="true" />
+      <div className="absolute bottom-1/3 left-1/3 w-48 h-48 rounded-full bg-game-terracotta/6 animate-float blur-3xl" aria-hidden="true" />
 
       {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-12" role="main">
         {/* Logo */}
         <motion.div
           initial={{ y: -30, opacity: 0 }}
@@ -69,15 +99,18 @@ const Index = () => {
           >
             <img
               src={logoImg}
-              alt="Eu Vou Digitar - Mascote"
+              alt="Eu Vou Jogar - Plataforma de Jogos Educacionais e Infantis Online Grátis"
               className="w-32 h-32 md:w-40 md:h-40 rounded-3xl mx-auto shadow-2xl border-4 border-primary/30"
+              width="160"
+              height="160"
+              loading="eager"
             />
           </motion.div>
           <h1 className="text-5xl md:text-6xl font-display font-bold text-gradient-primary mb-2">
-            Eu Vou...
+            Eu Vou Jogar
           </h1>
           <p className="text-xl text-muted-foreground font-body max-w-md mx-auto">
-            Escolha seu jogo e desafie-se!
+            Jogos educacionais e infantis online — escolha e jogue grátis!
           </p>
         </motion.div>
 
