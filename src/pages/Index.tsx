@@ -61,19 +61,22 @@ const Index = () => {
       {/* SEO: Rich text content for indexing */}
       <section className="sr-only" aria-label="Sobre o Eu Vou Jogar">
         <h2>Jogos Educacionais e Infantis Online Grátis</h2>
-        <p>Eu Vou Jogar é a melhor plataforma de jogos educacionais e jogos infantis online grátis do Brasil. Nossos jogos educativos ajudam crianças e adultos a aprender digitação e matemática de forma divertida e competitiva.</p>
+        <p>Eu Vou Jogar é a melhor plataforma de jogos educacionais, jogos educativos e jogos infantis online grátis do Brasil. Nossos jogos didáticos e lúdicos ajudam crianças e adultos a aprender digitação e matemática de forma divertida, interativa e competitiva. Aprender brincando nunca foi tão fácil com nossa plataforma de aprendizado gamificado.</p>
         <h3>Eu Vou Digitar - Jogo de Digitação Multiplayer</h3>
-        <p>Aprenda a digitar rápido com o Eu Vou Digitar! Crie salas, desafie amigos em tempo real e suba no ranking global. O melhor jogo educacional de digitação online.</p>
+        <p>Aprenda a digitar rápido com o Eu Vou Digitar! Crie salas, desafie amigos em tempo real e suba no ranking global. O melhor jogo educacional de treino de digitação online, perfeito como atividade educativa para escolas e jogos de teclado para crianças.</p>
         <h3>Eu Vou Acertar - Jogo de Matemática com Balões</h3>
-        <p>Teste sua agilidade mental com o Eu Vou Acertar! Estoure balões, resolva operações matemáticas e avance por 6 fases de dificuldade crescente. Jogo infantil educativo de matemática.</p>
+        <p>Teste sua agilidade mental e raciocínio lógico com o Eu Vou Acertar! Estoure balões, resolva operações matemáticas e avance por 6 fases de dificuldade crescente. Jogo infantil educativo de matemática, ideal como jogo cognitivo e atividade pedagógica online.</p>
         <h3>Por que escolher o Eu Vou Jogar?</h3>
         <ul>
-          <li>100% gratuito - sem necessidade de cadastro</li>
-          <li>Jogos educacionais para todas as idades</li>
-          <li>Multiplayer em tempo real</li>
+          <li>100% gratuito - jogos educativos online grátis sem necessidade de cadastro</li>
+          <li>Jogos educacionais e didáticos para todas as idades</li>
+          <li>Multiplayer educativo em tempo real</li>
           <li>Ranking global competitivo</li>
-          <li>Jogos infantis seguros e divertidos</li>
-          <li>Funciona no celular e no computador</li>
+          <li>Jogos infantis seguros, lúdicos e divertidos</li>
+          <li>Brincadeiras educativas que funcionam no celular e no computador</li>
+          <li>Atividades interativas para crianças do ensino fundamental</li>
+          <li>Gamificação educacional para aprender brincando</li>
+          <li>Jogos de raciocínio e jogos de alfabetização</li>
         </ul>
       </section>
 
