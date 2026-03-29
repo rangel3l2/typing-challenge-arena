@@ -325,10 +325,16 @@ const Index = () => {
             )}
           </motion.div>
         )}
-      </div>
+      </main>
 
-      <footer className="relative z-10 text-center py-6">
-        <p className="text-xs text-muted-foreground font-body">Eu Vou © 2026 — Aprenda jogando 🎮</p>
+      <footer className="relative z-10 text-center py-6" role="contentinfo">
+        <p className="text-xs text-muted-foreground font-body">
+          © 2026 Eu Vou Jogar — Jogos Educacionais e Infantis Online Grátis 🎮
+        </p>
+        <nav className="sr-only" aria-label="Links do rodapé">
+          <a href="/acertar">Eu Vou Acertar - Jogos de Matemática Infantis</a>
+          <a href="/ranking">Ranking de Jogos Educacionais</a>
+        </nav>
       </footer>
     </div>
   );
