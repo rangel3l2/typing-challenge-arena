@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/join/:code" element={<Game />} />
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/acertar" element={<Acertar />} />
+          <Route path="/sobre" element={<Sobre />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
