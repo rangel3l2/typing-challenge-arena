@@ -329,13 +329,17 @@ const Index = () => {
         )}
       </main>
 
-      <footer className="relative z-10 text-center py-6" role="contentinfo">
+      <footer className="relative z-10 text-center py-6 space-y-2" role="contentinfo">
         <p className="text-xs text-muted-foreground font-body">
           © 2026 Eu Vou Jogar — Jogos Educacionais e Infantis Online Grátis 🎮
         </p>
+        <a href="/sobre" className="text-xs text-primary hover:underline">
+          Sobre – Jogos Educacionais Online Gratuitos
+        </a>
         <nav className="sr-only" aria-label="Links do rodapé">
           <a href="/acertar">Eu Vou Acertar - Jogos de Matemática Infantis</a>
           <a href="/ranking">Ranking de Jogos Educacionais</a>
+          <a href="/sobre">Sobre o Eu Vou Jogar</a>
         </nav>
       </footer>
     </div>
