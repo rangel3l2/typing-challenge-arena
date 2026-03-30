@@ -117,14 +117,14 @@ const Sobre = () => {
           <div className="flex items-center gap-3">
             <Keyboard className="w-8 h-8 text-primary" />
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-              Eu Vou Digitar – Jogo de Digitação Online
+              Eu Vou Digitar – Aprender Digitação Online Grátis
             </h2>
           </div>
           <p className="text-muted-foreground leading-relaxed text-lg">
-            O <strong>Eu Vou Digitar</strong> é o nosso <strong>jogo de digitação online</strong> mais popular. Nele, os
-            jogadores praticam e aperfeiçoam sua velocidade de digitação de maneira divertida e competitiva. O jogo mede
-            sua velocidade em <strong>palavras por minuto (PPM)</strong> e sua precisão, ajudando você a se tornar um
-            digitador mais rápido e preciso.
+            Quer <strong>aprender digitação online</strong>? O <strong>Eu Vou Digitar</strong> é o melhor <strong>jogo de
+            digitação online</strong> gratuito do Brasil. Nele, os jogadores praticam e aperfeiçoam sua velocidade de
+            digitação de maneira divertida e competitiva. O jogo mede sua velocidade em <strong>palavras por minuto
+            (PPM)</strong> e sua precisão, funcionando como um verdadeiro <strong>curso de digitação online grátis</strong>.
           </p>
           <h3 className="text-xl font-semibold text-foreground mt-4">Como funciona o Eu Vou Digitar?</h3>
           <p className="text-muted-foreground leading-relaxed text-lg">
