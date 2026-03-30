@@ -132,15 +132,15 @@ const Sobre = () => {
             e corretamente possível. O sistema calcula automaticamente a velocidade de digitação e a taxa de acerto,
             gerando um ranking em tempo real com todos os participantes da sala.
           </p>
-          <h3 className="text-xl font-semibold text-foreground mt-4">Benefícios do treino de digitação</h3>
+          <h3 className="text-xl font-semibold text-foreground mt-4">Benefícios de aprender digitação online</h3>
           <ul className="space-y-2 text-muted-foreground text-lg">
             <li className="flex items-start gap-2">
               <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-              <span><strong>Velocidade:</strong> Melhore sua velocidade de digitação progressivamente, acompanhando seu PPM a cada partida.</span>
+              <span><strong>Velocidade:</strong> Aumente sua <strong>velocidade de digitação</strong> progressivamente, acompanhando seu PPM a cada partida.</span>
             </li>
             <li className="flex items-start gap-2">
               <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-              <span><strong>Precisão:</strong> Aprenda a digitar sem olhar para o teclado, reduzindo erros e aumentando a produtividade.</span>
+              <span><strong>Precisão:</strong> Aprenda a <strong>digitar sem olhar para o teclado</strong>, reduzindo erros e aumentando a produtividade.</span>
             </li>
             <li className="flex items-start gap-2">
               <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
@@ -148,13 +148,15 @@ const Sobre = () => {
             </li>
             <li className="flex items-start gap-2">
               <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-              <span><strong>Português brasileiro:</strong> Todas as frases são em português do Brasil, ideais para estudantes brasileiros.</span>
+              <span><strong>Português brasileiro:</strong> Todas as frases são em português do Brasil, ideais para quem quer <strong>praticar digitação</strong> em sua língua nativa.</span>
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed text-lg">
             O <strong>treino de digitação online</strong> é uma habilidade fundamental no mundo moderno. Seja para
             estudantes que precisam digitar trabalhos escolares, profissionais que trabalham com computadores, ou
-            qualquer pessoa que queira ser mais produtiva, dominar a digitação rápida faz toda a diferença.
+            qualquer pessoa que queira <strong>aprender a digitar mais rápido</strong>, o Eu Vou Digitar é a
+            ferramenta ideal. Funciona como uma <strong>aula de digitação online grátis</strong>, onde você pratica
+            no seu ritmo e acompanha sua evolução através do <strong>teste de digitação</strong> integrado.
           </p>
         </motion.section>
 
