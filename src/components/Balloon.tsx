@@ -135,6 +135,8 @@ const BalloonComponent = ({
 
     interactionLockedRef.current = true;
     setDuckState("falling");
+    // Haptic feedback on mobile
+    if (navigator.vibrate) navigator.vibrate(30);
     onDuckClick();
     window.setTimeout(() => setDuckState("gone"), 800);
   };
