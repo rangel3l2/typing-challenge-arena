@@ -240,7 +240,7 @@ const BalloonComponent = ({
                 className="absolute top-2 left-3 w-3 h-4 sm:w-4 sm:h-5 rounded-full opacity-30"
                 style={{ background: 'white' }}
               />
-              <span className="text-white font-display font-bold text-sm sm:text-base md:text-lg drop-shadow-lg select-none">
+              <span className="text-white font-display font-bold text-base sm:text-base md:text-lg drop-shadow-lg select-none">
                 {label}
               </span>
             </div>
