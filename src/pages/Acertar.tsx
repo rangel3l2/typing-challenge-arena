@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Trophy, Zap, RotateCcw, Star, Copy, Check } from "lucide-react";
+import { ArrowLeft, Trophy, Star, RotateCcw, Copy, Check } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
 import SkyBackground from "@/components/SkyBackground";
 import { supabase } from "@/integrations/supabase/client";
