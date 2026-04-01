@@ -703,7 +703,7 @@ const Acertar = () => {
               startX={item.startX}
               startY={item.startY}
               direction={item.direction}
-              durationMs={currentSpeed.durationMs * item.speedMultiplier}
+              durationMs={currentSpeed.durationMs * item.speedMultiplier * mobileSpeedFactor}
               swayAmount={item.swayAmount}
               swaySpeed={item.swaySpeed}
               curveAmplitude={item.curveAmplitude}
