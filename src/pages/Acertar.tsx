@@ -50,6 +50,9 @@ interface GameOverRankEntry {
 }
 
 const Acertar = () => {
+  const isMobile = useIsMobile();
+  // On mobile, balloons move 25% slower for better playability
+  const mobileSpeedFactor = isMobile ? 1.25 : 1;
   const navigate = useNavigate();
   const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
   const [gameState, setGameState] = useState<"menu" | "playing" | "finished">("menu");
