@@ -723,13 +723,13 @@ const Acertar = () => {
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-20"
+                className="absolute top-2 sm:top-8 left-1/2 -translate-x-1/2 z-20"
               >
-                <div className="glass-card px-6 sm:px-8 py-3 sm:py-4 text-center">
+                <div className="bg-black/50 backdrop-blur-md rounded-2xl px-6 sm:px-8 py-3 sm:py-4 text-center border border-white/10">
                   <div className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-white drop-shadow-lg">
                     {currentEquation.num1} {currentEquation.operator} {currentEquation.num2} = ?
                   </div>
-                  <p className="text-xs sm:text-sm text-white/70 font-body mt-1">Acerte o pato com a resposta certa!</p>
+                  <p className="text-xs sm:text-sm text-white/70 font-body mt-1">Toque no pato com a resposta!</p>
                 </div>
               </motion.div>
             )}
