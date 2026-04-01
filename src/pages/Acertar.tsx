@@ -603,51 +603,56 @@ const Acertar = () => {
   const remainingCount = balloons.filter(b => !hiddenBalloons.has(b.id) && !escapedBalloons.has(b.id)).length;
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] relative overflow-hidden select-none" style={{ touchAction: 'manipulation' }}>
       <SkyBackground />
 
-      {/* HUD */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-white/20 backdrop-blur-md border-b border-white/10">
+      {/* HUD - compact and readable on mobile */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-black/30 backdrop-blur-md border-b border-white/10 safe-area-top">
         <div className="flex items-center gap-2 sm:gap-4">
-          <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-white/70 hover:text-white">
-            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+          <button onClick={() => { waveTimersRef.current.forEach(t => clearTimeout(t)); setGameState("menu"); }} className="text-white/80 hover:text-white p-1">
+            <ArrowLeft className="w-5 h-5 sm:w-5 sm:h-5" />
           </button>
-          <span className="font-display font-bold text-white text-xs sm:text-sm md:text-base drop-shadow">
-            Fase {phase}
-          </span>
-          <span className="text-white/70 text-[10px] sm:text-xs font-body drop-shadow">
-            (max: {maxVal})
-          </span>
+          <div className="flex flex-col leading-tight">
+            <span className="font-display font-bold text-white text-sm sm:text-base drop-shadow">
+              Fase {phase}
+            </span>
+            <span className="text-white/60 text-[10px] font-body drop-shadow">
+              V{currentSpeed.level} · max {maxVal}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm font-body">
-          <span className="text-yellow-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
-            <Zap className="w-3 h-3 sm:w-4 sm:h-4" />V{currentSpeed.level}
-          </span>
-          <span className="text-amber-200 font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
-            <Star className="w-3 h-3 sm:w-4 sm:h-4" />{phasePoints}
-          </span>
-          <span className="text-white font-bold flex items-center gap-0.5 sm:gap-1 drop-shadow">
-            <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />{score}
-          </span>
-          <span className="text-white/60 text-[10px] sm:text-xs drop-shadow">
+        <div className="flex items-center gap-3 sm:gap-3 text-sm font-body">
+          <div className="flex flex-col items-center leading-tight">
+            <span className="text-amber-200 font-bold flex items-center gap-0.5 drop-shadow">
+              <Star className="w-3.5 h-3.5" />{phasePoints}
+            </span>
+            <span className="text-white/40 text-[9px]">rodada</span>
+          </div>
+          <div className="flex flex-col items-center leading-tight">
+            <span className="text-white font-bold flex items-center gap-0.5 drop-shadow">
+              <Trophy className="w-3.5 h-3.5" />{score}
+            </span>
+            <span className="text-white/40 text-[9px]">total</span>
+          </div>
+          <div className="flex items-center gap-0.5 text-white/70 text-xs">
             🎈{remainingCount}
-          </span>
+          </div>
         </div>
       </div>
 
-      {/* Status bar */}
-      <div className="absolute top-10 sm:top-14 left-0 right-0 z-20 text-center px-2">
+      {/* Selected items / instruction bar - fixed at bottom for easy mobile view */}
+      <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center px-3">
         <AnimatePresence mode="wait">
           {feedbackMsg ? (
             <motion.div
               key="fb"
-              initial={{ y: -10, opacity: 0 }}
+              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 10, opacity: 0 }}
-              className={`inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-body text-xs sm:text-sm font-bold drop-shadow ${
+              exit={{ y: 20, opacity: 0 }}
+              className={`px-5 py-2.5 rounded-2xl font-body text-sm font-bold drop-shadow-lg ${
                 feedbackMsg.startsWith('✅') || feedbackMsg.startsWith('🎉')
-                  ? 'bg-green-500/80 text-white'
-                  : 'bg-red-500/80 text-white'
+                  ? 'bg-green-500/90 text-white'
+                  : 'bg-red-500/90 text-white'
               }`}
             >
               {feedbackMsg}
@@ -655,16 +660,24 @@ const Acertar = () => {
           ) : (
             <motion.div
               key={`scr-${currentScreen}-${selected.length}`}
-              initial={{ y: -10, opacity: 0 }}
+              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 10, opacity: 0 }}
-              className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/30 backdrop-blur-sm font-body text-xs sm:text-sm text-white font-semibold drop-shadow"
+              exit={{ y: 20, opacity: 0 }}
+              className="px-5 py-2.5 rounded-2xl bg-black/50 backdrop-blur-md font-body text-sm text-white font-semibold drop-shadow-lg"
             >
               {currentScreen === "board" && (
-                <span>🦆 Forme um trio! {selected.map(s => s.label).join(' ')} {selected.length < 3 && '_ '.repeat(3 - selected.length)}</span>
+                <span className="flex items-center gap-2">
+                  🦆 Trio:
+                  {selected.map((s, i) => (
+                    <span key={i} className="bg-white/20 px-2 py-0.5 rounded-lg font-bold">{s.label}</span>
+                  ))}
+                  {Array.from({ length: 3 - selected.length }).map((_, i) => (
+                    <span key={`e-${i}`} className="bg-white/10 px-2 py-0.5 rounded-lg text-white/40">?</span>
+                  ))}
+                </span>
               )}
               {currentScreen === "answer" && currentEquation && (
-                <span>🎯 Qual é {currentEquation.num1} {currentEquation.operator} {currentEquation.num2}?</span>
+                <span className="text-base">🎯 {currentEquation.num1} {currentEquation.operator} {currentEquation.num2} = ?</span>
               )}
             </motion.div>
           )}
