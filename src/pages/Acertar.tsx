@@ -849,8 +849,8 @@ const Acertar = () => {
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 h-2 bg-white/20">
+      {/* Progress bar - thin line at very bottom */}
+      <div className="absolute bottom-0 left-0 right-0 z-30 h-1.5 bg-white/10">
         <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${((18 - remainingCount) / 18) * 100}%` }}
