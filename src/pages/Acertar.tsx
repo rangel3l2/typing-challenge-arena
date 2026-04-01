@@ -507,14 +507,14 @@ const Acertar = () => {
   // ============ MENU ============
   if (gameState === "menu") {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-3 sm:px-4 relative overflow-hidden">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 sm:px-4 relative overflow-hidden">
         <SkyBackground />
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-6 sm:mb-8 relative z-10"
+          className="text-center mb-4 sm:mb-8 relative z-10"
         >
-          <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🎈🦆</div>
+          <div className="text-5xl sm:text-5xl md:text-6xl mb-2 sm:mb-4">🎈🦆</div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-gradient-primary mb-2">
             Eu Vou Acertar
           </h1>
@@ -527,29 +527,26 @@ const Acertar = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="glass-card p-4 sm:p-6 max-w-sm w-full space-y-3 sm:space-y-4 relative z-10"
+          className="glass-card p-5 sm:p-6 max-w-sm w-full space-y-4 relative z-10"
         >
+          {/* Tutorial visual mais claro para mobile */}
           <div className="space-y-3 text-sm text-muted-foreground font-body">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">🦆</span>
-              <span>Clique no <strong>pato</strong> para selecionar!</span>
+            <div className="flex items-center gap-3 bg-muted/30 rounded-xl px-3 py-2.5">
+              <span className="text-2xl">🦆</span>
+              <span>Toque no <strong className="text-foreground">pato</strong> para selecionar</span>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xl">🧮</span>
-              <span>Forme trios: <strong>2 números + 1 operação</strong>. Combinação errada = Game Over!</span>
+            <div className="flex items-center gap-3 bg-muted/30 rounded-xl px-3 py-2.5">
+              <span className="text-2xl">🧮</span>
+              <span>Forme trios: <strong className="text-foreground">2 números + 1 operação</strong></span>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xl">🎯</span>
-              <span>Depois acerte o balão com o <strong>resultado correto</strong> da conta!</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xl">⚡</span>
-              <span>Limpe todos os 18 balões para avançar de fase!</span>
+            <div className="flex items-center gap-3 bg-muted/30 rounded-xl px-3 py-2.5">
+              <span className="text-2xl">🎯</span>
+              <span>Acerte o balão com o <strong className="text-foreground">resultado correto</strong></span>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-muted-foreground font-body mb-1">
+            <label className="block text-xs text-muted-foreground font-body mb-1.5">
               Seu nome (ou cole seu código Nome#123456)
             </label>
             <input
@@ -557,7 +554,7 @@ const Acertar = () => {
               value={playerName}
               onChange={(e) => handleNameInput(e.target.value)}
               placeholder="Digite seu nome..."
-              className="w-full px-4 py-2.5 rounded-xl bg-muted text-foreground font-body text-sm border border-border focus:border-primary focus:outline-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-muted text-foreground font-body text-base border border-border focus:border-primary focus:outline-none transition-colors"
               maxLength={30}
             />
           </div>
@@ -567,14 +564,14 @@ const Acertar = () => {
             whileTap={{ scale: 0.97 }}
             onClick={startGame}
             disabled={!playerName.trim()}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-display font-bold text-lg glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Começar! 🦆
           </motion.button>
 
           <button
             onClick={() => navigate("/")}
-            className="w-full py-2 text-muted-foreground font-body text-sm hover:text-foreground transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 text-muted-foreground font-body text-sm hover:text-foreground transition-colors flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar ao menu
