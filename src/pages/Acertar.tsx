@@ -685,7 +685,7 @@ const Acertar = () => {
       </div>
 
       {/* Game area */}
-      <div className="absolute inset-0 pt-20 sm:pt-24">
+      <div className="absolute inset-0 pt-14 sm:pt-20 pb-16">
 
         {/* BOARD SCREEN: equation balloons */}
         {currentScreen === "board" && !isGameOver && balloons.map((item, idx) => {
