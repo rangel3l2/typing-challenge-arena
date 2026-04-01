@@ -192,12 +192,15 @@ const BalloonComponent = ({
         >
           {duckState !== "gone" && (
             <motion.div
-              className="text-2xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
+              className="text-3xl sm:text-3xl md:text-4xl text-center mb-[-4px] relative z-10 cursor-pointer"
               onPointerUp={handleDuckClick}
               style={{
                 WebkitTapHighlightColor: 'transparent',
                 touchAction: "manipulation",
                 pointerEvents: duckState === "riding" ? "auto" : "none",
+                // Larger invisible tap area on mobile
+                padding: '8px',
+                margin: '-8px',
               }}
               animate={
                 duckState === "falling"
