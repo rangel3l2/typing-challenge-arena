@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Trophy, Star, RotateCcw, Copy, Check } from "lucide-react";
 import Balloon, { getBalloonColor } from "@/components/Balloon";
+import { useIsMobile } from "@/hooks/use-mobile";
 import SkyBackground from "@/components/SkyBackground";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
