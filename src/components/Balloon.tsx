@@ -223,7 +223,7 @@ const BalloonComponent = ({
 
           {!balloonGone && (
             <div
-              className="relative w-14 h-16 sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+              className="relative w-16 h-[4.5rem] sm:w-16 sm:h-20 md:w-20 md:h-24 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               onPointerUp={handleBalloonClick}
               style={{
                 WebkitTapHighlightColor: 'transparent',
