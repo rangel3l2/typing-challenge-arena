@@ -447,7 +447,9 @@ const Game = () => {
 
           {/* Waiting for others */}
           {phase === "playing" && mySubmitted && (
-            <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20">
+            <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-10">
+              {/* Show race track while waiting */}
+              {isMultiplayer && <RaceTrack racers={racers} />}
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full mb-4" />
               <p className="text-foreground font-display font-bold text-xl mb-2">Você terminou! 🎉</p>
               <p className="text-muted-foreground font-body">Aguardando os outros jogadores... ({currentRoundResults.length}/{players.length})</p>
