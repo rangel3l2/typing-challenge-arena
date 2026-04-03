@@ -357,6 +357,66 @@ const Sobre = () => {
             Jogar Agora – É Grátis!
           </button>
         </motion.section>
+
+        {/* Política de Privacidade */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="bg-card rounded-2xl p-8 border border-border space-y-6"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-3 rounded-xl">
+              <Shield className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Política de Privacidade</h2>
+          </div>
+
+          <p className="text-muted-foreground leading-relaxed">
+            O <strong>Eu Vou Jogar</strong> respeita a sua privacidade e segue as boas práticas da{" "}
+            <strong>Lei Geral de Proteção de Dados (LGPD – Lei nº 13.709/2018)</strong>. 
+            Abaixo explicamos de forma transparente quais dados são armazenados e por quê.
+          </p>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Dados armazenados localmente</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              Este site <strong>não utiliza cookies de rastreamento, analytics de terceiros nem publicidade</strong>. 
+              Os únicos dados armazenados ficam no <strong>armazenamento local do seu navegador (localStorage)</strong>, 
+              exclusivamente no seu dispositivo, e são estritamente necessários para o funcionamento dos jogos:
+            </p>
+            <ul className="space-y-3 text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span><strong>ID de sessão</strong> — um código aleatório que identifica a sua sessão de jogo, permitindo salvar seu progresso e pontuações.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span><strong>Código do jogador</strong> — um número de 6 dígitos gerado automaticamente, usado para vincular suas pontuações no ranking.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span><strong>Nome do jogador</strong> — o apelido que você escolhe ao jogar, exibido nos rankings e salas multiplayer.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Seus direitos</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              Você pode apagar todos os seus dados a qualquer momento limpando os dados do site nas configurações do seu navegador. 
+              Como os dados ficam armazenados localmente no seu dispositivo, <strong>você tem total controle sobre eles</strong>.
+            </p>
+          </div>
+
+          <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              <strong>Resumo:</strong> Não coletamos dados pessoais sensíveis, não compartilhamos informações com terceiros 
+              e não utilizamos tecnologias de rastreamento. Os dados armazenados são funcionais e essenciais para a experiência do jogo.
+            </p>
+          </div>
+        </motion.section>
+
       </main>
 
       {/* Footer */}
