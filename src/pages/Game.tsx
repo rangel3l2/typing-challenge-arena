@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
+import RaceTrack from "@/components/RaceTrack";
 import CountdownOverlay from "@/components/CountdownOverlay";
 import { challenges } from "@/lib/gameData";
 import { useSession } from "@/hooks/useSession";
