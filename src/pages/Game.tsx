@@ -46,7 +46,68 @@ const Game = () => {
   const [joinName, setJoinName] = useState("");
   const [needsName, setNeedsName] = useState(false);
 
-  // Initialize room
+  // Race progress tracking (multiplayer only)
+  const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
+  const progressChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Setup broadcast channel for progress when room exists and multiplayer
+  useEffect(() => {
+    if (!room || players.length <= 1) return;
+
+    const channel = supabase.channel(`race-${room.id}`, {
+      config: { broadcast: { self: true } },
+    });
+
+    channel
+      .on("broadcast", { event: "progress" }, ({ payload }) => {
+        if (payload?.playerId && typeof payload?.progress === "number") {
+          setRaceProgress((prev) => ({ ...prev, [payload.playerId]: payload.progress }));
+        }
+      })
+      .subscribe();
+
+    progressChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      progressChannelRef.current = null;
+    };
+  }, [room?.id, players.length]);
+
+  // Broadcast my progress
+  const handleProgressChange = useCallback(
+    (progress: number) => {
+      if (!myPlayerId || !progressChannelRef.current) return;
+      setRaceProgress((prev) => ({ ...prev, [myPlayerId]: progress }));
+      progressChannelRef.current.send({
+        type: "broadcast",
+        event: "progress",
+        payload: { playerId: myPlayerId, progress },
+      });
+    },
+    [myPlayerId]
+  );
+
+  // Reset race progress on new round
+  useEffect(() => {
+    if (phase === "countdown") {
+      setRaceProgress({});
+    }
+  }, [phase]);
+
+  // Build racer data for the RaceTrack component
+  const isMultiplayer = players.length > 1;
+  const racers = isMultiplayer
+    ? players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        progress: raceProgress[p.id] || 0,
+        isMe: p.id === myPlayerId,
+      }))
+    : [];
+
+
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
