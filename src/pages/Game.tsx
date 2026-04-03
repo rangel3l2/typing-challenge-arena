@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
-import RaceTrack from "@/components/RaceTrack";
 import CountdownOverlay from "@/components/CountdownOverlay";
 import { challenges } from "@/lib/gameData";
 import { useSession } from "@/hooks/useSession";
@@ -46,68 +45,7 @@ const Game = () => {
   const [joinName, setJoinName] = useState("");
   const [needsName, setNeedsName] = useState(false);
 
-  // Race progress tracking (multiplayer only)
-  const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
-  const progressChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  // Setup broadcast channel for progress when room exists and multiplayer
-  useEffect(() => {
-    if (!room || players.length <= 1) return;
-
-    const channel = supabase.channel(`race-${room.id}`, {
-      config: { broadcast: { self: true } },
-    });
-
-    channel
-      .on("broadcast", { event: "progress" }, ({ payload }) => {
-        if (payload?.playerId && typeof payload?.progress === "number") {
-          setRaceProgress((prev) => ({ ...prev, [payload.playerId]: payload.progress }));
-        }
-      })
-      .subscribe();
-
-    progressChannelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-      progressChannelRef.current = null;
-    };
-  }, [room?.id, players.length]);
-
-  // Broadcast my progress
-  const handleProgressChange = useCallback(
-    (progress: number) => {
-      if (!myPlayerId || !progressChannelRef.current) return;
-      setRaceProgress((prev) => ({ ...prev, [myPlayerId]: progress }));
-      progressChannelRef.current.send({
-        type: "broadcast",
-        event: "progress",
-        payload: { playerId: myPlayerId, progress },
-      });
-    },
-    [myPlayerId]
-  );
-
-  // Reset race progress on new round
-  useEffect(() => {
-    if (phase === "countdown") {
-      setRaceProgress({});
-    }
-  }, [phase]);
-
-  // Build racer data for the RaceTrack component
-  const isMultiplayer = players.length > 1;
-  const racers = isMultiplayer
-    ? players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        progress: raceProgress[p.id] || 0,
-        isMe: p.id === myPlayerId,
-      }))
-    : [];
-
-
+  // Initialize room
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
@@ -432,24 +370,19 @@ const Game = () => {
           {/* PLAYING */}
           {phase === "playing" && challenge && !mySubmitted && (
             <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {/* Race Track — multiplayer only */}
-              {isMultiplayer && <RaceTrack racers={racers} />}
               <TypingChallenge
                 text={challenge.text}
                 round={challenge.round}
                 difficulty={challenge.difficulty}
                 label={challenge.label}
                 onComplete={handlePlayerComplete}
-                onProgressChange={isMultiplayer ? handleProgressChange : undefined}
               />
             </motion.div>
           )}
 
           {/* Waiting for others */}
           {phase === "playing" && mySubmitted && (
-            <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-10">
-              {/* Show race track while waiting */}
-              {isMultiplayer && <RaceTrack racers={racers} />}
+            <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20">
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full mb-4" />
               <p className="text-foreground font-display font-bold text-xl mb-2">Você terminou! 🎉</p>
               <p className="text-muted-foreground font-body">Aguardando os outros jogadores... ({currentRoundResults.length}/{players.length})</p>
