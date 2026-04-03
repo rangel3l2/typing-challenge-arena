@@ -67,18 +67,24 @@ function generateCurvedKeyframes(
   const STEPS = 16;
   let p0x: number, p0y: number, p1x: number, p1y: number, p2x: number, p2y: number;
 
+  // Clamp helper to keep control points within visible bounds
+  // This ensures balloons stay on-screen for at least 50% of their path
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
   if (direction === 'up') {
     p0x = startX; p0y = 115;
     p2x = startX; p2y = -20;
-    p1x = startX + curveAmp; p1y = 48;
+    // Clamp horizontal control point so balloon doesn't fly off left/right
+    p1x = clamp(startX + curveAmp, 5, 95); p1y = 48;
   } else if (direction === 'left') {
     p0x = 108; p0y = startY;
     p2x = -15; p2y = startY;
-    p1x = 50; p1y = startY + curveAmp;
+    // Clamp vertical control point so balloon doesn't fly above/below screen
+    p1x = 50; p1y = clamp(startY + curveAmp, 8, 88);
   } else {
     p0x = -12; p0y = startY;
     p2x = 112; p2y = startY;
-    p1x = 50; p1y = startY + curveAmp;
+    p1x = 50; p1y = clamp(startY + curveAmp, 8, 88);
   }
 
   let frames = '';
@@ -90,7 +96,10 @@ function generateCurvedKeyframes(
     const sinV = Math.sin(t * Math.PI * sineFr + sinePh) * 2.5;
     const x = direction === 'up' ? bezX + sinV : bezX;
     const y = direction === 'up' ? bezY : bezY + sinV;
-    frames += `${pct}%{left:${x.toFixed(1)}%;top:${y.toFixed(1)}%}`;
+    // Clamp final positions so balloon is never more than ~10% off-screen
+    const cx = clamp(x, -10, 110);
+    const cy = clamp(y, -10, 115);
+    frames += `${pct}%{left:${cx.toFixed(1)}%;top:${cy.toFixed(1)}%}`;
   }
 
   return {
