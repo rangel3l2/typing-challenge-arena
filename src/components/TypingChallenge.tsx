@@ -78,6 +78,14 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
     }
   }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes]);
 
+  // Report progress changes
+  useEffect(() => {
+    if (onProgressChange) {
+      const pct = Math.round((currentIndex / text.length) * 100);
+      onProgressChange(pct);
+    }
+  }, [currentIndex, text.length, onProgressChange]);
+
   const progress = (currentIndex / text.length) * 100;
 
   return (
