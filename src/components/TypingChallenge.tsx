@@ -7,6 +7,7 @@ interface TypingChallengeProps {
   difficulty: string;
   label: string;
   onComplete: (wpm: number, accuracy: number, timeMs: number) => void;
+  onProgressChange?: (progress: number) => void;
 }
 
 const TypingChallenge = ({ text, round, difficulty, label, onComplete }: TypingChallengeProps) => {
