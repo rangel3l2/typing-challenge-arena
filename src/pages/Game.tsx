@@ -432,12 +432,15 @@ const Game = () => {
           {/* PLAYING */}
           {phase === "playing" && challenge && !mySubmitted && (
             <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {/* Race Track — multiplayer only */}
+              {isMultiplayer && <RaceTrack racers={racers} />}
               <TypingChallenge
                 text={challenge.text}
                 round={challenge.round}
                 difficulty={challenge.difficulty}
                 label={challenge.label}
                 onComplete={handlePlayerComplete}
+                onProgressChange={isMultiplayer ? handleProgressChange : undefined}
               />
             </motion.div>
           )}
