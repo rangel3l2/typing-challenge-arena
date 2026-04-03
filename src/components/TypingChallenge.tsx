@@ -10,7 +10,7 @@ interface TypingChallengeProps {
   onProgressChange?: (progress: number) => void;
 }
 
-const TypingChallenge = ({ text, round, difficulty, label, onComplete }: TypingChallengeProps) => {
+const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgressChange }: TypingChallengeProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
