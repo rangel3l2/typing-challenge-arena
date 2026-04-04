@@ -7,9 +7,10 @@ interface TypingChallengeProps {
   difficulty: string;
   label: string;
   onComplete: (wpm: number, accuracy: number, timeMs: number) => void;
+  onProgressChange?: (progress: number) => void;
 }
 
-const TypingChallenge = ({ text, round, difficulty, label, onComplete }: TypingChallengeProps) => {
+const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgressChange }: TypingChallengeProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
@@ -76,6 +77,14 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete }: TypingC
       // Still advance but mark as error - simplified: just count error, don't advance
     }
   }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes]);
+
+  // Report progress changes
+  useEffect(() => {
+    if (onProgressChange) {
+      const pct = Math.round((currentIndex / text.length) * 100);
+      onProgressChange(pct);
+    }
+  }, [currentIndex, text.length, onProgressChange]);
 
   const progress = (currentIndex / text.length) * 100;
 
