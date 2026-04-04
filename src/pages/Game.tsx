@@ -133,10 +133,10 @@ const Game = () => {
   // Auto-start for solo mode
   useEffect(() => {
     if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
-      // Call updateRoom directly to avoid stale closure in startGame
-      updateRoom({ status: "countdown", current_round: 1 });
+      // Bypass updateRoom to avoid stale closure — call supabase directly
+      supabase.from("rooms").update({ status: "countdown", current_round: 1 }).eq("id", room.id).then(() => {});
     }
-  }, [isSoloMode, room, phase, isOwner, players.length, updateRoom]);
+  }, [isSoloMode, room?.id, phase, isOwner, players.length]);
 
   const handleJoinViaLink = () => {
     if (!joinName.trim() || !urlCode) return;
