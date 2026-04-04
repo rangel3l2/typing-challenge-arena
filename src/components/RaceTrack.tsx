@@ -187,18 +187,66 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
 
 FuscaCar.displayName = "FuscaCar";
 
+// Select up to 6 relevant racers: current player, 1st place, and neighbors
+function selectVisibleRacers(racers: RacerData[]): RacerData[] {
+  if (racers.length <= 6) return racers;
+
+  const sorted = [...racers].sort((a, b) => b.progress - a.progress);
+  const meIndex = sorted.findIndex((r) => r.isMe);
+  const visible = new Set<number>();
+
+  // Always show 1st place
+  visible.add(0);
+  // Always show current player
+  if (meIndex >= 0) visible.add(meIndex);
+
+  // Add neighbors around player
+  if (meIndex >= 0) {
+    for (let offset = -1; offset <= 2; offset++) {
+      const idx = meIndex + offset;
+      if (idx >= 0 && idx < sorted.length) visible.add(idx);
+    }
+  }
+
+  // Fill remaining slots from top
+  for (let i = 1; visible.size < 6 && i < sorted.length; i++) {
+    visible.add(i);
+  }
+
+  return Array.from(visible)
+    .sort((a, b) => a - b)
+    .map((i) => ({ ...sorted[i], _rank: i + 1 } as RacerData & { _rank: number }));
+}
+
 const RaceTrack = ({ racers }: RaceTrackProps) => {
   if (racers.length === 0) return null;
+
+  const visible = selectVisibleRacers(racers);
+  const sorted = [...racers].sort((a, b) => b.progress - a.progress);
 
   return (
     <div className="w-full max-w-4xl mx-auto mb-6">
       <div className="glass-card p-4 space-y-1">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-bold text-foreground">🏁 Corrida de Fuscas</span>
+          {racers.length > 6 && (
+            <span className="text-xs text-muted-foreground font-body">{racers.length} jogadores</span>
+          )}
         </div>
-        {racers.map((racer, i) => (
-          <FuscaCar key={racer.id} racer={racer} index={i} />
-        ))}
+        {visible.map((racer, i) => {
+          const rank = sorted.findIndex((r) => r.id === racer.id) + 1;
+          return (
+            <div key={racer.id} className="relative">
+              {/* Position badge */}
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 z-30 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center">
+                <span className="text-[10px] font-display font-bold text-foreground">{rank}º</span>
+              </div>
+              <div className="pl-6">
+                <FuscaCar racer={racer} index={i} />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
