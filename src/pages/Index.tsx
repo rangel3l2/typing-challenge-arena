@@ -31,6 +31,12 @@ const Index = () => {
     }
   };
 
+  const handleSolo = () => {
+    if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
+    navigate("/game", { state: { playerName: playerName.trim(), action: "solo" } });
+  };
+
   const handleCreate = () => {
     if (!playerName.trim()) return;
     localStorage.setItem("typerace_player_name", playerName.trim());
