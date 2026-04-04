@@ -130,12 +130,14 @@ const Game = () => {
     updateRoom({ status: "countdown", current_round: 1 });
   }, [updateRoom]);
 
-  // Auto-start for solo mode
+  // Auto-start for solo mode — set phase directly + update DB
   useEffect(() => {
     if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
-      startGame();
+      setPhase("countdown");
+      setCountdown(3);
+      supabase.from("rooms").update({ status: "countdown", current_round: 1 }).eq("id", room.id);
     }
-  }, [isSoloMode, room, phase, isOwner, players.length, startGame]);
+  }, [isSoloMode, room?.id, phase, isOwner, players.length]);
 
   const handleJoinViaLink = () => {
     if (!joinName.trim() || !urlCode) return;

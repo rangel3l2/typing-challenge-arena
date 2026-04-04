@@ -17,7 +17,7 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
   const [startTime, setStartTime] = useState<number | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [currentWpm, setCurrentWpm] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const calculateWpm = useCallback(() => {
     if (!startTime || currentIndex === 0) return 0;
@@ -35,11 +35,17 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
     return () => clearInterval(interval);
   }, [startTime, isComplete, calculateWpm]);
 
+  // Focus the hidden input on mount and keep it focused
   useEffect(() => {
-    containerRef.current?.focus();
+    const timer = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const refocusInput = () => {
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isComplete) return;
     if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta" || e.key === "Tab" || e.key === "CapsLock") return;
     
@@ -74,7 +80,6 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
       }
     } else {
       setErrors(prev => prev + 1);
-      // Still advance but mark as error - simplified: just count error, don't advance
     }
   }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes]);
 
@@ -94,6 +99,17 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-4xl mx-auto"
     >
+      {/* Hidden input to capture keystrokes reliably */}
+      <input
+        ref={inputRef}
+        type="text"
+        className="sr-only"
+        onKeyDown={handleKeyDown}
+        onBlur={refocusInput}
+        autoFocus
+        aria-label="Área de digitação"
+      />
+
       {/* Header info */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -128,12 +144,10 @@ const TypingChallenge = ({ text, round, difficulty, label, onComplete, onProgres
       {/* Label */}
       <p className="text-sm text-muted-foreground mb-3 font-body">{label}</p>
 
-      {/* Typing area */}
+      {/* Typing area — click to refocus hidden input */}
       <div
-        ref={containerRef}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        className="glass-card p-8 cursor-text focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+        onClick={refocusInput}
+        className="glass-card p-8 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all"
       >
         <p className="text-xl md:text-2xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
