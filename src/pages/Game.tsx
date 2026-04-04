@@ -133,9 +133,10 @@ const Game = () => {
   // Auto-start for solo mode
   useEffect(() => {
     if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
-      startGame();
+      // Call updateRoom directly to avoid stale closure in startGame
+      updateRoom({ status: "countdown", current_round: 1 });
     }
-  }, [isSoloMode, room, phase, isOwner, players.length, startGame]);
+  }, [isSoloMode, room, phase, isOwner, players.length, updateRoom]);
 
   const handleJoinViaLink = () => {
     if (!joinName.trim() || !urlCode) return;
