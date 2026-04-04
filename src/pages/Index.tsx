@@ -10,7 +10,7 @@ const Index = () => {
   const { restoreFromTag } = useSession();
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
-  const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
+  const [mode, setMode] = useState<"idle" | "choose" | "create" | "join">("idle");
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
 
@@ -29,6 +29,12 @@ const Index = () => {
       }
       setRestoring(false);
     }
+  };
+
+  const handleSolo = () => {
+    if (!playerName.trim()) return;
+    localStorage.setItem("typerace_player_name", playerName.trim());
+    navigate("/game", { state: { playerName: playerName.trim(), action: "solo" } });
   };
 
   const handleCreate = () => {
@@ -249,23 +255,53 @@ const Index = () => {
                   <motion.button
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => playerName.trim() ? setMode("create") : null}
+                    onClick={() => playerName.trim() ? handleSolo() : null}
                     disabled={!playerName.trim()}
                     className="glass-card p-6 flex flex-col items-center gap-3 hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                      <Plus className="w-7 h-7 text-primary" />
+                      <Zap className="w-7 h-7 text-primary" />
                     </div>
-                    <span className="font-display font-bold text-foreground">Criar Sala</span>
-                    <span className="text-xs text-muted-foreground">Comece um novo jogo</span>
+                    <span className="font-display font-bold text-foreground">Jogar Sozinho</span>
+                    <span className="text-xs text-muted-foreground">Treine sua digitação</span>
                   </motion.button>
 
                   <motion.button
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => playerName.trim() ? setMode("join") : null}
+                    onClick={() => playerName.trim() ? setMode("choose") : null}
                     disabled={!playerName.trim()}
                     className="glass-card p-6 flex flex-col items-center gap-3 hover:border-secondary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors">
+                      <Users className="w-7 h-7 text-secondary" />
+                    </div>
+                    <span className="font-display font-bold text-foreground">Jogar Multiplayer</span>
+                    <span className="text-xs text-muted-foreground">Até 25 jogadores</span>
+                  </motion.button>
+                </div>
+              </div>
+            ) : mode === "choose" ? (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setMode("create")}
+                    className="glass-card p-6 flex flex-col items-center gap-3 hover:border-primary/50 transition-all group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                      <Plus className="w-7 h-7 text-primary" />
+                    </div>
+                    <span className="font-display font-bold text-foreground">Criar Sala</span>
+                    <span className="text-xs text-muted-foreground">Convide amigos</span>
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setMode("join")}
+                    className="glass-card p-6 flex flex-col items-center gap-3 hover:border-secondary/50 transition-all group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors">
                       <Users className="w-7 h-7 text-secondary" />
@@ -274,7 +310,10 @@ const Index = () => {
                     <span className="text-xs text-muted-foreground">Use um código</span>
                   </motion.button>
                 </div>
-              </div>
+                <button onClick={() => setMode("idle")} className="w-full px-4 py-3 rounded-xl bg-muted text-foreground font-body font-semibold hover:bg-muted/80 transition-colors text-center">
+                  Voltar
+                </button>
+              </motion.div>
             ) : mode === "create" ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">

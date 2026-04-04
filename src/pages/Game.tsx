@@ -22,7 +22,7 @@ const Game = () => {
   const { playerName: stateName, roomCode: stateCode, action } = (location.state as {
     playerName?: string;
     roomCode?: string;
-    action?: "create" | "join";
+    action?: "create" | "join" | "solo";
   }) || {};
 
   const {
@@ -108,19 +108,34 @@ const Game = () => {
     : [];
 
 
+  const [isSoloMode, setIsSoloMode] = useState(false);
+
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
 
-    if (action === "create" && stateName) {
+    if (action === "solo" && stateName) {
+      setIsSoloMode(true);
+      createRoom(stateName).then(() => registerIdentity(stateName));
+    } else if (action === "create" && stateName) {
       createRoom(stateName).then(() => registerIdentity(stateName));
     } else if (action === "join" && stateCode && stateName) {
       joinRoom(stateCode, stateName).then(() => registerIdentity(stateName));
     } else if (urlCode) {
-      // Joining via link - need name input
       setNeedsName(true);
     }
   }, [initialized, action, stateName, stateCode, urlCode, createRoom, joinRoom]);
+
+  const startGame = useCallback(() => {
+    updateRoom({ status: "countdown", current_round: 1 });
+  }, [updateRoom]);
+
+  // Auto-start for solo mode
+  useEffect(() => {
+    if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
+      startGame();
+    }
+  }, [isSoloMode, room, phase, isOwner, players.length, startGame]);
 
   const handleJoinViaLink = () => {
     if (!joinName.trim() || !urlCode) return;
@@ -145,7 +160,6 @@ const Game = () => {
   useEffect(() => {
     if (phase !== "countdown") return;
     if (countdown < 0) {
-      // Only owner transitions to playing
       if (isOwner) {
         updateRoom({ status: "playing" });
       }
@@ -155,10 +169,6 @@ const Game = () => {
     const timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [phase, countdown, isOwner, updateRoom]);
-
-  const startGame = useCallback(() => {
-    updateRoom({ status: "countdown", current_round: 1 });
-  }, [updateRoom]);
 
   const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number) => {
     if (!room) return;
