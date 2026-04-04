@@ -126,6 +126,10 @@ const Game = () => {
     }
   }, [initialized, action, stateName, stateCode, urlCode, createRoom, joinRoom]);
 
+  const startGame = useCallback(() => {
+    updateRoom({ status: "countdown", current_round: 1 });
+  }, [updateRoom]);
+
   // Auto-start for solo mode
   useEffect(() => {
     if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
@@ -156,7 +160,6 @@ const Game = () => {
   useEffect(() => {
     if (phase !== "countdown") return;
     if (countdown < 0) {
-      // Only owner transitions to playing
       if (isOwner) {
         updateRoom({ status: "playing" });
       }
@@ -166,10 +169,6 @@ const Game = () => {
     const timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [phase, countdown, isOwner, updateRoom]);
-
-  const startGame = useCallback(() => {
-    updateRoom({ status: "countdown", current_round: 1 });
-  }, [updateRoom]);
 
   const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number) => {
     if (!room) return;
