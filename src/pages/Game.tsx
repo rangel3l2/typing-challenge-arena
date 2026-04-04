@@ -22,7 +22,7 @@ const Game = () => {
   const { playerName: stateName, roomCode: stateCode, action } = (location.state as {
     playerName?: string;
     roomCode?: string;
-    action?: "create" | "join";
+    action?: "create" | "join" | "solo";
   }) || {};
 
   const {
