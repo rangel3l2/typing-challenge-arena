@@ -330,10 +330,24 @@ const Game = () => {
     );
   }
 
-  if (loading || !room) {
+  // Only show loading on initial load, not mid-game
+  if ((loading || !room) && (phase === "lobby" || !initialized)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // If room is null mid-game (connection lost), show reconnecting message
+  if (!room && phase !== "lobby") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-foreground font-display font-bold">Reconectando...</p>
+          <p className="text-muted-foreground font-body text-sm mt-2">Aguarde um momento</p>
+        </div>
       </div>
     );
   }
