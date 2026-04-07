@@ -39,6 +39,26 @@ export interface RoomState {
   owner_session_id: string;
 }
 
+const ROOM_STORAGE_KEY = "typerace_active_room";
+
+function saveActiveRoom(roomId: string, code: string) {
+  sessionStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({ roomId, code }));
+}
+
+function getActiveRoom(): { roomId: string; code: string } | null {
+  try {
+    const raw = sessionStorage.getItem(ROOM_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function clearActiveRoom() {
+  sessionStorage.removeItem(ROOM_STORAGE_KEY);
+}
+
 export function useRoom(sessionId: string) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [players, setPlayers] = useState<RoomPlayer[]>([]);
@@ -47,6 +67,18 @@ export function useRoom(sessionId: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const roomIdRef = useRef<string | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch room by ID (for recovery)
+  const fetchRoom = useCallback(async (roomId: string): Promise<RoomState | null> => {
+    const { data } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("id", roomId)
+      .single();
+    return data as RoomState | null;
+  }, []);
 
   // Fetch players for a room
   const fetchPlayers = useCallback(async (roomId: string) => {
@@ -68,11 +100,13 @@ export function useRoom(sessionId: string) {
     if (data) setRoundResults(data as RoundResultRow[]);
   }, []);
 
-  // Subscribe to realtime changes
+  // Subscribe to realtime changes with reconnection
   const subscribe = useCallback((roomId: string) => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
+
+    roomIdRef.current = roomId;
 
     const channel = supabase
       .channel(`room-${roomId}`)
@@ -99,10 +133,38 @@ export function useRoom(sessionId: string) {
           fetchResults(roomId);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Reconnect after a short delay
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = setTimeout(() => {
+            if (roomIdRef.current === roomId) {
+              // Re-fetch current state then resubscribe
+              fetchRoom(roomId).then((r) => {
+                if (r) setRoom(r);
+              });
+              fetchPlayers(roomId);
+              fetchResults(roomId);
+              subscribe(roomId);
+            }
+          }, 2000);
+        }
+      });
 
     channelRef.current = channel;
-  }, [fetchPlayers, fetchResults]);
+  }, [fetchPlayers, fetchResults, fetchRoom]);
+
+  // Periodic heartbeat: re-fetch room state every 5s during active gameplay
+  useEffect(() => {
+    if (!room || room.status === "lobby" || room.status === "final_results") return;
+    const interval = setInterval(async () => {
+      if (!roomIdRef.current) return;
+      const fresh = await fetchRoom(roomIdRef.current);
+      if (fresh) setRoom(fresh);
+      await fetchResults(roomIdRef.current);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [room?.id, room?.status, fetchRoom, fetchResults]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -110,8 +172,50 @@ export function useRoom(sessionId: string) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
     };
   }, []);
+
+  // Try to recover room from sessionStorage on mount
+  useEffect(() => {
+    const saved = getActiveRoom();
+    if (!saved || room) return;
+
+    const recover = async () => {
+      setLoading(true);
+      try {
+        const roomData = await fetchRoom(saved.roomId);
+        if (!roomData || roomData.status === "final_results") {
+          clearActiveRoom();
+          setLoading(false);
+          return;
+        }
+        setRoom(roomData);
+
+        // Find my player
+        const { data: myPlayer } = await supabase
+          .from("room_players")
+          .select("*")
+          .eq("room_id", saved.roomId)
+          .eq("session_id", sessionId)
+          .maybeSingle();
+
+        if (myPlayer) {
+          setMyPlayerId((myPlayer as RoomPlayer).id);
+        }
+
+        await fetchPlayers(saved.roomId);
+        await fetchResults(saved.roomId);
+        subscribe(saved.roomId);
+      } catch {
+        clearActiveRoom();
+      }
+      setLoading(false);
+    };
+    recover();
+  }, [sessionId]);
 
   // Create a new room
   const createRoom = useCallback(async (playerName: string): Promise<string | null> => {
@@ -129,6 +233,7 @@ export function useRoom(sessionId: string) {
 
       const roomState = roomData as RoomState;
       setRoom(roomState);
+      saveActiveRoom(roomState.id, roomState.code);
 
       // Add owner as player
       const { data: playerData, error: playerErr } = await supabase
@@ -174,6 +279,7 @@ export function useRoom(sessionId: string) {
       if (roomState.status !== "lobby") throw new Error("O jogo já começou");
 
       setRoom(roomState);
+      saveActiveRoom(roomState.id, roomState.code);
 
       // Check if already in room
       const { data: existing } = await supabase
