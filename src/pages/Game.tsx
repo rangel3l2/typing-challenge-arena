@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy } from "lucide-react";
+import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, WifiOff } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
@@ -33,10 +33,12 @@ const Game = () => {
     isOwner,
     loading,
     error,
+    onlinePlayerIds,
     createRoom,
     joinRoom,
     updateRoom,
     submitResult,
+    retrackPresence,
   } = useRoom(sessionId);
 
   const [phase, setPhase] = useState<GamePhase>("lobby");
@@ -45,6 +47,111 @@ const Game = () => {
   const [copied, setCopied] = useState(false);
   const [joinName, setJoinName] = useState("");
   const [needsName, setNeedsName] = useState(false);
+
+  // Connection state
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [wasOfflineDuringRound, setWasOfflineDuringRound] = useState(false);
+  const [canRejoin, setCanRejoin] = useState(true);
+  const roundWhenDisconnected = useRef<number | null>(null);
+  const phaseWhenDisconnected = useRef<GamePhase | null>(null);
+
+  // Track online/offline events
+  useEffect(() => {
+    const handleOffline = () => {
+      setIsOffline(true);
+      if (phase === "playing" || phase === "countdown") {
+        setWasOfflineDuringRound(true);
+        roundWhenDisconnected.current = room?.current_round || null;
+        phaseWhenDisconnected.current = phase;
+      }
+    };
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Re-track presence so others see us again
+      retrackPresence();
+
+      // Check if we can still rejoin
+      if (wasOfflineDuringRound && room) {
+        const currentRound = room.current_round;
+        const disconnectedRound = roundWhenDisconnected.current;
+        
+        // If still on the same round and still playing/countdown, player can continue
+        if (disconnectedRound !== null && currentRound === disconnectedRound && 
+            (room.status === "playing" || room.status === "countdown")) {
+          setCanRejoin(true);
+          setWasOfflineDuringRound(false);
+          roundWhenDisconnected.current = null;
+          phaseWhenDisconnected.current = null;
+        } else if (room.status === "round_results" && disconnectedRound !== null && currentRound === disconnectedRound) {
+          // Round ended while offline - they missed it, but can continue next round
+          setCanRejoin(true);
+          setWasOfflineDuringRound(false);
+          roundWhenDisconnected.current = null;
+          phaseWhenDisconnected.current = null;
+        } else if (room.status === "final_results") {
+          // Match ended
+          setCanRejoin(false);
+        } else {
+          // Round advanced past them - they can watch from next round
+          setCanRejoin(true);
+          setWasOfflineDuringRound(false);
+          roundWhenDisconnected.current = null;
+          phaseWhenDisconnected.current = null;
+        }
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [phase, room, wasOfflineDuringRound, retrackPresence]);
+
+  // When coming back online, re-fetch room state to check if we can rejoin
+  useEffect(() => {
+    if (isOffline || !wasOfflineDuringRound || !room) return;
+    
+    const checkRejoin = async () => {
+      const { data: freshRoom } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", room.id)
+        .single();
+      
+      if (!freshRoom) {
+        setCanRejoin(false);
+        return;
+      }
+
+      const fr = freshRoom as any;
+      const disconnectedRound = roundWhenDisconnected.current;
+
+      if (fr.status === "final_results") {
+        setCanRejoin(false);
+      } else if (disconnectedRound !== null && fr.current_round > disconnectedRound + 1) {
+        // Missed more than 1 round - show "next match" message
+        setCanRejoin(false);
+      } else {
+        setCanRejoin(true);
+        setWasOfflineDuringRound(false);
+        roundWhenDisconnected.current = null;
+        phaseWhenDisconnected.current = null;
+      }
+    };
+    checkRejoin();
+  }, [isOffline, wasOfflineDuringRound, room]);
+
+  // Reset disconnect state on new round
+  useEffect(() => {
+    if (phase === "countdown" && !isOffline) {
+      setWasOfflineDuringRound(false);
+      roundWhenDisconnected.current = null;
+      phaseWhenDisconnected.current = null;
+    }
+  }, [phase, isOffline]);
 
   // Race progress tracking (multiplayer only)
   const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
@@ -95,18 +202,33 @@ const Game = () => {
     }
   }, [phase]);
 
-  // Build racer data for the RaceTrack component
+  // Build racer data for the RaceTrack component - filter out offline players
   const isMultiplayer = players.length > 1;
   const racers = isMultiplayer
-    ? players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        progress: raceProgress[p.id] || 0,
-        isMe: p.id === myPlayerId,
-      }))
+    ? players
+        .filter((p) => {
+          // Always show self
+          if (p.id === myPlayerId) return true;
+          // Only show online players during gameplay
+          if (phase === "playing" || phase === "countdown") {
+            return onlinePlayerIds.size === 0 || onlinePlayerIds.has(p.id);
+          }
+          return true;
+        })
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          color: p.color,
+          progress: raceProgress[p.id] || 0,
+          isMe: p.id === myPlayerId,
+        }))
     : [];
 
+  // Count only online players for "all submitted" check
+  const onlinePlayers = players.filter((p) => {
+    if (onlinePlayerIds.size === 0) return true; // presence not loaded yet, count all
+    return onlinePlayerIds.has(p.id);
+  });
 
   const [isSoloMode, setIsSoloMode] = useState(false);
 
@@ -130,7 +252,7 @@ const Game = () => {
     updateRoom({ status: "countdown", current_round: 1 });
   }, [updateRoom]);
 
-  // Auto-start for solo mode — set phase directly + update DB
+  // Auto-start for solo mode
   useEffect(() => {
     if (isSoloMode && room && phase === "lobby" && isOwner && players.length >= 1) {
       setPhase("countdown");
@@ -175,29 +297,25 @@ const Game = () => {
   const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number) => {
     if (!room) return;
     await submitResult(room.current_round, wpm, accuracy, timeMs);
-
-    // Check if all players finished - owner decides when to show results
-    // For simplicity, each player submits and we show results when all are in
-    // The owner will advance the round
   }, [room, submitResult]);
 
-  // Check if all players submitted results for current round
+  // Check if all ONLINE players submitted results for current round
   const currentRound = room?.current_round || 1;
   const currentRoundResults = roundResults.filter(r => r.round === currentRound);
-  const allPlayersSubmitted = players.length > 0 && currentRoundResults.length >= players.length;
+  const allPlayersSubmitted = onlinePlayers.length > 0 && currentRoundResults.length >= onlinePlayers.length;
   const isSolo = players.length === 1;
 
   // Historical results for solo comparison
   const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
 
-  // Auto-transition when all submit (owner triggers) — always show round results
+  // Auto-transition when all online players submit
   useEffect(() => {
     if (allPlayersSubmitted && phase === "playing" && isOwner) {
       updateRoom({ status: "round_results" });
     }
   }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
 
-  // Fetch historical results for solo comparison when entering round results
+  // Fetch historical results for solo comparison
   useEffect(() => {
     if (phase !== "roundResults" || !isSolo || !room) return;
 
@@ -210,7 +328,6 @@ const Game = () => {
         .limit(20);
 
       if (data) {
-        // Filter out current room's results to avoid duplicates, then merge
         const historical = (data as any[])
           .filter((r: any) => r.room_players.room_id !== room.id)
           .map((r: any) => ({
@@ -257,7 +374,7 @@ const Game = () => {
     }
   };
 
-  // Build leaderboard-compatible data
+  // Build leaderboard-compatible data - only online players in multiplayer
   const leaderboardPlayers = players.map(p => ({
     id: p.id,
     name: p.name,
@@ -273,7 +390,7 @@ const Game = () => {
     timeMs: r.time_ms,
   }));
 
-  // Overall results (average across all rounds)
+  // Overall results (average across all rounds) - only count players who have results
   const getOverallResults = () => {
     const playerScores = new Map<string, { totalWpm: number; totalAcc: number; count: number }>();
     roundResults.forEach(r => {
@@ -323,6 +440,71 @@ const Game = () => {
               className="flex-1 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all disabled:opacity-40"
             >
               Entrar
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Offline overlay - show when player loses connection during a match
+  if (isOffline && phase !== "lobby") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card p-8 w-full max-w-md text-center border-destructive/30"
+        >
+          <motion.div
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            <WifiOff className="w-16 h-16 text-destructive mx-auto mb-4" />
+          </motion.div>
+          <h2 className="text-2xl font-display font-bold text-foreground mb-2">Conexão Perdida</h2>
+          <p className="text-muted-foreground font-body mb-4">
+            Sua internet caiu. Quando a conexão voltar, você será reconectado automaticamente.
+          </p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"
+          />
+          <p className="text-sm text-muted-foreground/70 font-body">
+            Sala: <span className="text-accent font-bold">{room?.code}</span>
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Can't rejoin overlay - match moved too far or ended
+  if (!canRejoin && !isOffline) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-8 w-full max-w-md text-center"
+        >
+          <div className="text-5xl mb-4">😔</div>
+          <h2 className="text-2xl font-display font-bold text-foreground mb-2">Partida Encerrada</h2>
+          <p className="text-muted-foreground font-body mb-6">
+            Infelizmente a partida avançou enquanto você estava desconectado. Seus pontos desta rodada não foram contabilizados.
+          </p>
+          <p className="text-sm text-muted-foreground/70 font-body mb-6">
+            Você poderá participar da próxima partida!
+          </p>
+          <div className="flex gap-3 justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold glow-primary hover:brightness-110 transition-all"
+            >
+              <Home className="w-5 h-5" />
+              Voltar ao Início
             </motion.button>
           </div>
         </motion.div>
@@ -479,7 +661,7 @@ const Game = () => {
               {isMultiplayer && <RaceTrack racers={racers} />}
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full mb-4" />
               <p className="text-foreground font-display font-bold text-xl mb-2">Você terminou! 🎉</p>
-              <p className="text-muted-foreground font-body">Aguardando os outros jogadores... ({currentRoundResults.length}/{players.length})</p>
+              <p className="text-muted-foreground font-body">Aguardando os outros jogadores... ({currentRoundResults.length}/{onlinePlayers.length})</p>
             </motion.div>
           )}
 
@@ -493,7 +675,6 @@ const Game = () => {
                     const myResult = leaderboardCurrentResults[0];
                     if (!myResult) return null;
                     
-                    // Merge current player with historical into a unified ranking
                     const allEntries = [
                       { name: leaderboardPlayers[0]?.name || "Você", color: leaderboardPlayers[0]?.color || "hsl(142 70% 45%)", wpm: myResult.wpm, accuracy: myResult.accuracy, isMe: true },
                       ...historicalResults.map(h => ({ ...h, isMe: false })),
@@ -510,7 +691,6 @@ const Game = () => {
                           Sua posição: <span className="text-accent font-bold">{myRank}º</span> de {allEntries.length} jogador{allEntries.length !== 1 ? "es" : ""}
                         </p>
 
-                        {/* Player's own stats highlight */}
                         <div className="glass-card p-6 mb-6 glow-primary border-primary/30">
                           <div className="flex items-center justify-center gap-8">
                             <div className="text-center">
@@ -524,7 +704,6 @@ const Game = () => {
                           </div>
                         </div>
 
-                        {/* Historical comparison list */}
                         {allEntries.length > 1 && (
                           <>
                             <h3 className="text-sm font-body font-semibold text-muted-foreground mb-3 text-center">Comparação com outros jogadores nesta rodada</h3>
