@@ -433,15 +433,16 @@ const Game = () => {
                 </div>
               </div>
 
-              {isOwner && players.length >= 1 && (
+              {isOwner && !isSoloMode && (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={startGame}
-                  className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all"
+                  disabled={players.length < 2}
+                  className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
                 >
                   <Play className="w-6 h-6" />
-                  Iniciar Jogo!
+                  {players.length < 2 ? "Aguardando jogadores..." : "Iniciar Jogo!"}
                 </motion.button>
               )}
               {!isOwner && (
