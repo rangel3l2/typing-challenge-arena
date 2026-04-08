@@ -66,7 +66,9 @@ export function useRoom(sessionId: string) {
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [onlinePlayerIds, setOnlinePlayerIds] = useState<Set<string>>(new Set());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const roomIdRef = useRef<string | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +101,45 @@ export function useRoom(sessionId: string) {
       .order("round", { ascending: true });
     if (data) setRoundResults(data as RoundResultRow[]);
   }, []);
+
+  // Update online players set from presence state
+  const syncPresence = useCallback((channel: ReturnType<typeof supabase.channel>) => {
+    const state = channel.presenceState();
+    const ids = new Set<string>();
+    Object.values(state).forEach((presences: any[]) => {
+      presences.forEach((p: any) => {
+        if (p.player_id) ids.add(p.player_id);
+      });
+    });
+    setOnlinePlayerIds(ids);
+  }, []);
+
+  // Subscribe to presence for a room
+  const subscribePresence = useCallback((roomId: string, playerId: string) => {
+    if (presenceChannelRef.current) {
+      supabase.removeChannel(presenceChannelRef.current);
+    }
+
+    const channel = supabase.channel(`presence-${roomId}`);
+    
+    channel
+      .on("presence", { event: "sync" }, () => {
+        syncPresence(channel);
+      })
+      .on("presence", { event: "join" }, () => {
+        syncPresence(channel);
+      })
+      .on("presence", { event: "leave" }, () => {
+        syncPresence(channel);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ player_id: playerId });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+  }, [syncPresence]);
 
   // Subscribe to realtime changes with reconnection
   const subscribe = useCallback((roomId: string) => {
@@ -135,11 +176,9 @@ export function useRoom(sessionId: string) {
       )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Reconnect after a short delay
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
             if (roomIdRef.current === roomId) {
-              // Re-fetch current state then resubscribe
               fetchRoom(roomId).then((r) => {
                 if (r) setRoom(r);
               });
@@ -172,6 +211,9 @@ export function useRoom(sessionId: string) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      if (presenceChannelRef.current) {
+        supabase.removeChannel(presenceChannelRef.current);
+      }
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
@@ -203,7 +245,9 @@ export function useRoom(sessionId: string) {
           .maybeSingle();
 
         if (myPlayer) {
-          setMyPlayerId((myPlayer as RoomPlayer).id);
+          const pid = (myPlayer as RoomPlayer).id;
+          setMyPlayerId(pid);
+          subscribePresence(saved.roomId, pid);
         }
 
         await fetchPlayers(saved.roomId);
@@ -249,10 +293,12 @@ export function useRoom(sessionId: string) {
         .single();
 
       if (playerErr || !playerData) throw new Error(playerErr?.message || "Failed to join room");
-      setMyPlayerId((playerData as RoomPlayer).id);
+      const pid = (playerData as RoomPlayer).id;
+      setMyPlayerId(pid);
 
       await fetchPlayers(roomState.id);
       subscribe(roomState.id);
+      subscribePresence(roomState.id, pid);
       setLoading(false);
       return code;
     } catch (e: any) {
@@ -260,7 +306,7 @@ export function useRoom(sessionId: string) {
       setLoading(false);
       return null;
     }
-  }, [sessionId, fetchPlayers, subscribe]);
+  }, [sessionId, fetchPlayers, subscribe, subscribePresence]);
 
   // Join an existing room by code
   const joinRoom = useCallback(async (code: string, playerName: string): Promise<boolean> => {
@@ -289,8 +335,10 @@ export function useRoom(sessionId: string) {
         .eq("session_id", sessionId)
         .maybeSingle();
 
+      let pid: string;
       if (existing) {
-        setMyPlayerId((existing as RoomPlayer).id);
+        pid = (existing as RoomPlayer).id;
+        setMyPlayerId(pid);
       } else {
         // Get player count for color assignment
         const { count } = await supabase
@@ -313,12 +361,14 @@ export function useRoom(sessionId: string) {
           .single();
 
         if (playerErr || !playerData) throw new Error(playerErr?.message || "Erro ao entrar na sala");
-        setMyPlayerId((playerData as RoomPlayer).id);
+        pid = (playerData as RoomPlayer).id;
+        setMyPlayerId(pid);
       }
 
       await fetchPlayers(roomState.id);
       await fetchResults(roomState.id);
       subscribe(roomState.id);
+      subscribePresence(roomState.id, pid);
       setLoading(false);
       return true;
     } catch (e: any) {
@@ -326,7 +376,7 @@ export function useRoom(sessionId: string) {
       setLoading(false);
       return false;
     }
-  }, [sessionId, fetchPlayers, fetchResults, subscribe]);
+  }, [sessionId, fetchPlayers, fetchResults, subscribe, subscribePresence]);
 
   // Update room status (owner only)
   const updateRoom = useCallback(async (updates: Partial<Pick<RoomState, "status" | "current_round">>) => {
@@ -347,6 +397,13 @@ export function useRoom(sessionId: string) {
     });
   }, [room, myPlayerId]);
 
+  // Re-track presence (useful after reconnection)
+  const retrackPresence = useCallback(() => {
+    if (presenceChannelRef.current && myPlayerId) {
+      presenceChannelRef.current.track({ player_id: myPlayerId });
+    }
+  }, [myPlayerId]);
+
   const isOwner = room?.owner_session_id === sessionId;
 
   return {
@@ -357,9 +414,11 @@ export function useRoom(sessionId: string) {
     isOwner,
     loading,
     error,
+    onlinePlayerIds,
     createRoom,
     joinRoom,
     updateRoom,
     submitResult,
+    retrackPresence,
   };
 }
