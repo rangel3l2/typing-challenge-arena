@@ -251,8 +251,10 @@ const Game = () => {
   }, [initialized, action, stateName, stateCode, urlCode, createRoom, joinRoom]);
 
   const startGame = useCallback(() => {
-    updateRoom({ status: "countdown", current_round: 1 });
-  }, [updateRoom]);
+    // Regenerate challenges with the configured round count
+    setGeneratedChallenges(generateProgressiveChallenges(roundConfig));
+    updateRoom({ status: "countdown", current_round: 1, max_rounds: roundConfig });
+  }, [updateRoom, roundConfig]);
 
   // Auto-start for solo mode
   useEffect(() => {
