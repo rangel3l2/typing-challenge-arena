@@ -649,6 +649,7 @@ const Game = () => {
                 text={challenge.text}
                 round={challenge.round}
                 difficulty={challenge.difficulty}
+                difficultyTier={challenge.tier}
                 label={challenge.label}
                 onComplete={handlePlayerComplete}
                 onProgressChange={isMultiplayer ? handleProgressChange : undefined}
