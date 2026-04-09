@@ -620,16 +620,40 @@ const Game = () => {
               </div>
 
               {isOwner && !isSoloMode && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={startGame}
-                  disabled={players.length < 2}
-                  className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
-                >
-                  <Play className="w-6 h-6" />
-                  {players.length < 2 ? "Aguardando jogadores..." : "Iniciar Jogo!"}
-                </motion.button>
+                <>
+                  {/* Round config */}
+                  <div className="glass-card p-4 w-full max-w-lg mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Settings className="w-4 h-4 text-primary" />
+                      <span className="font-display font-bold text-foreground text-sm">Configuração da Partida</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label className="text-sm text-muted-foreground font-body">Rodadas:</label>
+                      <input
+                        type="range"
+                        min={3}
+                        max={20}
+                        value={roundConfig}
+                        onChange={(e) => setRoundConfig(Number(e.target.value))}
+                        className="flex-1 accent-primary"
+                      />
+                      <span className="font-display font-bold text-primary text-lg w-8 text-center">{roundConfig}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground/70 mt-1 font-body">
+                      Dificuldade aumenta progressivamente ao longo das rodadas
+                    </p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={startGame}
+                    disabled={players.length < 2}
+                    className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                  >
+                    <Play className="w-6 h-6" />
+                    {players.length < 2 ? "Aguardando jogadores..." : "Iniciar Jogo!"}
+                  </motion.button>
+                </>
               )}
               {!isOwner && (
                 <p className="text-muted-foreground font-body text-sm">Aguardando o dono iniciar o jogo...</p>
