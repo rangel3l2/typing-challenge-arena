@@ -379,7 +379,7 @@ export function useRoom(sessionId: string) {
   }, [sessionId, fetchPlayers, fetchResults, subscribe, subscribePresence]);
 
   // Update room status (owner only)
-  const updateRoom = useCallback(async (updates: Partial<Pick<RoomState, "status" | "current_round">>) => {
+  const updateRoom = useCallback(async (updates: Partial<Pick<RoomState, "status" | "current_round" | "max_rounds">>) => {
     if (!room) return;
     await supabase.from("rooms").update(updates).eq("id", room.id);
   }, [room]);
