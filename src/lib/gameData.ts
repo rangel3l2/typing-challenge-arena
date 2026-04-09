@@ -91,6 +91,8 @@ export interface PlayerResult {
   wpm: number;
   accuracy: number;
   timeMs: number;
+  totalScore?: number;
+  averageDifficulty?: number;
 }
 
 export interface RoundResult {
@@ -126,8 +128,8 @@ export function generateRoomCode(): string {
 }
 
 export function simulateBotResult(textLength: number): PlayerResult {
-  const wpm = 25 + Math.random() * 55; // 25-80 WPM
-  const accuracy = 75 + Math.random() * 25; // 75-100%
+  const wpm = 25 + Math.random() * 55;
+  const accuracy = 75 + Math.random() * 25;
   const charsPerMin = wpm * 5;
   const timeMs = (textLength / charsPerMin) * 60 * 1000;
   return {
