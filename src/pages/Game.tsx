@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, WifiOff } from "lucide-react";
+import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, WifiOff, Settings } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
 import CountdownOverlay from "@/components/CountdownOverlay";
-import { challenges } from "@/lib/gameData";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
+import { generateProgressiveChallenges, DEFAULT_ROUNDS, type MatchResult } from "@/lib/wordDifficulty";
 
 type GamePhase = "lobby" | "countdown" | "playing" | "roundResults" | "finalResults";
 
@@ -231,6 +231,8 @@ const Game = () => {
   });
 
   const [isSoloMode, setIsSoloMode] = useState(false);
+  const [roundConfig, setRoundConfig] = useState(DEFAULT_ROUNDS);
+  const [generatedChallenges, setGeneratedChallenges] = useState(() => generateProgressiveChallenges(DEFAULT_ROUNDS));
 
   useEffect(() => {
     if (initialized) return;
@@ -249,8 +251,10 @@ const Game = () => {
   }, [initialized, action, stateName, stateCode, urlCode, createRoom, joinRoom]);
 
   const startGame = useCallback(() => {
-    updateRoom({ status: "countdown", current_round: 1 });
-  }, [updateRoom]);
+    // Regenerate challenges with the configured round count
+    setGeneratedChallenges(generateProgressiveChallenges(roundConfig));
+    updateRoom({ status: "countdown", current_round: 1, max_rounds: roundConfig });
+  }, [updateRoom, roundConfig]);
 
   // Auto-start for solo mode
   useEffect(() => {
@@ -266,6 +270,16 @@ const Game = () => {
     joinRoom(urlCode, joinName.trim()).then(() => registerIdentity(joinName.trim()));
     setNeedsName(false);
   };
+
+  // Regenerate challenges when room max_rounds changes (for non-owners joining)
+  useEffect(() => {
+    if (!room) return;
+    const rounds = room.max_rounds || DEFAULT_ROUNDS;
+    if (rounds !== generatedChallenges.length) {
+      setRoundConfig(rounds);
+      setGeneratedChallenges(generateProgressiveChallenges(rounds));
+    }
+  }, [room?.max_rounds]);
 
   // Sync phase with room status from DB
   useEffect(() => {
@@ -294,7 +308,7 @@ const Game = () => {
     return () => clearTimeout(timer);
   }, [phase, countdown, isOwner, updateRoom]);
 
-  const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number) => {
+  const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number, _matchResult: MatchResult) => {
     if (!room) return;
     await submitResult(room.current_round, wpm, accuracy, timeMs);
   }, [room, submitResult]);
@@ -342,7 +356,7 @@ const Game = () => {
     fetchHistorical();
   }, [phase, isSolo, currentRound, room]);
 
-  const maxRounds = room ? Math.min(room.max_rounds || challenges.length, challenges.length) : challenges.length;
+  const maxRounds = room ? (room.max_rounds || DEFAULT_ROUNDS) : DEFAULT_ROUNDS;
 
   const nextRound = () => {
     const next = currentRound + 1;
@@ -354,6 +368,7 @@ const Game = () => {
   };
 
   const playAgain = () => {
+    setGeneratedChallenges(generateProgressiveChallenges(maxRounds));
     updateRoom({ status: "countdown", current_round: 1 });
   };
 
@@ -409,7 +424,7 @@ const Game = () => {
     }));
   };
 
-  const challenge = challenges[(currentRound || 1) - 1];
+  const challenge = generatedChallenges[(currentRound || 1) - 1];
   const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
   // Name input for link-based join
@@ -616,16 +631,40 @@ const Game = () => {
               </div>
 
               {isOwner && !isSoloMode && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={startGame}
-                  disabled={players.length < 2}
-                  className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
-                >
-                  <Play className="w-6 h-6" />
-                  {players.length < 2 ? "Aguardando jogadores..." : "Iniciar Jogo!"}
-                </motion.button>
+                <>
+                  {/* Round config */}
+                  <div className="glass-card p-4 w-full max-w-lg mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Settings className="w-4 h-4 text-primary" />
+                      <span className="font-display font-bold text-foreground text-sm">Configuração da Partida</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label className="text-sm text-muted-foreground font-body">Rodadas:</label>
+                      <input
+                        type="range"
+                        min={3}
+                        max={20}
+                        value={roundConfig}
+                        onChange={(e) => setRoundConfig(Number(e.target.value))}
+                        className="flex-1 accent-primary"
+                      />
+                      <span className="font-display font-bold text-primary text-lg w-8 text-center">{roundConfig}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground/70 mt-1 font-body">
+                      Dificuldade aumenta progressivamente ao longo das rodadas
+                    </p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={startGame}
+                    disabled={players.length < 2}
+                    className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-xl glow-primary hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                  >
+                    <Play className="w-6 h-6" />
+                    {players.length < 2 ? "Aguardando jogadores..." : "Iniciar Jogo!"}
+                  </motion.button>
+                </>
               )}
               {!isOwner && (
                 <p className="text-muted-foreground font-body text-sm">Aguardando o dono iniciar o jogo...</p>
@@ -647,6 +686,7 @@ const Game = () => {
                 text={challenge.text}
                 round={challenge.round}
                 difficulty={challenge.difficulty}
+                difficultyTier={challenge.tier}
                 label={challenge.label}
                 onComplete={handlePlayerComplete}
                 onProgressChange={isMultiplayer ? handleProgressChange : undefined}
