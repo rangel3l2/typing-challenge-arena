@@ -271,6 +271,16 @@ const Game = () => {
     setNeedsName(false);
   };
 
+  // Regenerate challenges when room max_rounds changes (for non-owners joining)
+  useEffect(() => {
+    if (!room) return;
+    const rounds = room.max_rounds || DEFAULT_ROUNDS;
+    if (rounds !== generatedChallenges.length) {
+      setRoundConfig(rounds);
+      setGeneratedChallenges(generateProgressiveChallenges(rounds));
+    }
+  }, [room?.max_rounds]);
+
   // Sync phase with room status from DB
   useEffect(() => {
     if (!room) return;
