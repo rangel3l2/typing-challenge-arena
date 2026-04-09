@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, WifiOff } from "lucide-react";
+import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, WifiOff, Settings } from "lucide-react";
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
 import CountdownOverlay from "@/components/CountdownOverlay";
-import { challenges } from "@/lib/gameData";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
+import { generateProgressiveChallenges, DEFAULT_ROUNDS, type MatchResult } from "@/lib/wordDifficulty";
 
 type GamePhase = "lobby" | "countdown" | "playing" | "roundResults" | "finalResults";
 
@@ -231,6 +231,8 @@ const Game = () => {
   });
 
   const [isSoloMode, setIsSoloMode] = useState(false);
+  const [roundConfig, setRoundConfig] = useState(DEFAULT_ROUNDS);
+  const [generatedChallenges, setGeneratedChallenges] = useState(() => generateProgressiveChallenges(DEFAULT_ROUNDS));
 
   useEffect(() => {
     if (initialized) return;
