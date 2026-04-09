@@ -296,7 +296,7 @@ const Game = () => {
     return () => clearTimeout(timer);
   }, [phase, countdown, isOwner, updateRoom]);
 
-  const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number) => {
+  const handlePlayerComplete = useCallback(async (wpm: number, accuracy: number, timeMs: number, _matchResult: MatchResult) => {
     if (!room) return;
     await submitResult(room.current_round, wpm, accuracy, timeMs);
   }, [room, submitResult]);
@@ -344,7 +344,7 @@ const Game = () => {
     fetchHistorical();
   }, [phase, isSolo, currentRound, room]);
 
-  const maxRounds = room ? Math.min(room.max_rounds || challenges.length, challenges.length) : challenges.length;
+  const maxRounds = room ? (room.max_rounds || DEFAULT_ROUNDS) : DEFAULT_ROUNDS;
 
   const nextRound = () => {
     const next = currentRound + 1;
@@ -411,7 +411,7 @@ const Game = () => {
     }));
   };
 
-  const challenge = challenges[(currentRound || 1) - 1];
+  const challenge = generatedChallenges[(currentRound || 1) - 1];
   const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
   // Name input for link-based join
