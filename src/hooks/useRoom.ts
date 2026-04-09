@@ -269,7 +269,7 @@ export function useRoom(sessionId: string) {
       const code = generateRoomCode();
       const { data: roomData, error: roomErr } = await supabase
         .from("rooms")
-        .insert({ code, owner_session_id: sessionId, max_rounds: 10 })
+        .insert({ code, owner_session_id: sessionId, max_rounds: 14 })
         .select()
         .single();
 
