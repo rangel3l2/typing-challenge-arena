@@ -368,6 +368,7 @@ const Game = () => {
   };
 
   const playAgain = () => {
+    setGeneratedChallenges(generateProgressiveChallenges(maxRounds));
     updateRoom({ status: "countdown", current_round: 1 });
   };
 
