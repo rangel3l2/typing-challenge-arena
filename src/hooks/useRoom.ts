@@ -198,15 +198,18 @@ export function useRoom(sessionId: string) {
     channelRef.current = channel;
   }, [fetchPlayers, fetchResults, fetchRoom]);
 
-  // Periodic heartbeat: re-fetch room state every 5s during active gameplay
+  // Periodic heartbeat: re-fetch room state and players during lobby (every 3s) and gameplay (every 5s)
   useEffect(() => {
-    if (!room || room.status === "lobby" || room.status === "final_results") return;
+    if (!room || room.status === "final_results") return;
+    const isLobby = room.status === "lobby";
+    const intervalMs = isLobby ? 3000 : 5000;
     const interval = setInterval(async () => {
       if (!roomIdRef.current) return;
       const fresh = await fetchRoom(roomIdRef.current);
       if (fresh) setRoom(fresh);
-      await fetchResults(roomIdRef.current);
-    }, 5000);
+      await fetchPlayers(roomIdRef.current);
+      if (!isLobby) await fetchResults(roomIdRef.current);
+    }, intervalMs);
     return () => clearInterval(interval);
   }, [room?.id, room?.status, fetchRoom, fetchResults]);
 
