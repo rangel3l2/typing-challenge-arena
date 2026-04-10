@@ -150,7 +150,7 @@ export function useRoom(sessionId: string) {
     roomIdRef.current = roomId;
 
     const channel = supabase
-      .channel(`room-${roomId}`)
+      .channel(`room-${roomId}-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
@@ -175,6 +175,11 @@ export function useRoom(sessionId: string) {
         }
       )
       .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // Immediately fetch fresh data once subscribed to catch anything missed
+          fetchPlayers(roomId);
+          fetchResults(roomId);
+        }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
