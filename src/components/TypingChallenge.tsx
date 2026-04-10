@@ -211,32 +211,32 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
       />
 
       {/* Header info */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-sm font-bold">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-bold">
             Rodada {round}
           </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-bold border ${tierStyle}`}>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${tierStyle}`}>
             {difficultyTier.emoji} {difficultyTier.tier}
           </span>
-          <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+          <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-semibold">
             Dif: {difficulty.toFixed(2)}
           </span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">WPM</p>
-            <p className="text-2xl font-display font-bold text-primary">{currentWpm}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">WPM</p>
+            <p className="text-lg font-display font-bold text-primary">{currentWpm}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Erros</p>
-            <p className="text-2xl font-display font-bold text-destructive">{errors}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Erros</p>
+            <p className="text-lg font-display font-bold text-destructive">{errors}</p>
           </div>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-2 bg-muted rounded-full mb-6 overflow-hidden">
+      <div className="w-full h-1.5 bg-muted rounded-full mb-2 overflow-hidden">
         <motion.div
           className="h-full bg-primary rounded-full"
           animate={{ width: `${progress}%` }}
@@ -244,14 +244,14 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
         />
       </div>
 
-      <p className="text-sm text-muted-foreground mb-3 font-body">{label}</p>
+      <p className="text-xs text-muted-foreground mb-1 font-body">{label}</p>
 
       {/* Typing area */}
       <div
         onClick={refocusInput}
-        className="glass-card p-8 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all"
+        className="glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all"
       >
-        <p className="text-xl md:text-2xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
+        <p className="text-base sm:text-lg md:text-xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
             let className = "text-muted-foreground/40";
             if (i < currentIndex) {
@@ -271,7 +271,7 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
           <motion.p
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="text-muted-foreground text-center mt-6 text-sm"
+            className="text-muted-foreground text-center mt-3 text-xs"
           >
             Clique aqui e comece a digitar...
           </motion.p>
