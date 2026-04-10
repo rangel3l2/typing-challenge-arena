@@ -120,9 +120,9 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
   const position = racer.progress; // 0–100
 
   return (
-    <div className="relative h-20 sm:h-24">
+    <div className="relative h-14 sm:h-16">
       {/* Track lane */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-12 rounded-lg bg-muted/30 border border-border/30 overflow-hidden">
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 rounded-lg bg-muted/30 border border-border/30 overflow-hidden">
         {/* Road markings */}
         <div className="absolute inset-0 flex items-center">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -148,8 +148,8 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
       {/* Car container */}
       <motion.div
         className="absolute top-1/2 -translate-y-1/2 z-10"
-        style={{ width: "70px", height: "40px" }}
-        animate={{ left: `calc(${Math.min(position, 95)}% - 35px)` }}
+        style={{ width: "50px", height: "28px" }}
+        animate={{ left: `calc(${Math.min(position, 95)}% - 25px)` }}
         transition={{ type: "spring", stiffness: 80, damping: 20 }}
       >
         <Design color={color} accent={accent} />
@@ -168,7 +168,7 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
       {/* Player name label */}
       <motion.div
         className="absolute -top-1 z-20 flex items-center gap-1"
-        animate={{ left: `calc(${Math.min(position, 95)}% - 35px)` }}
+        animate={{ left: `calc(${Math.min(position, 95)}% - 25px)` }}
         transition={{ type: "spring", stiffness: 80, damping: 20 }}
       >
         <span
@@ -225,12 +225,12 @@ const RaceTrack = ({ racers }: RaceTrackProps) => {
   const sorted = [...racers].sort((a, b) => b.progress - a.progress);
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-6">
-      <div className="glass-card p-4 space-y-1">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-bold text-foreground">🏁 Corrida de Fuscas</span>
+    <div className="w-full max-w-4xl mx-auto mb-2">
+      <div className="glass-card p-2 space-y-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-bold text-foreground">🏁 Corrida</span>
           {racers.length > 6 && (
-            <span className="text-xs text-muted-foreground font-body">{racers.length} jogadores</span>
+            <span className="text-[10px] text-muted-foreground font-body">{racers.length} jogadores</span>
           )}
         </div>
         {visible.map((racer, i) => {
