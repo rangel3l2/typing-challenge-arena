@@ -561,23 +561,23 @@ const Game = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="h-[100dvh] bg-background relative overflow-hidden flex flex-col">
       <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-secondary/10 animate-float blur-2xl" />
       <div className="absolute bottom-20 right-10 w-40 h-40 rounded-full bg-primary/10 animate-float-reverse blur-2xl" />
       <div className="absolute top-1/2 left-1/3 w-24 h-24 rounded-full bg-accent/10 animate-pulse-glow blur-2xl" />
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
+      <div className="relative z-10 container mx-auto px-4 py-2 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-2 shrink-0">
           <button onClick={() => navigate("/")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <Home className="w-5 h-5" />
-            <span className="font-body">Início</span>
+            <Home className="w-4 h-4" />
+            <span className="font-body text-sm">Início</span>
           </button>
-          <div className="glass-card px-6 py-2 flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Sala:</span>
-            <span className="font-display font-bold text-accent text-lg tracking-wider">{room.code}</span>
+          <div className="glass-card px-4 py-1.5 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Sala:</span>
+            <span className="font-display font-bold text-accent text-sm tracking-wider">{room.code}</span>
             <button onClick={copyCode} className="text-muted-foreground hover:text-foreground transition-colors">
-              {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+              {copied ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
             </button>
           </div>
         </div>
@@ -679,18 +679,20 @@ const Game = () => {
 
           {/* PLAYING */}
           {phase === "playing" && challenge && !mySubmitted && (
-            <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
               {/* Race Track — multiplayer only */}
-              {isMultiplayer && <RaceTrack racers={racers} />}
-              <TypingChallenge
-                text={challenge.text}
-                round={challenge.round}
-                difficulty={challenge.difficulty}
-                difficultyTier={challenge.tier}
-                label={challenge.label}
-                onComplete={handlePlayerComplete}
-                onProgressChange={isMultiplayer ? handleProgressChange : undefined}
-              />
+              {isMultiplayer && <div className="shrink-0"><RaceTrack racers={racers} /></div>}
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
+                <TypingChallenge
+                  text={challenge.text}
+                  round={challenge.round}
+                  difficulty={challenge.difficulty}
+                  difficultyTier={challenge.tier}
+                  label={challenge.label}
+                  onComplete={handlePlayerComplete}
+                  onProgressChange={isMultiplayer ? handleProgressChange : undefined}
+                />
+              </div>
             </motion.div>
           )}
 
