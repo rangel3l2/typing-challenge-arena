@@ -113,47 +113,45 @@ function getCarColors(playerColor: string, designIndex: number) {
   return { color: playerColor, accent: playerColor.replace(/\d+%\)$/, (m) => `${Math.max(10, parseInt(m) - 15)}%)`) };
 }
 
-const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) => {
+interface TrackSizing {
+  laneHeight: string;
+  carW: number;
+  carH: number;
+  badge: string;
+  badgeText: string;
+  trackH: string;
+}
+
+const DynamicFuscaCar = memo(({ racer, index, sizing }: { racer: RacerData; index: number; sizing: TrackSizing }) => {
   const designIndex = index % FuscaDesigns.length;
   const Design = FuscaDesigns[designIndex];
   const { color, accent } = getCarColors(racer.color, designIndex);
-  const position = racer.progress; // 0–100
+  const position = racer.progress;
 
   return (
-    <div className="relative h-14 sm:h-16">
+    <div className={`relative ${sizing.laneHeight}`}>
       {/* Track lane */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 rounded-lg bg-muted/30 border border-border/30 overflow-hidden">
-        {/* Road markings */}
+      <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 ${sizing.trackH} rounded-lg bg-muted/30 border border-border/30 overflow-hidden`}>
         <div className="absolute inset-0 flex items-center">
           {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[2px] bg-border/40 mx-1"
-              style={{ width: "20px", flexShrink: 0 }}
-            />
+            <div key={i} className="h-[2px] bg-border/40 mx-1" style={{ width: "20px", flexShrink: 0 }} />
           ))}
         </div>
-        {/* Finish line */}
         <div className="absolute right-2 top-0 bottom-0 w-3 flex flex-col">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className={`flex-1 ${i % 2 === 0 ? "bg-foreground/80" : "bg-background"}`}
-              style={{ width: "50%" }}
-            />
+            <div key={i} className={`flex-1 ${i % 2 === 0 ? "bg-foreground/80" : "bg-background"}`} style={{ width: "50%" }} />
           ))}
         </div>
       </div>
 
-      {/* Car container */}
+      {/* Car */}
       <motion.div
         className="absolute top-1/2 -translate-y-1/2 z-10"
-        style={{ width: "50px", height: "28px" }}
-        animate={{ left: `calc(${Math.min(position, 95)}% - 25px)` }}
+        style={{ width: `${sizing.carW}px`, height: `${sizing.carH}px` }}
+        animate={{ left: `calc(${Math.min(position, 95)}% - ${sizing.carW / 2}px)` }}
         transition={{ type: "spring", stiffness: 80, damping: 20 }}
       >
         <Design color={color} accent={accent} />
-        {/* Exhaust smoke when moving */}
         {position > 0 && position < 100 && (
           <motion.div
             className="absolute -left-3 top-1/2 -translate-y-1/2"
@@ -165,10 +163,10 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
         )}
       </motion.div>
 
-      {/* Player name label */}
+      {/* Name label */}
       <motion.div
         className="absolute -top-1 z-20 flex items-center gap-1"
-        animate={{ left: `calc(${Math.min(position, 95)}% - 25px)` }}
+        animate={{ left: `calc(${Math.min(position, 95)}% - ${sizing.carW / 2}px)` }}
         transition={{ type: "spring", stiffness: 80, damping: 20 }}
       >
         <span
@@ -185,7 +183,7 @@ const FuscaCar = memo(({ racer, index }: { racer: RacerData; index: number }) =>
   );
 });
 
-FuscaCar.displayName = "FuscaCar";
+DynamicFuscaCar.displayName = "DynamicFuscaCar";
 
 // Select up to 6 relevant racers: current player, 1st place, and neighbors
 function selectVisibleRacers(racers: RacerData[]): RacerData[] {
@@ -218,14 +216,24 @@ function selectVisibleRacers(racers: RacerData[]): RacerData[] {
     .map((i) => ({ ...sorted[i], _rank: i + 1 } as RacerData & { _rank: number }));
 }
 
+// Dynamic sizing based on visible racer count
+function getTrackSizing(count: number) {
+  if (count <= 2) return { laneHeight: "h-20 sm:h-24", carW: 70, carH: 40, badge: "w-7 h-7", badgeText: "text-xs", trackH: "h-10" };
+  if (count <= 3) return { laneHeight: "h-16 sm:h-20", carW: 62, carH: 34, badge: "w-7 h-7", badgeText: "text-[11px]", trackH: "h-9" };
+  if (count <= 4) return { laneHeight: "h-14 sm:h-16", carW: 54, carH: 30, badge: "w-6 h-6", badgeText: "text-[10px]", trackH: "h-8" };
+  if (count <= 5) return { laneHeight: "h-12 sm:h-14", carW: 48, carH: 26, badge: "w-6 h-6", badgeText: "text-[10px]", trackH: "h-7" };
+  return { laneHeight: "h-10 sm:h-12", carW: 42, carH: 24, badge: "w-5 h-5", badgeText: "text-[9px]", trackH: "h-6" };
+}
+
 const RaceTrack = ({ racers }: RaceTrackProps) => {
   if (racers.length === 0) return null;
 
   const visible = selectVisibleRacers(racers);
   const sorted = [...racers].sort((a, b) => b.progress - a.progress);
+  const sizing = getTrackSizing(visible.length);
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-2">
+    <div className="w-full max-w-4xl mx-auto mb-1">
       <div className="glass-card p-2 space-y-0">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-bold text-foreground">🏁 Corrida</span>
@@ -238,11 +246,11 @@ const RaceTrack = ({ racers }: RaceTrackProps) => {
           return (
             <div key={racer.id} className="relative">
               {/* Position badge */}
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 z-30 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center">
-                <span className="text-[10px] font-display font-bold text-foreground">{rank}º</span>
+              <div className={`absolute -left-1 top-1/2 -translate-y-1/2 z-30 ${sizing.badge} rounded-full bg-card border border-border flex items-center justify-center`}>
+                <span className={`${sizing.badgeText} font-display font-bold text-foreground`}>{rank}º</span>
               </div>
               <div className="pl-6">
-                <FuscaCar racer={racer} index={i} />
+                <DynamicFuscaCar racer={racer} index={i} sizing={sizing} />
               </div>
             </div>
           );
