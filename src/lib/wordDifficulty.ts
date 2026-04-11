@@ -34,7 +34,6 @@ export function calculateWordDifficulty(word: string): number {
 
   let diff = 1.0;
 
-  // Length factor: short words are easy, long words are harder
   const len = word.length;
   if (len <= 3) diff *= 0.8;
   else if (len <= 5) diff *= 1.0;
@@ -42,7 +41,6 @@ export function calculateWordDifficulty(word: string): number {
   else if (len <= 12) diff *= 1.5;
   else diff *= 1.8;
 
-  // Rare letters
   const lowerWord = word.toLowerCase();
   let rareCount = 0;
   for (const ch of lowerWord) {
@@ -50,31 +48,22 @@ export function calculateWordDifficulty(word: string): number {
   }
   if (rareCount > 0) diff *= 1 + rareCount * 0.15;
 
-  // Numbers present
   if (NUMBERS.test(word)) diff *= 1.3;
-
-  // Symbols present
   if (SYMBOLS.test(word)) diff *= 1.4;
 
-  // Uppercase letters (beyond first char)
   const uppercaseCount = (word.slice(1).match(/[A-ZÀ-Ý]/g) || []).length;
   if (uppercaseCount > 0) diff *= 1 + uppercaseCount * 0.1;
 
-  // First char uppercase
   if (word[0] && word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
     diff *= 1.05;
   }
 
-  // Accented characters (common in Portuguese but add complexity)
   const accentCount = (word.match(/[àáâãäéèêëíìîïóòôõöúùûüçñ]/gi) || []).length;
   if (accentCount > 0) diff *= 1 + accentCount * 0.08;
 
   return Math.round(diff * 100) / 100;
 }
 
-/**
- * Analyze all words in a text and return scored words.
- */
 export function analyzeText(text: string): ScoredWord[] {
   return text.split(/\s+/).filter(Boolean).map((word) => ({
     word,
@@ -82,9 +71,6 @@ export function analyzeText(text: string): ScoredWord[] {
   }));
 }
 
-/**
- * Calculate the average difficulty of a text.
- */
 export function getTextDifficulty(text: string): number {
   const words = analyzeText(text);
   if (words.length === 0) return 1.0;
@@ -92,21 +78,18 @@ export function getTextDifficulty(text: string): number {
   return Math.round((sum / words.length) * 100) / 100;
 }
 
-/**
- * Calculate word score: wordWPM × wordAccuracy × wordDifficulty
- */
 export function calculateWordScore(wpm: number, accuracy: number, difficulty: number): number {
   return Math.round(wpm * (accuracy / 100) * difficulty);
 }
 
 /**
- * 5 difficulty classifications for a match.
+ * 5 difficulty tiers: Muito Fácil, Fácil, Médio, Difícil, Insano
  */
-export type DifficultyTier = "Muito Fácil" | "Fácil" | "Médio" | "Difícil" | "Expert";
+export type DifficultyTier = "Muito Fácil" | "Fácil" | "Médio" | "Difícil" | "Insano";
 
 export interface DifficultyInfo {
   tier: DifficultyTier;
-  color: string; // tailwind-compatible class suffix
+  color: string;
   emoji: string;
 }
 
@@ -115,7 +98,20 @@ export function classifyDifficulty(avgDifficulty: number): DifficultyInfo {
   if (avgDifficulty < 1.3) return { tier: "Fácil", color: "green", emoji: "🟡" };
   if (avgDifficulty < 1.6) return { tier: "Médio", color: "yellow", emoji: "🟠" };
   if (avgDifficulty < 2.0) return { tier: "Difícil", color: "orange", emoji: "🔴" };
-  return { tier: "Expert", color: "red", emoji: "💀" };
+  return { tier: "Insano", color: "red", emoji: "💀" };
+}
+
+/**
+ * Map round number to a difficulty tier label for display.
+ * Uses the distribution: 1-3 muito fácil, 4-6 fácil, 7-9 médio, 10-12 difícil, 13+ insano
+ */
+export function getRoundDifficultyTier(round: number, totalRounds: number): DifficultyTier {
+  const ratio = (round - 1) / Math.max(totalRounds - 1, 1);
+  if (ratio < 0.2) return "Muito Fácil";
+  if (ratio < 0.4) return "Fácil";
+  if (ratio < 0.6) return "Médio";
+  if (ratio < 0.85) return "Difícil";
+  return "Insano";
 }
 
 // ─── Challenge generation with progressive difficulty ───
@@ -124,13 +120,12 @@ interface GeneratedChallenge {
   id: number;
   round: number;
   text: string;
-  difficulty: number; // average word difficulty
+  difficulty: number;
   tier: DifficultyInfo;
   label: string;
   words: ScoredWord[];
 }
 
-// Word pools organized by approximate difficulty
 const WORD_POOLS = {
   veryEasy: [
     "casa", "mesa", "sala", "porta", "lado", "gato", "rato", "bola", "vida", "fogo",
@@ -182,7 +177,6 @@ const WORD_POOLS = {
   ],
 };
 
-// Sentence templates for building natural-feeling challenges
 const SENTENCE_TEMPLATES = [
   (words: string[]) => words.join(" "),
   (words: string[]) => `${words[0]} ${words.slice(1).join(" ")}.`,
@@ -195,44 +189,34 @@ function pickRandom<T>(arr: T[], count: number, exclude: Set<string> = new Set()
   return shuffled.slice(0, count);
 }
 
-/**
- * Generate challenges with progressive difficulty for a given number of rounds.
- * Avoids repeating words across rounds.
- */
 export function generateProgressiveChallenges(totalRounds: number): GeneratedChallenge[] {
   const usedWords = new Set<string>();
   const challenges: GeneratedChallenge[] = [];
 
   for (let round = 1; round <= totalRounds; round++) {
-    // Progress from 0 to 1
     const progress = (round - 1) / Math.max(totalRounds - 1, 1);
 
     let words: string[] = [];
 
     if (progress < 0.15) {
-      // Very easy: short simple words
       words = pickRandom(WORD_POOLS.veryEasy, 10 + Math.floor(Math.random() * 4), usedWords);
     } else if (progress < 0.3) {
-      // Easy: mix of very easy and easy
       words = [
         ...pickRandom(WORD_POOLS.veryEasy, 4, usedWords),
         ...pickRandom(WORD_POOLS.easy, 6 + Math.floor(Math.random() * 3), usedWords),
       ];
     } else if (progress < 0.5) {
-      // Medium: easy + medium words
       words = [
         ...pickRandom(WORD_POOLS.easy, 3, usedWords),
         ...pickRandom(WORD_POOLS.medium, 6 + Math.floor(Math.random() * 3), usedWords),
       ];
     } else if (progress < 0.65) {
-      // Medium-hard: medium + some numbers
       words = [
         ...pickRandom(WORD_POOLS.medium, 5, usedWords),
         ...pickRandom(WORD_POOLS.withNumbers, 3, usedWords),
         ...pickRandom(WORD_POOLS.easy, 2, usedWords),
       ];
     } else if (progress < 0.8) {
-      // Hard: medium + hard + symbols
       words = [
         ...pickRandom(WORD_POOLS.medium, 3, usedWords),
         ...pickRandom(WORD_POOLS.hard, 3, usedWords),
@@ -240,14 +224,12 @@ export function generateProgressiveChallenges(totalRounds: number): GeneratedCha
         ...pickRandom(WORD_POOLS.withNumbers, 2, usedWords),
       ];
     } else if (progress < 0.9) {
-      // Very hard: hard + technical + symbols
       words = [
         ...pickRandom(WORD_POOLS.hard, 3, usedWords),
         ...pickRandom(WORD_POOLS.technical, 4, usedWords),
         ...pickRandom(WORD_POOLS.withSymbols, 3, usedWords),
       ];
     } else {
-      // Expert: everything mixed
       words = [
         ...pickRandom(WORD_POOLS.hard, 2, usedWords),
         ...pickRandom(WORD_POOLS.technical, 3, usedWords),
@@ -256,10 +238,7 @@ export function generateProgressiveChallenges(totalRounds: number): GeneratedCha
       ];
     }
 
-    // Shuffle words for natural feel
     words = words.sort(() => Math.random() - 0.5);
-
-    // Track used words
     words.forEach((w) => usedWords.add(w));
 
     const text = words.join(" ");

@@ -16,7 +16,12 @@ const rankIcons = [
 ];
 
 const Leaderboard = ({ players, results, title, showOverall }: LeaderboardProps) => {
-  const sorted = [...results].sort((a, b) => b.wpm - a.wpm);
+  // Sort by finish time (position-based) — lower time = finished first = winner
+  // Falls back to WPM if timeMs is 0 (e.g. overall results)
+  const sorted = [...results].sort((a, b) => {
+    if (a.timeMs && b.timeMs) return a.timeMs - b.timeMs;
+    return b.wpm - a.wpm;
+  });
 
   return (
     <motion.div
