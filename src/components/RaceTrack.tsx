@@ -218,14 +218,24 @@ function selectVisibleRacers(racers: RacerData[]): RacerData[] {
     .map((i) => ({ ...sorted[i], _rank: i + 1 } as RacerData & { _rank: number }));
 }
 
+// Dynamic sizing based on visible racer count
+function getTrackSizing(count: number) {
+  if (count <= 2) return { laneHeight: "h-20 sm:h-24", carW: 70, carH: 40, badge: "w-7 h-7", badgeText: "text-xs", trackH: "h-10" };
+  if (count <= 3) return { laneHeight: "h-16 sm:h-20", carW: 62, carH: 34, badge: "w-7 h-7", badgeText: "text-[11px]", trackH: "h-9" };
+  if (count <= 4) return { laneHeight: "h-14 sm:h-16", carW: 54, carH: 30, badge: "w-6 h-6", badgeText: "text-[10px]", trackH: "h-8" };
+  if (count <= 5) return { laneHeight: "h-12 sm:h-14", carW: 48, carH: 26, badge: "w-6 h-6", badgeText: "text-[10px]", trackH: "h-7" };
+  return { laneHeight: "h-10 sm:h-12", carW: 42, carH: 24, badge: "w-5 h-5", badgeText: "text-[9px]", trackH: "h-6" };
+}
+
 const RaceTrack = ({ racers }: RaceTrackProps) => {
   if (racers.length === 0) return null;
 
   const visible = selectVisibleRacers(racers);
   const sorted = [...racers].sort((a, b) => b.progress - a.progress);
+  const sizing = getTrackSizing(visible.length);
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-2">
+    <div className="w-full max-w-4xl mx-auto mb-1">
       <div className="glass-card p-2 space-y-0">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-bold text-foreground">🏁 Corrida</span>
@@ -238,11 +248,11 @@ const RaceTrack = ({ racers }: RaceTrackProps) => {
           return (
             <div key={racer.id} className="relative">
               {/* Position badge */}
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 z-30 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center">
-                <span className="text-[10px] font-display font-bold text-foreground">{rank}º</span>
+              <div className={`absolute -left-1 top-1/2 -translate-y-1/2 z-30 ${sizing.badge} rounded-full bg-card border border-border flex items-center justify-center`}>
+                <span className={`${sizing.badgeText} font-display font-bold text-foreground`}>{rank}º</span>
               </div>
               <div className="pl-6">
-                <FuscaCar racer={racer} index={i} />
+                <DynamicFuscaCar racer={racer} index={i} sizing={sizing} />
               </div>
             </div>
           );
