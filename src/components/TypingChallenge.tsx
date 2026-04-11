@@ -5,7 +5,8 @@ import { analyzeText, calculateWordScore, classifyDifficulty, type WordResult, t
 interface TypingChallengeProps {
   text: string;
   round: number;
-  difficulty: number; // average word difficulty number
+  totalRounds: number;
+  difficulty: number;
   difficultyTier: DifficultyInfo;
   label: string;
   onComplete: (wpm: number, accuracy: number, timeMs: number, matchResult: MatchResult) => void;
@@ -17,16 +18,20 @@ const TIER_STYLES: Record<string, string> = {
   "Fácil": "bg-green-500/20 text-green-400 border-green-500/30",
   "Médio": "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   "Difícil": "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  "Insano": "bg-red-500/20 text-red-400 border-red-500/30",
   "Expert": "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onComplete, onProgressChange }: TypingChallengeProps) => {
+const ERROR_WINDOW_MS = 1500;
+
+const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier, label, onComplete, onProgressChange }: TypingChallengeProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [currentWpm, setCurrentWpm] = useState(0);
+  const [penaltyFlash, setPenaltyFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Per-word tracking
@@ -37,7 +42,11 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
   const wordResultsRef = useRef<WordResult[]>([]);
   const currentWordIndexRef = useRef(0);
 
-  // Precompute word boundaries
+  // Error penalty tracking
+  const rapidErrorCountRef = useRef(0);
+  const lastErrorTimeRef = useRef(0);
+
+  // Precompute word boundaries (including spaces between words)
   const wordBoundaries = useRef<{ start: number; end: number; wordIdx: number }[]>([]);
   useEffect(() => {
     const boundaries: { start: number; end: number; wordIdx: number }[] = [];
@@ -54,8 +63,14 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
     wordBoundaries.current = boundaries;
   }, [text]);
 
+  // Get the word boundary that contains charIndex
   const getCurrentWordBoundary = useCallback((charIndex: number) => {
     return wordBoundaries.current.find(b => charIndex >= b.start && charIndex < b.end);
+  }, []);
+
+  // Get word boundary by word index
+  const getWordBoundaryByIdx = useCallback((wordIdx: number) => {
+    return wordBoundaries.current.find(b => b.wordIdx === wordIdx);
   }, []);
 
   const calculateWpm = useCallback(() => {
@@ -85,6 +100,8 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
   const finalizeWord = useCallback((wordIdx: number) => {
     const words = wordsRef.current;
     if (wordIdx >= words.length) return;
+    // Don't double-finalize
+    if (wordResultsRef.current.some(wr => wr.word === words[wordIdx].word && wordResultsRef.current.length > wordIdx)) return;
 
     const word = words[wordIdx];
     const elapsed = wordStartTimeRef.current
@@ -111,6 +128,45 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
     wordErrorsRef.current = 0;
   }, []);
 
+  // Apply penalty: move currentIndex back to the start of a target word
+  const applyPenalty = useCallback((rapidErrors: number, currentCharIdx: number) => {
+    const currentBound = getCurrentWordBoundary(currentCharIdx);
+    if (!currentBound) return currentCharIdx;
+
+    let targetWordIdx = currentBound.wordIdx;
+
+    if (rapidErrors === 1) {
+      // Go back to start of current word
+      targetWordIdx = currentBound.wordIdx;
+    } else if (rapidErrors === 2) {
+      // Go back to previous word
+      targetWordIdx = Math.max(0, currentBound.wordIdx - 1);
+    } else {
+      // Go back two words
+      targetWordIdx = Math.max(0, currentBound.wordIdx - 2);
+    }
+
+    const targetBound = getWordBoundaryByIdx(targetWordIdx);
+    if (!targetBound) return currentCharIdx;
+
+    // Flash penalty indicator
+    setPenaltyFlash(true);
+    setTimeout(() => setPenaltyFlash(false), 400);
+
+    // Reset word tracking to the target word
+    currentWordIndexRef.current = targetWordIdx;
+    wordStartTimeRef.current = Date.now();
+    wordKeystrokesRef.current = 0;
+    wordErrorsRef.current = 0;
+
+    // Remove finalized results for words we're going back to
+    wordResultsRef.current = wordResultsRef.current.filter(
+      (_, i) => i < targetWordIdx
+    );
+
+    return targetBound.start;
+  }, [getCurrentWordBoundary, getWordBoundaryByIdx]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isComplete) return;
     if (["Shift", "Control", "Alt", "Meta", "Tab", "CapsLock"].includes(e.key)) return;
@@ -122,10 +178,8 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
       wordStartTimeRef.current = Date.now();
     }
 
-    if (e.key === "Backspace") {
-      if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
-      return;
-    }
+    // No backspace allowed — penalty system replaces it
+    if (e.key === "Backspace") return;
 
     if (e.key.length !== 1) return;
 
@@ -141,7 +195,6 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
       finalizeWord(prevBoundary.wordIdx);
       currentWordIndexRef.current = currBoundary.wordIdx;
     } else if (!prevBoundary && currBoundary && currentIndex > 0) {
-      // Transitioning from whitespace into a new word
       const lastBound = wordBoundaries.current.find(b => currentIndex - 1 >= b.start && currentIndex - 1 < b.end);
       if (lastBound) finalizeWord(lastBound.wordIdx);
       currentWordIndexRef.current = currBoundary.wordIdx;
@@ -178,12 +231,28 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
         onComplete(wpm, accuracy, elapsed, matchResult);
       }
     } else {
+      // ERROR: apply penalty system
       setErrors(prev => prev + 1);
       wordErrorsRef.current++;
-    }
-  }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord]);
 
-  // Report progress
+      const now = Date.now();
+      const timeSinceLastError = now - lastErrorTimeRef.current;
+
+      if (timeSinceLastError <= ERROR_WINDOW_MS && lastErrorTimeRef.current > 0) {
+        // Rapid error
+        rapidErrorCountRef.current++;
+      } else {
+        // Reset rapid error counter — first error or too much time passed
+        rapidErrorCountRef.current = 1;
+      }
+      lastErrorTimeRef.current = now;
+
+      const newIdx = applyPenalty(rapidErrorCountRef.current, currentIndex);
+      setCurrentIndex(newIdx);
+    }
+  }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
+
+  // Report progress as character-level percentage
   useEffect(() => {
     if (onProgressChange) {
       const pct = Math.round((currentIndex / text.length) * 100);
@@ -214,13 +283,10 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-bold">
-            Rodada {round}
+            PARTIDA {round}/{totalRounds}
           </span>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${tierStyle}`}>
             {difficultyTier.emoji} {difficultyTier.tier}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-semibold">
-            Dif: {difficulty.toFixed(2)}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -249,7 +315,9 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
       {/* Typing area */}
       <div
         onClick={refocusInput}
-        className="glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all"
+        className={`glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all ${
+          penaltyFlash ? "ring-2 ring-destructive/60 bg-destructive/5" : ""
+        }`}
       >
         <p className="text-base sm:text-lg md:text-xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
@@ -277,6 +345,18 @@ const TypingChallenge = ({ text, round, difficulty, difficultyTier, label, onCom
           </motion.p>
         )}
       </div>
+
+      {/* Penalty indicator */}
+      {penaltyFlash && (
+        <motion.p
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="text-destructive text-xs font-bold text-center mt-1"
+        >
+          ⚠️ Penalidade! Voltando...
+        </motion.p>
+      )}
     </motion.div>
   );
 };
