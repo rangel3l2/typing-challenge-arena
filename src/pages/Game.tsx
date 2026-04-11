@@ -686,6 +686,7 @@ const Game = () => {
                 <TypingChallenge
                   text={challenge.text}
                   round={challenge.round}
+                  totalRounds={maxRounds}
                   difficulty={challenge.difficulty}
                   difficultyTier={challenge.tier}
                   label={challenge.label}
