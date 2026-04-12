@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root,
+  .dark {
     --background: 30 15% 10%;
     --foreground: 40 20% 95%;
 
@@ -48,6 +49,50 @@
     --sidebar-border: 30 10% 22%;
     --sidebar-ring: 140 55% 40%;
   }
+
+  .light {
+    --background: 220 20% 92%;
+    --foreground: 220 15% 15%;
+
+    --card: 220 15% 96%;
+    --card-foreground: 220 15% 15%;
+
+    --popover: 220 15% 96%;
+    --popover-foreground: 220 15% 15%;
+
+    --primary: 140 50% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 25 60% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 12% 85%;
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 38 75% 50%;
+    --accent-foreground: 38 80% 10%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 82%;
+    --input: 220 12% 88%;
+    --ring: 140 50% 38%;
+
+    --game-brown: 25 40% 45%;
+    --game-terracotta: 12 50% 55%;
+    --game-olive: 90 25% 50%;
+    --game-cream: 40 35% 80%;
+
+    --sidebar-background: 220 15% 96%;
+    --sidebar-foreground: 220 15% 15%;
+    --sidebar-primary: 140 50% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 12% 90%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 12% 82%;
+    --sidebar-ring: 140 50% 38%;
+  }
 }
 
 @layer base {
@@ -88,4 +133,11 @@
   .glow-secondary {
     box-shadow: 0 0 30px hsl(25 65% 45% / 0.3), 0 0 60px hsl(25 65% 45% / 0.1);
   }
+}
+
+@keyframes particle-float {
+  0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.3; }
+  25% { transform: translateY(-15px) translateX(8px); opacity: 0.7; }
+  50% { transform: translateY(-5px) translateX(-5px); opacity: 0.4; }
+  75% { transform: translateY(-20px) translateX(3px); opacity: 0.8; }
 }
