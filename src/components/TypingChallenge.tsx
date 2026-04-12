@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { analyzeText, calculateWordScore, classifyDifficulty, type WordResult, type MatchResult, type DifficultyInfo } from "@/lib/wordDifficulty";
+import { playAccelerateSound, playSkidSound, stopEngineSound } from "@/lib/gameSounds";
 
 interface TypingChallengeProps {
   text: string;
