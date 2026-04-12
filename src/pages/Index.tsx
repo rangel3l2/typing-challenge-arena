@@ -175,7 +175,7 @@ const Index = () => {
               transition={{ delay: 0.3 }}
               className="flex flex-wrap gap-3"
             >
-              {selectedGame === "digitar"
+              {(selectedGame === "digitar"
                 ? [
                     { icon: <Zap className="w-4 h-4" />, text: "Velocidade" },
                     { icon: <Users className="w-4 h-4" />, text: "Multiplayer" },
@@ -186,7 +186,7 @@ const Index = () => {
                     { icon: <Zap className="w-4 h-4" />, text: "Agilidade" },
                     { icon: <Trophy className="w-4 h-4" />, text: "6 Fases" },
                   ]
-              }.map((pill) => (
+              ).map((pill) => (
                 <span key={pill.text} className="flex items-center gap-2 px-4 py-2 rounded-full glass-card text-muted-foreground text-sm font-body font-semibold">
                   {pill.icon} {pill.text}
                 </span>
