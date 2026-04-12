@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { analyzeText, calculateWordScore, classifyDifficulty, type WordResult, type MatchResult, type DifficultyInfo } from "@/lib/wordDifficulty";
+import { playAccelerateSound, playSkidSound, stopEngineSound } from "@/lib/gameSounds";
 
 interface TypingChallengeProps {
   text: string;
@@ -203,12 +204,14 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
     if (e.key === expectedChar) {
       const newIndex = currentIndex + 1;
       setCurrentIndex(newIndex);
+      playAccelerateSound();
 
       if (newIndex >= text.length) {
         // Finalize last word
         const lastBound = getCurrentWordBoundary(currentIndex);
         if (lastBound) finalizeWord(lastBound.wordIdx);
 
+        stopEngineSound();
         setIsComplete(true);
         const elapsed = Date.now() - (startTime || Date.now());
         const wpm = Math.round((text.length / 5) / (elapsed / 60000));
@@ -231,7 +234,9 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
         onComplete(wpm, accuracy, elapsed, matchResult);
       }
     } else {
-      // ERROR: apply penalty system
+      // ERROR: apply penalty system — skid sound + stop engine
+      stopEngineSound();
+      playSkidSound();
       setErrors(prev => prev + 1);
       wordErrorsRef.current++;
 
