@@ -487,8 +487,9 @@ const Index = () => {
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-accent/40 border-2 border-background" />
           </div>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            {onlinePlayers} {onlinePlayers === 1 ? "jogador" : "jogadores"} online
+            <span className={`w-2 h-2 rounded-full ${isLiveOnline ? 'bg-primary' : 'bg-accent'} animate-pulse`} />
+            {displayCount} {isLiveOnline ? (displayCount === 1 ? "jogador online" : "jogadores online") : (displayCount === 1 ? "jogador este mês" : "jogadores este mês")}
+          </span>
           </span>
         </div>
       </footer>
