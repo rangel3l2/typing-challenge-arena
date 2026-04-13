@@ -18,12 +18,28 @@ const Index = () => {
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
-  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [displayCount, setDisplayCount] = useState(0);
+  const [isLiveOnline, setIsLiveOnline] = useState(false);
 
-  // Real-time online player count using Supabase Presence
+  // Real-time online + fallback to monthly unique players
   useEffect(() => {
     const sessionId = localStorage.getItem("typerace_session_id") || crypto.randomUUID();
     localStorage.setItem("typerace_session_id", sessionId);
+
+    let monthlyCount = 0;
+
+    // Fetch monthly unique players as fallback
+    const fetchMonthly = async () => {
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { count } = await supabase
+        .from("player_identities")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", firstOfMonth);
+      monthlyCount = count || 0;
+    };
+
+    fetchMonthly();
 
     const channel = supabase.channel("online-presence", {
       config: { presence: { key: sessionId } },
@@ -32,7 +48,15 @@ const Index = () => {
     channel
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-        setOnlinePlayers(Object.keys(state).length);
+        const liveCount = Object.keys(state).length;
+        if (liveCount >= 20) {
+          setDisplayCount(liveCount);
+          setIsLiveOnline(true);
+        } else {
+          // Show monthly players when few are online
+          setDisplayCount(Math.max(monthlyCount, liveCount));
+          setIsLiveOnline(false);
+        }
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
