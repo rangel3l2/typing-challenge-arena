@@ -490,7 +490,6 @@ const Index = () => {
             <span className={`w-2 h-2 rounded-full ${isLiveOnline ? 'bg-primary' : 'bg-accent'} animate-pulse`} />
             {displayCount} {isLiveOnline ? (displayCount === 1 ? "jogador online" : "jogadores online") : (displayCount === 1 ? "jogador este mês" : "jogadores este mês")}
           </span>
-          </span>
         </div>
       </footer>
     </div>
