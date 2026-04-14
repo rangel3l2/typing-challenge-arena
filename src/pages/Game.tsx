@@ -225,7 +225,9 @@ const Game = () => {
     : [];
 
   // Count only online players for "all submitted" check
+  // Always include self to prevent 0-count deadlocks
   const onlinePlayers = players.filter((p) => {
+    if (p.id === myPlayerId) return true; // always count self
     if (onlinePlayerIds.size === 0) return true; // presence not loaded yet, count all
     return onlinePlayerIds.has(p.id);
   });
