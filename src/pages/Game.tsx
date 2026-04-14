@@ -322,6 +322,9 @@ const Game = () => {
   const isSolo = players.length === 1;
   const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
+  // Historical results for solo comparison
+  const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
+
 
   // Auto-transition when all online players submit (or solo player submits)
   useEffect(() => {
