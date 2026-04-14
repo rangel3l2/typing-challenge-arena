@@ -225,7 +225,9 @@ const Game = () => {
     : [];
 
   // Count only online players for "all submitted" check
+  // Always include self to prevent 0-count deadlocks
   const onlinePlayers = players.filter((p) => {
+    if (p.id === myPlayerId) return true; // always count self
     if (onlinePlayerIds.size === 0) return true; // presence not loaded yet, count all
     return onlinePlayerIds.has(p.id);
   });
@@ -318,16 +320,23 @@ const Game = () => {
   const currentRoundResults = roundResults.filter(r => r.round === currentRound);
   const allPlayersSubmitted = onlinePlayers.length > 0 && currentRoundResults.length >= onlinePlayers.length;
   const isSolo = players.length === 1;
+  const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
   // Historical results for solo comparison
   const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
 
-  // Auto-transition when all online players submit
+
+  // Auto-transition when all online players submit (or solo player submits)
   useEffect(() => {
-    if (allPlayersSubmitted && phase === "playing" && isOwner) {
+    if (phase !== "playing") return;
+    if (isSolo && mySubmitted && isOwner) {
+      updateRoom({ status: "round_results" });
+      return;
+    }
+    if (allPlayersSubmitted && isOwner) {
       updateRoom({ status: "round_results" });
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+  }, [allPlayersSubmitted, mySubmitted, isSolo, phase, isOwner, updateRoom]);
 
   // Fetch historical results for solo comparison
   useEffect(() => {
@@ -425,7 +434,6 @@ const Game = () => {
   };
 
   const challenge = generatedChallenges[(currentRound || 1) - 1];
-  const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
   // Name input for link-based join
   if (needsName) {
