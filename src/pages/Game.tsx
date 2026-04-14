@@ -434,7 +434,6 @@ const Game = () => {
   };
 
   const challenge = generatedChallenges[(currentRound || 1) - 1];
-  const mySubmitted = currentRoundResults.some(r => r.player_id === myPlayerId);
 
   // Name input for link-based join
   if (needsName) {
