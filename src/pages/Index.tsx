@@ -14,7 +14,7 @@ const Index = () => {
   const { restoreFromTag } = useSession();
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
-  const [mode, setMode] = useState<"idle" | "choose" | "create" | "join">("idle");
+  const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
@@ -297,10 +297,13 @@ const Index = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => playerName.trim() && setMode("idle")}
-                  className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all"
+                  onClick={() => playerName.trim() && setMode(mode === "name" ? "idle" : "name")}
+                  disabled={!playerName.trim()}
+                  className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <motion.div animate={{ rotate: mode !== "name" ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </motion.div>
                 </motion.button>
               </div>
               {savedCode && (
@@ -319,7 +322,7 @@ const Index = () => {
             </motion.div>
 
             {/* Action Buttons Row */}
-            {selectedGame === "acertar" ? (
+            {mode === "name" ? null : selectedGame === "acertar" ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
