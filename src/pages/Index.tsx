@@ -14,7 +14,7 @@ const Index = () => {
   const { restoreFromTag } = useSession();
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
-  const [mode, setMode] = useState<"idle" | "choose" | "create" | "join">("idle");
+  const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
