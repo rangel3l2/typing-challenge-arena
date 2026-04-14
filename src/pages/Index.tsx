@@ -297,7 +297,7 @@ const Index = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => playerName.trim() && setMode("idle")}
+                  onClick={() => playerName.trim() && setMode(mode === "name" ? "idle" : "name")}
                   className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all"
                 >
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
