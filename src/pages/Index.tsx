@@ -18,6 +18,7 @@ const Index = () => {
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
+  const [restoreInput, setRestoreInput] = useState("");
   const [displayCount, setDisplayCount] = useState(0);
   const [isLiveOnline, setIsLiveOnline] = useState(false);
 
@@ -73,15 +74,48 @@ const Index = () => {
     setPlayerName(value);
   };
 
-  const handleNameBlur = async () => {
-    const match = playerName.match(/^(.+)#(\d{6})$/);
-    if (match) {
+  const handleToggleRestore = () => {
+    if (restoreMode) {
+      // Going back to name mode
+      setRestoreMode(false);
+      setRestoreInput("");
+    } else {
+      setRestoreMode(true);
+      setRestoreInput("");
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (restoreMode) {
+      // Try to restore from code
+      const code = restoreInput.trim();
+      if (!code) return;
       setRestoring(true);
-      const result = await restoreFromTag(playerName);
-      if (result) {
-        setPlayerName(result.name);
+      // Support both "Name#123456" and just "123456"
+      const tag = code.includes("#") ? code : `_#${code}`;
+      const match = tag.match(/#(\d{6})$/);
+      if (match) {
+        const { data } = await supabase
+          .from("player_identities")
+          .select("session_id, name, player_code")
+          .eq("player_code", match[1])
+          .maybeSingle();
+        if (data) {
+          localStorage.setItem("typerace_session_id", data.session_id);
+          localStorage.setItem("typerace_player_code", data.player_code);
+          localStorage.setItem("typerace_player_name", data.name);
+          setPlayerName(data.name);
+          setRestoreMode(false);
+          setRestoreInput("");
+          setMode("idle");
+        }
       }
       setRestoring(false);
+    } else {
+      // Normal name confirm
+      if (playerName.trim()) {
+        setMode(mode === "name" ? "idle" : "name");
+      }
     }
   };
 
@@ -272,52 +306,53 @@ const Index = () => {
             >
               <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
                 <label className="text-xs sm:text-sm font-body font-semibold text-muted-foreground">
-                  Seu nome:
+                  {restoreMode ? "Restaurar conta:" : "Seu nome:"}
                 </label>
-                {savedCode && (
-                  <button
-                    onClick={() => setRestoreMode(!restoreMode)}
-                    className="text-xs text-primary hover:underline font-body"
-                  >
-                    {restoreMode ? "Voltar" : "(Usar código para restaurar)"}
-                  </button>
-                )}
+                <button
+                  onClick={handleToggleRestore}
+                  className="text-xs text-primary hover:underline font-body"
+                >
+                  {restoreMode ? "Voltar" : "(Usar código para restaurar)"}
+                </button>
               </div>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  onBlur={handleNameBlur}
-                  placeholder={restoreMode && savedCode ? `Ex: MeuNome#${savedCode}` : "Digite seu nome..."}
-                  maxLength={30}
-                  className="flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                  disabled={restoring}
-                />
+                {restoreMode ? (
+                  <input
+                    type="text"
+                    value={restoreInput}
+                    onChange={(e) => setRestoreInput(e.target.value)}
+                    placeholder="Digite o código aqui (ex: 123456)"
+                    maxLength={30}
+                    className="flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    disabled={restoring}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="Digite seu nome..."
+                    maxLength={30}
+                    className="flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    disabled={restoring}
+                  />
+                )}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => playerName.trim() && setMode(mode === "name" ? "idle" : "name")}
-                  disabled={!playerName.trim()}
+                  onClick={handleConfirm}
+                  disabled={restoreMode ? !restoreInput.trim() || restoring : !playerName.trim()}
                   className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <motion.div animate={{ rotate: mode !== "name" ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                  <motion.div animate={{ rotate: !restoreMode && mode !== "name" ? 90 : 0 }} transition={{ duration: 0.2 }}>
                     <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </motion.div>
                 </motion.button>
               </div>
-              {savedCode && (
-                <div className="flex items-center justify-between mt-1.5 sm:mt-2">
-                  <p className="text-xs text-muted-foreground font-body">
-                    Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
-                  </p>
-                  <button
-                    onClick={() => setRestoreMode(!restoreMode)}
-                    className="text-xs text-primary hover:underline font-body"
-                  >
-                    Restaurar código
-                  </button>
-                </div>
+              {savedCode && !restoreMode && (
+                <p className="text-xs text-muted-foreground font-body mt-1.5 sm:mt-2">
+                  Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
+                </p>
               )}
             </motion.div>
 
