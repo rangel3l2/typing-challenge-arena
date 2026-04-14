@@ -324,12 +324,17 @@ const Game = () => {
   // Historical results for solo comparison
   const [historicalResults, setHistoricalResults] = useState<{ name: string; color: string; wpm: number; accuracy: number }[]>([]);
 
-  // Auto-transition when all online players submit
+  // Auto-transition when all online players submit (or solo player submits)
   useEffect(() => {
-    if (allPlayersSubmitted && phase === "playing" && isOwner) {
+    if (phase !== "playing") return;
+    if (isSolo && mySubmitted && isOwner) {
+      updateRoom({ status: "round_results" });
+      return;
+    }
+    if (allPlayersSubmitted && isOwner) {
       updateRoom({ status: "round_results" });
     }
-  }, [allPlayersSubmitted, phase, isOwner, updateRoom]);
+  }, [allPlayersSubmitted, mySubmitted, isSolo, phase, isOwner, updateRoom]);
 
   // Fetch historical results for solo comparison
   useEffect(() => {
