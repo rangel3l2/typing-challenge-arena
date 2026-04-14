@@ -298,9 +298,12 @@ const Index = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => playerName.trim() && setMode(mode === "name" ? "idle" : "name")}
-                  className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all"
+                  disabled={!playerName.trim()}
+                  className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <motion.div animate={{ rotate: mode !== "name" ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </motion.div>
                 </motion.button>
               </div>
               {savedCode && (
