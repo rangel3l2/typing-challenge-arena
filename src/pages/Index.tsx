@@ -1,13 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
-import heroCharImg from "@/assets/hero-character.png";
+import heroCharImg from "@/assets/hero-character.webp";
+import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
 import { useSession } from "@/hooks/useSession";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import ParticleBackground from "@/components/ParticleBackground";
+const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
+
+const HeroImage = ({ className }: { className?: string }) => {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className={`relative ${className || ""}`}>
+      <img src={heroPlaceholder} alt="" className={`w-full h-auto ${loaded ? "hidden" : "block"} blur-md`} width="512" height="512" />
+      <img
+        src={heroCharImg}
+        alt="Personagem Eu Vou Jogar"
+        className={`w-full h-auto transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+        width="512" height="512"
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -141,7 +158,7 @@ const Index = () => {
 
   return (
     <div className="min-h-[100dvh] relative overflow-x-hidden flex flex-col">
-      <ParticleBackground />
+      <Suspense fallback={null}><ParticleBackground /></Suspense>
 
       {/* SEO hidden content */}
       <header className="sr-only">
@@ -213,14 +230,7 @@ const Index = () => {
               className="flex lg:hidden items-center justify-center relative"
             >
               <div className="absolute w-[70%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
-              <img
-                src={heroCharImg}
-                alt="Personagem Eu Vou Jogar"
-                className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl"
-                width="1024"
-                height="1024"
-                loading="eager"
-              />
+              <HeroImage className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl" />
             </motion.div>
 
             {/* Title */}
@@ -495,16 +505,12 @@ const Index = () => {
             {/* Glow ring */}
             <div className="absolute w-[90%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
             <div className="absolute w-[80%] aspect-square rounded-full border border-primary/15 animate-float" />
-            <motion.img
-              src={heroCharImg}
-              alt="Personagem Eu Vou Jogar"
-              className="relative z-10 w-full max-w-lg drop-shadow-2xl"
-              width="1024"
-              height="1024"
-              loading="eager"
+            <motion.div
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
+            >
+              <HeroImage className="relative z-10 w-full max-w-lg drop-shadow-2xl" />
+            </motion.div>
           </motion.div>
         </div>
       </main>
