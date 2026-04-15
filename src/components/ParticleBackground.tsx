@@ -14,7 +14,7 @@ const ParticleBackground = memo(() => {
   }, []);
 
   const lines = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => ({
+    return Array.from({ length: 3 }, (_, i) => ({
       id: i,
       x1: Math.random() * 100,
       y1: Math.random() * 100,

@@ -214,14 +214,7 @@ const Index = () => {
               className="flex lg:hidden items-center justify-center relative"
             >
               <div className="absolute w-[70%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
-              <img
-                src={heroCharImg}
-                alt="Personagem Eu Vou Jogar"
-                className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl"
-                width="1024"
-                height="1024"
-                loading="eager"
-              />
+              <HeroImage className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl" />
             </motion.div>
 
             {/* Title */}
@@ -496,16 +489,12 @@ const Index = () => {
             {/* Glow ring */}
             <div className="absolute w-[90%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
             <div className="absolute w-[80%] aspect-square rounded-full border border-primary/15 animate-float" />
-            <motion.img
-              src={heroCharImg}
-              alt="Personagem Eu Vou Jogar"
-              className="relative z-10 w-full max-w-lg drop-shadow-2xl"
-              width="1024"
-              height="1024"
-              loading="eager"
+            <motion.div
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
+            >
+              <HeroImage className="relative z-10 w-full max-w-lg drop-shadow-2xl" />
+            </motion.div>
           </motion.div>
         </div>
       </main>
