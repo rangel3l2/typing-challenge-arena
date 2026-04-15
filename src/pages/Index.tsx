@@ -10,6 +10,22 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
 
+const HeroImage = ({ className }: { className?: string }) => {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className={`relative ${className || ""}`}>
+      <img src={heroPlaceholder} alt="" className={`w-full h-auto ${loaded ? "hidden" : "block"} blur-md`} width="512" height="512" />
+      <img
+        src={heroCharImg}
+        alt="Personagem Eu Vou Jogar"
+        className={`w-full h-auto transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+        width="512" height="512"
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { restoreFromTag } = useSession();
