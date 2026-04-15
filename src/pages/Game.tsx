@@ -201,6 +201,7 @@ const Game = () => {
   useEffect(() => {
     if (phase === "countdown") {
       setRaceProgress({});
+      setSoloProgress(0);
     }
   }, [phase]);
 
