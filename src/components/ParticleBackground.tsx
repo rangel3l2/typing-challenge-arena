@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 
 const ParticleBackground = memo(() => {
   const particles = useMemo(() => {
-    return Array.from({ length: 80 }, (_, i) => ({
+    return Array.from({ length: 30 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,

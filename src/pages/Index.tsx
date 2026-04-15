@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
-import heroCharImg from "@/assets/hero-character.png";
+import heroCharImg from "@/assets/hero-character.webp";
+import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
 import { useSession } from "@/hooks/useSession";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import ParticleBackground from "@/components/ParticleBackground";
+const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
@@ -141,7 +142,7 @@ const Index = () => {
 
   return (
     <div className="min-h-[100dvh] relative overflow-x-hidden flex flex-col">
-      <ParticleBackground />
+      <Suspense fallback={null}><ParticleBackground /></Suspense>
 
       {/* SEO hidden content */}
       <header className="sr-only">
