@@ -693,6 +693,16 @@ const Game = () => {
             <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
               {/* Race Track — multiplayer only */}
               {isMultiplayer && <div className="shrink-0"><RaceTrack racers={racers} /></div>}
+              {/* Bicycle — solo only */}
+              {isSolo && (
+                <div className="shrink-0">
+                  <SoloBicycle
+                    progress={soloProgress}
+                    playerName={players[0]?.name || "Você"}
+                    playerColor={players[0]?.color || "hsl(142 70% 45%)"}
+                  />
+                </div>
+              )}
               <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <TypingChallenge
                   text={challenge.text}
@@ -702,7 +712,7 @@ const Game = () => {
                   difficultyTier={challenge.tier}
                   label={challenge.label}
                   onComplete={handlePlayerComplete}
-                  onProgressChange={isMultiplayer ? handleProgressChange : undefined}
+                  onProgressChange={isMultiplayer ? handleProgressChange : (p) => setSoloProgress(p)}
                 />
               </div>
             </motion.div>
