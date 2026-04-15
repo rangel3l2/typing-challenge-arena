@@ -156,6 +156,7 @@ const Game = () => {
 
   // Race progress tracking (multiplayer only)
   const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
+  const [soloProgress, setSoloProgress] = useState(0);
   const progressChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Setup broadcast channel for progress when room exists and multiplayer
