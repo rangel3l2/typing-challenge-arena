@@ -6,6 +6,7 @@ import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, W
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
+import SoloBicycle from "@/components/SoloBicycle";
 import CountdownOverlay from "@/components/CountdownOverlay";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
