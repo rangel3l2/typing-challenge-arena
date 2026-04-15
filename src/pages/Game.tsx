@@ -6,6 +6,7 @@ import { Users, Play, ArrowRight, Home, RotateCcw, Copy, Check, Link2, Trophy, W
 import TypingChallenge from "@/components/TypingChallenge";
 import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
+import SoloBicycle from "@/components/SoloBicycle";
 import CountdownOverlay from "@/components/CountdownOverlay";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
@@ -155,6 +156,7 @@ const Game = () => {
 
   // Race progress tracking (multiplayer only)
   const [raceProgress, setRaceProgress] = useState<Record<string, number>>({});
+  const [soloProgress, setSoloProgress] = useState(0);
   const progressChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Setup broadcast channel for progress when room exists and multiplayer
@@ -199,6 +201,7 @@ const Game = () => {
   useEffect(() => {
     if (phase === "countdown") {
       setRaceProgress({});
+      setSoloProgress(0);
     }
   }, [phase]);
 
@@ -690,6 +693,16 @@ const Game = () => {
             <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
               {/* Race Track — multiplayer only */}
               {isMultiplayer && <div className="shrink-0"><RaceTrack racers={racers} /></div>}
+              {/* Bicycle — solo only */}
+              {isSolo && (
+                <div className="shrink-0">
+                  <SoloBicycle
+                    progress={soloProgress}
+                    playerName={players[0]?.name || "Você"}
+                    playerColor={players[0]?.color || "hsl(142 70% 45%)"}
+                  />
+                </div>
+              )}
               <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <TypingChallenge
                   text={challenge.text}
@@ -699,7 +712,7 @@ const Game = () => {
                   difficultyTier={challenge.tier}
                   label={challenge.label}
                   onComplete={handlePlayerComplete}
-                  onProgressChange={isMultiplayer ? handleProgressChange : undefined}
+                  onProgressChange={isMultiplayer ? handleProgressChange : (p) => setSoloProgress(p)}
                 />
               </div>
             </motion.div>
@@ -718,10 +731,9 @@ const Game = () => {
 
           {/* ROUND RESULTS */}
           {phase === "roundResults" && (
-            <motion.div key="roundResults" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
+            <motion.div key="roundResults" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center overflow-y-auto max-h-[calc(100dvh-80px)]">
               {isSolo ? (
                 <>
-                  {/* Solo: show player result + historical comparison */}
                   {(() => {
                     const myResult = leaderboardCurrentResults[0];
                     if (!myResult) return null;
@@ -732,6 +744,11 @@ const Game = () => {
                     ].sort((a, b) => b.wpm - a.wpm);
 
                     const myRank = allEntries.findIndex(e => e.isMe) + 1;
+                    const top5 = allEntries.slice(0, 5);
+                    const myInTop5 = myRank <= 5;
+                    const displayEntries = myInTop5
+                      ? top5
+                      : [...top5, allEntries[myRank - 1]];
 
                     return (
                       <div className="w-full max-w-2xl mx-auto">
@@ -759,31 +776,40 @@ const Game = () => {
                           <>
                             <h3 className="text-sm font-body font-semibold text-muted-foreground mb-3 text-center">Comparação com outros jogadores nesta rodada</h3>
                             <div className="space-y-2">
-                              {allEntries.map((entry, index) => (
-                                <motion.div
-                                  key={`${entry.name}-${index}`}
-                                  initial={{ opacity: 0, x: -30 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: index * 0.06 }}
-                                  className={`glass-card p-3 flex items-center gap-3 ${
-                                    entry.isMe ? "border-primary/40 bg-primary/5" : ""
-                                  }`}
-                                >
-                                  <span className="w-8 text-center font-display font-bold text-muted-foreground">{index + 1}º</span>
-                                  <div
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-foreground font-display font-bold text-sm shrink-0"
-                                    style={{ backgroundColor: entry.color }}
-                                  >
-                                    {entry.name[0]}
+                              {displayEntries.map((entry, idx) => {
+                                const realIndex = entry.isMe && !myInTop5 ? myRank - 1 : allEntries.indexOf(entry);
+                                const isLast = idx === displayEntries.length - 1 && !myInTop5 && entry.isMe;
+
+                                return (
+                                  <div key={`${entry.name}-${idx}`}>
+                                    {isLast && (
+                                      <div className="text-center text-muted-foreground/50 text-xs py-1">• • •</div>
+                                    )}
+                                    <motion.div
+                                      initial={{ opacity: 0, x: -30 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: idx * 0.06 }}
+                                      className={`glass-card p-3 flex items-center gap-3 ${
+                                        entry.isMe ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30" : ""
+                                      }`}
+                                    >
+                                      <span className="w-8 text-center font-display font-bold text-muted-foreground">{realIndex + 1}º</span>
+                                      <div
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-foreground font-display font-bold text-sm shrink-0"
+                                        style={{ backgroundColor: entry.color }}
+                                      >
+                                        {entry.name[0]}
+                                      </div>
+                                      <span className="flex-1 font-body font-semibold text-foreground text-sm">
+                                        {entry.name}
+                                        {entry.isMe && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">← Você</span>}
+                                      </span>
+                                      <span className="font-display font-bold text-primary">{entry.wpm} <span className="text-xs text-muted-foreground">WPM</span></span>
+                                      <span className="font-display font-bold text-foreground text-sm">{entry.accuracy}%</span>
+                                    </motion.div>
                                   </div>
-                                  <span className="flex-1 font-body font-semibold text-foreground text-sm">
-                                    {entry.name}
-                                    {entry.isMe && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Você</span>}
-                                  </span>
-                                  <span className="font-display font-bold text-primary">{entry.wpm} <span className="text-xs text-muted-foreground">WPM</span></span>
-                                  <span className="font-display font-bold text-foreground text-sm">{entry.accuracy}%</span>
-                                </motion.div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         )}
@@ -798,19 +824,21 @@ const Game = () => {
                   title={`Resultado - Rodada ${currentRound}`}
                 />
               )}
+
+              {/* Continue button — always visible for owner */}
               {isOwner && (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={nextRound}
-                  className="mt-8 flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-lg glow-primary hover:brightness-110 transition-all"
+                  className="mt-6 mb-4 flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-lg glow-primary hover:brightness-110 transition-all shrink-0"
                 >
                   {currentRound >= maxRounds ? "Ver Ranking Final" : "Próxima Rodada"}
                   <ArrowRight className="w-5 h-5" />
                 </motion.button>
               )}
               {!isOwner && (
-                <p className="mt-8 text-muted-foreground font-body text-sm">Aguardando o dono avançar...</p>
+                <p className="mt-6 text-muted-foreground font-body text-sm">Aguardando o dono avançar...</p>
               )}
             </motion.div>
           )}
