@@ -920,6 +920,16 @@ const Game = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Multiplayer Chat */}
+      {!isSoloMode && room && (
+        <RoomChat
+          roomId={room.id}
+          sessionId={sessionId}
+          playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+          playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+        />
+      )}
     </div>
   );
 };
