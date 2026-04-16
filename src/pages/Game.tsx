@@ -584,13 +584,15 @@ const Game = () => {
             <Home className="w-4 h-4" />
             <span className="font-body text-sm">Início</span>
           </button>
-          <div className="glass-card px-4 py-1.5 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Sala:</span>
-            <span className="font-display font-bold text-accent text-sm tracking-wider">{room.code}</span>
-            <button onClick={copyCode} className="text-muted-foreground hover:text-foreground transition-colors">
-              {copied ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
-            </button>
-          </div>
+          {!isSoloMode && (
+            <div className="glass-card px-4 py-1.5 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Sala:</span>
+              <span className="font-display font-bold text-accent text-sm tracking-wider">{room.code}</span>
+              <button onClick={copyCode} className="text-muted-foreground hover:text-foreground transition-colors">
+                {copied ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -719,7 +721,7 @@ const Game = () => {
           )}
 
           {/* Waiting for others */}
-          {phase === "playing" && mySubmitted && (
+          {phase === "playing" && mySubmitted && !isSoloMode && (
             <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-10">
               {/* Show race track while waiting */}
               {isMultiplayer && <RaceTrack racers={racers} />}
