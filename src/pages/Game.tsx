@@ -8,6 +8,7 @@ import Leaderboard from "@/components/Leaderboard";
 import RaceTrack from "@/components/RaceTrack";
 import SoloBicycle from "@/components/SoloBicycle";
 import CountdownOverlay from "@/components/CountdownOverlay";
+import RoomChat from "@/components/RoomChat";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
 import { generateProgressiveChallenges, DEFAULT_ROUNDS, type MatchResult } from "@/lib/wordDifficulty";
