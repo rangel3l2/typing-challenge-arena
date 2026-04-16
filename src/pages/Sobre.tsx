@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Gamepad2, BookOpen, Brain, Trophy, Keyboard, Target, Star, Users, Sparkles, Shield } from "lucide-react";
+import { ArrowLeft, Gamepad2, BookOpen, Brain, Trophy, Keyboard, Target, Star, Users, Sparkles, Shield, User, Mail } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
 
 const Sobre = () => {
