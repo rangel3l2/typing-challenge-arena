@@ -65,6 +65,50 @@ export type Database = {
         }
         Relationships: []
       }
+      room_messages: {
+        Row: {
+          audio_url: string | null
+          content: string
+          created_at: string
+          id: string
+          message_type: string
+          player_color: string
+          player_name: string
+          room_id: string
+          session_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          player_color?: string
+          player_name: string
+          room_id: string
+          session_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          player_color?: string
+          player_name?: string
+          room_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_players: {
         Row: {
           color: string
