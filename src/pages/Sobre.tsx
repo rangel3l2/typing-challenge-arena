@@ -417,6 +417,30 @@ const Sobre = () => {
           </div>
         </motion.section>
 
+        {/* Desenvolvedor */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.95 }}
+          className="bg-card rounded-2xl p-8 border border-border space-y-4"
+        >
+          <div className="flex items-center gap-3">
+            <User className="w-8 h-8 text-primary" />
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+              Quem Desenvolveu
+            </h2>
+          </div>
+          <p className="text-muted-foreground leading-relaxed text-lg">
+            O <strong>Eu Vou Jogar</strong> foi desenvolvido por <strong>Rangel Gomes</strong>, de <strong>Três Lagoas, MS</strong>,
+            com foco educacional e pedagógico. O projeto nasceu da vontade de criar ferramentas de aprendizado acessíveis,
+            gratuitas e divertidas para crianças, adolescentes e adultos de todo o Brasil.
+          </p>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Mail className="w-5 h-5 text-primary" />
+            <span className="text-lg">Entre em contato: <a href="mailto:rangel-3l@hotmail.com" className="text-primary font-semibold hover:underline">rangel-3l@hotmail.com</a></span>
+          </div>
+        </motion.section>
+
       </main>
 
       {/* Footer */}
