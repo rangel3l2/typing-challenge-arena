@@ -938,6 +938,17 @@ const Game = () => {
                   Voltar ao Início
                 </motion.button>
               </div>
+
+              {/* Always-visible chat after match (multiplayer only) */}
+              {!isSoloMode && room && (
+                <RoomChat
+                  roomId={room.id}
+                  sessionId={sessionId}
+                  playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+                  playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+                  expanded
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
