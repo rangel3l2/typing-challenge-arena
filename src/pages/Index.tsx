@@ -484,19 +484,18 @@ const Index = () => {
               ))}
             </motion.div>
 
-            {/* PRIORIDADE 5 — Ranking Global (terciário, link discreto φ⁰) */}
+            {/* Ranking Global — botão visível e destacado */}
             <motion.button
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.55 }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/ranking")}
-              className="self-center lg:self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-accent/80 font-body font-semibold text-xs sm:text-sm hover:text-accent hover:bg-accent/10 transition-all"
+              className="self-center flex items-center gap-3 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl border-2 border-accent/50 bg-accent/10 text-accent font-display font-bold text-sm sm:text-base hover:bg-accent/20 hover:border-accent transition-all glow-accent"
             >
-              <Trophy className="w-3.5 h-3.5" />
-              Ver Ranking Global
-              <ArrowRight className="w-3 h-3 opacity-60" />
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
+              Ranking Global
             </motion.button>
           </div>
 
