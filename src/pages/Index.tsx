@@ -220,8 +220,10 @@ const Index = () => {
       <main className="relative z-10 flex-1 flex items-start lg:items-center px-3 sm:px-4 md:px-8 lg:px-16 py-2 sm:py-4">
         <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-center">
 
-          {/* LEFT COLUMN */}
-          <div className="flex flex-col gap-3 sm:gap-4 lg:gap-6">
+          {/* LEFT COLUMN — Fibonacci hierarchy: gaps escalam em φ (≈1.618):
+              2→3→5→8→13. Tamanhos e ênfase priorizam o caminho do usuário:
+              1º Nome  →  2º Tipo de jogo  →  3º Ação principal  →  4º Features  →  5º Ranking */}
+          <div className="flex flex-col gap-[13px] sm:gap-[21px]">
             {/* Character on mobile - shown above title */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -233,7 +235,7 @@ const Index = () => {
               <HeroImage className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl" />
             </motion.div>
 
-            {/* Title */}
+            {/* Title — peso visual máximo (φ⁴) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -246,68 +248,45 @@ const Index = () => {
                 <span className="text-gradient-fun italic">Jogar</span>
                 <span className="text-primary inline-block animate-pulse-glow ml-2">⚡</span>
               </h1>
-              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-4 max-w-lg mx-auto lg:mx-0">
+              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-3 max-w-lg mx-auto lg:mx-0">
                 Jogos educacionais e infantis online — escolha e jogue grátis!
               </p>
             </motion.div>
 
-            {/* Game Selector Buttons */}
+            {/* PRIORIDADE 2 — Seletor de jogo (escala φ³, peso forte) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex gap-2 sm:gap-3 justify-center lg:justify-start"
+              transition={{ delay: 0.15 }}
+              className="flex gap-[8px] sm:gap-[13px] justify-center lg:justify-start"
             >
               <button
                 onClick={() => setSelectedGame("digitar")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                aria-pressed={selectedGame === "digitar"}
+                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "digitar"
-                    ? "bg-primary text-primary-foreground glow-primary shadow-lg"
+                    ? "bg-primary text-primary-foreground glow-primary shadow-lg scale-[1.05]"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Keyboard className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Keyboard className="w-5 h-5" />
                 Digitar
               </button>
               <button
                 onClick={() => setSelectedGame("acertar")}
-                className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                aria-pressed={selectedGame === "acertar"}
+                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "acertar"
-                    ? "bg-secondary text-secondary-foreground glow-secondary shadow-lg"
+                    ? "bg-secondary text-secondary-foreground glow-secondary shadow-lg scale-[1.05]"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <MapPin className="w-5 h-5" />
                 Acertar 🎈
               </button>
             </motion.div>
 
-            {/* Feature Pills */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-wrap gap-2 sm:gap-3 justify-center lg:justify-start"
-            >
-              {(selectedGame === "digitar"
-                ? [
-                    { icon: <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "Velocidade" },
-                    { icon: <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "Multiplayer" },
-                    { icon: <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "Rankings" },
-                  ]
-                : [
-                    { icon: <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "Matemática" },
-                    { icon: <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "Agilidade" },
-                    { icon: <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />, text: "6 Fases" },
-                  ]
-              ).map((pill) => (
-                <span key={pill.text} className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full glass-card text-muted-foreground text-xs sm:text-sm font-body font-semibold">
-                  {pill.icon} {pill.text}
-                </span>
-              ))}
-            </motion.div>
-
-            {/* Name Input Card */}
+            {/* PRIORIDADE 1 — Entrada de Nome (gateway obrigatório) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
