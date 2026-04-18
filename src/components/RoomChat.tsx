@@ -182,23 +182,23 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
         (payload) => {
           const msg = payload.new as ChatMessage;
           setMessages((prev) => [...prev, msg]);
-          if (!isOpen) setUnreadCount((c) => c + 1);
+          if (!effectivelyOpen) setUnreadCount((c) => c + 1);
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [roomId, isOpen]);
+  }, [roomId, effectivelyOpen]);
 
   // Auto-scroll
   useEffect(() => {
-    if (isOpen) {
+    if (effectivelyOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isOpen]);
+  }, [messages, effectivelyOpen]);
 
   // Reset unread when opening
   useEffect(() => {
-    if (isOpen) setUnreadCount(0);
-  }, [isOpen]);
+    if (effectivelyOpen) setUnreadCount(0);
+  }, [effectivelyOpen]);
 
   const sendMessage = useCallback(async (type: string, content: string, audioUrl?: string) => {
     if (!content.trim() && !audioUrl) return;
