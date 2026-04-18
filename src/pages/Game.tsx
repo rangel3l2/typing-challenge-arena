@@ -683,6 +683,17 @@ const Game = () => {
               {!isOwner && (
                 <p className="text-muted-foreground font-body text-sm">Aguardando o dono iniciar o jogo...</p>
               )}
+
+              {/* Always-visible chat between matches (multiplayer only) */}
+              {!isSoloMode && room && (
+                <RoomChat
+                  roomId={room.id}
+                  sessionId={sessionId}
+                  playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+                  playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+                  expanded
+                />
+              )}
             </motion.div>
           )}
 
