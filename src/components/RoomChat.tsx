@@ -141,7 +141,7 @@ const AudioPlayer = ({ url }: { url: string }) => {
   );
 };
 
-const RoomChat = ({ roomId, sessionId, playerName, playerColor }: RoomChatProps) => {
+const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false }: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -154,6 +154,9 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor }: RoomChatProps)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // When expanded mode is active, the chat is always considered "visible" (no unread badge)
+  const effectivelyOpen = expanded || isOpen;
 
   // Fetch initial messages
   useEffect(() => {
