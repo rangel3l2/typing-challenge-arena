@@ -683,6 +683,17 @@ const Game = () => {
               {!isOwner && (
                 <p className="text-muted-foreground font-body text-sm">Aguardando o dono iniciar o jogo...</p>
               )}
+
+              {/* Always-visible chat between matches (multiplayer only) */}
+              {!isSoloMode && room && (
+                <RoomChat
+                  roomId={room.id}
+                  sessionId={sessionId}
+                  playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+                  playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+                  expanded
+                />
+              )}
             </motion.div>
           )}
 
@@ -843,6 +854,17 @@ const Game = () => {
               {!isOwner && (
                 <p className="mt-6 text-muted-foreground font-body text-sm">Aguardando o dono avançar...</p>
               )}
+
+              {/* Always-visible chat between rounds (multiplayer only) */}
+              {!isSoloMode && room && (
+                <RoomChat
+                  roomId={room.id}
+                  sessionId={sessionId}
+                  playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+                  playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+                  expanded
+                />
+              )}
             </motion.div>
           )}
 
@@ -916,13 +938,24 @@ const Game = () => {
                   Voltar ao Início
                 </motion.button>
               </div>
+
+              {/* Always-visible chat after match (multiplayer only) */}
+              {!isSoloMode && room && (
+                <RoomChat
+                  roomId={room.id}
+                  sessionId={sessionId}
+                  playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
+                  playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+                  expanded
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Multiplayer Chat */}
-      {!isSoloMode && room && (
+      {/* Multiplayer Chat — floating during gameplay (countdown/playing) */}
+      {!isSoloMode && room && (phase === "playing" || phase === "countdown") && (
         <RoomChat
           roomId={room.id}
           sessionId={sessionId}
