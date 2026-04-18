@@ -20,6 +20,8 @@ interface RoomChatProps {
   sessionId: string;
   playerName: string;
   playerColor: string;
+  /** When true, renders as a large always-visible panel (use between matches) */
+  expanded?: boolean;
 }
 
 const EmojiPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => {
