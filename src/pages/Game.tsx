@@ -921,8 +921,8 @@ const Game = () => {
         </AnimatePresence>
       </div>
 
-      {/* Multiplayer Chat */}
-      {!isSoloMode && room && (
+      {/* Multiplayer Chat — floating during gameplay (countdown/playing) */}
+      {!isSoloMode && room && (phase === "playing" || phase === "countdown") && (
         <RoomChat
           roomId={room.id}
           sessionId={sessionId}
