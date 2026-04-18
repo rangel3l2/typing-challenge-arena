@@ -391,13 +391,13 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
     </>
   );
 
-  // EXPANDED MODE: Always-visible large panel for between-match moments
+  // EXPANDED MODE: Large always-visible panel for between-match moments
   if (expanded) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl mx-auto h-[420px] bg-card border-2 border-primary/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary"
+        className="w-full max-w-lg mx-auto h-[360px] bg-card border-2 border-primary/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary mt-6"
       >
         {panelBody}
       </motion.div>
