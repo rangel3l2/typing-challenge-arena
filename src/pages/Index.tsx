@@ -235,14 +235,23 @@ const Index = () => {
               <HeroImage className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl" />
             </motion.div>
 
-            {/* Title — peso visual máximo (φ⁴) */}
+            {/* Title — peso visual máximo (φ⁴), centralizado */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-center lg:text-left"
+              className="text-center"
             >
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight">
+                <span className="text-gradient-primary italic">Eu Vou</span>
+                <br />
+                <span className="text-gradient-fun italic">Jogar</span>
+                <span className="text-primary inline-block animate-pulse-glow ml-2">⚡</span>
+              </h1>
+              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-3 max-w-lg mx-auto">
+                Jogos educacionais e infantis online — escolha e jogue grátis!
+              </p>
+            </motion.div>
                 <span className="text-gradient-primary italic">Eu Vou</span>
                 <br />
                 <span className="text-gradient-fun italic">Jogar</span>
