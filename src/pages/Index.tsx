@@ -252,15 +252,6 @@ const Index = () => {
                 Jogos educacionais e infantis online — escolha e jogue grátis!
               </p>
             </motion.div>
-                <span className="text-gradient-primary italic">Eu Vou</span>
-                <br />
-                <span className="text-gradient-fun italic">Jogar</span>
-                <span className="text-primary inline-block animate-pulse-glow ml-2">⚡</span>
-              </h1>
-              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-3 max-w-lg mx-auto lg:mx-0">
-                Jogos educacionais e infantis online — escolha e jogue grátis!
-              </p>
-            </motion.div>
 
             {/* PRIORIDADE 2 — Seletor de jogo (escala φ³, peso forte) */}
             <motion.div
