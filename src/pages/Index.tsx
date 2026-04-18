@@ -258,7 +258,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="flex gap-[8px] sm:gap-[13px] justify-center lg:justify-start"
+              className="flex gap-[8px] sm:gap-[13px] justify-center"
             >
               <button
                 onClick={() => setSelectedGame("digitar")}
