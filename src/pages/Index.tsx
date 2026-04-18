@@ -459,18 +459,44 @@ const Index = () => {
               </motion.div>
             )}
 
-            {/* Ranking Global Button */}
+            {/* PRIORIDADE 4 — Feature Pills (informação de apoio, peso φ¹) */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-wrap gap-[5px] sm:gap-[8px] justify-center lg:justify-start"
+            >
+              {(selectedGame === "digitar"
+                ? [
+                    { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Velocidade" },
+                    { icon: <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Multiplayer" },
+                    { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Rankings" },
+                  ]
+                : [
+                    { icon: <Calculator className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Matemática" },
+                    { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Agilidade" },
+                    { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "6 Fases" },
+                  ]
+              ).map((pill) => (
+                <span key={pill.text} className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-muted/40 text-muted-foreground/80 text-[11px] sm:text-xs font-body">
+                  {pill.icon} {pill.text}
+                </span>
+              ))}
+            </motion.div>
+
+            {/* PRIORIDADE 5 — Ranking Global (terciário, link discreto φ⁰) */}
             <motion.button
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.45 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              transition={{ delay: 0.55 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/ranking")}
-              className="self-center lg:self-start flex items-center gap-3 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl border-2 border-accent/50 bg-accent/10 text-accent font-display font-bold text-sm sm:text-base hover:bg-accent/20 hover:border-accent transition-all glow-accent"
+              className="self-center lg:self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-accent/80 font-body font-semibold text-xs sm:text-sm hover:text-accent hover:bg-accent/10 transition-all"
             >
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
-              Ranking Global
+              <Trophy className="w-3.5 h-3.5" />
+              Ver Ranking Global
+              <ArrowRight className="w-3 h-3 opacity-60" />
             </motion.button>
           </div>
 
