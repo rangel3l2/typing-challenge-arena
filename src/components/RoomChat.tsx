@@ -42,12 +42,15 @@ interface RoomChatProps {
 const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false, participantSessionIds = [] }: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [globalContext, setGlobalContext] = useState<GlobalContextMessage[]>([]);
+  const [showContext, setShowContext] = useState(false);
   const [input, setInput] = useState("");
   const [showEmojis, setShowEmojis] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reported, setReported] = useState<Set<string>>(getReportedIds);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -98,25 +101,52 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
     if (effectivelyOpen) setUnreadCount(0);
   }, [effectivelyOpen]);
 
-  const sendMessage = useCallback(async (type: string, content: string, audioUrl?: string) => {
-    if (!content.trim() && !audioUrl) return;
+  // Fetch prior global conversation history with the other participants in this room.
+  // Keeps the social thread continuous between the lobby and the match.
+  useEffect(() => {
+    if (!roomId) return;
+    const others = participantSessionIds.filter((s) => s && s !== sessionId);
+    if (others.length === 0) { setGlobalContext([]); return; }
+    const ids = [sessionId, ...others];
+    const load = async () => {
+      const { data } = await supabase
+        .from("global_messages")
+        .select("id, session_id, player_name, player_color, message_type, content, audio_url, created_at")
+        .in("session_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (data) setGlobalContext((data as GlobalContextMessage[]).reverse());
+    };
+    load();
+  }, [roomId, sessionId, participantSessionIds.join(",")]);
+
+  const sendMessage = useCallback(async (type: string, rawContent: string, audioUrl?: string) => {
+    if (!rawContent.trim() && !audioUrl) return;
+    const content = type === "text" ? filterProfanity(rawContent.slice(0, 200)).trim() : rawContent.trim();
     await supabase.from("room_messages").insert({
       room_id: roomId,
       session_id: sessionId,
       player_name: playerName,
       player_color: playerColor,
       message_type: type,
-      content: content.trim(),
+      content,
       audio_url: audioUrl || null,
     });
   }, [roomId, sessionId, playerName, playerColor]);
 
   const handleSend = () => {
     if (!input.trim()) return;
+    if (containsProfanity(input)) toast.warning("Mensagem ajustada para manter o chat amigável 💛");
     sendMessage("text", input);
     setInput("");
     setShowEmojis(false);
     setShowStickers(false);
+  };
+
+  const handleReport = (id: string) => {
+    reportMessage(id);
+    setReported(new Set(getReportedIds()));
+    toast.success("Mensagem ocultada");
   };
 
   const handleEmojiSelect = (emoji: string) => {
