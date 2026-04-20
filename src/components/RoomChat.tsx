@@ -25,12 +25,20 @@ interface RoomChatProps {
 }
 
 const EmojiPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => {
+  // Emoticons temáticos do jogo: menino, digitação, matemática, corrida, balões + clássicos
   const commonEmojis = [
-    "😀", "😂", "😍", "🤩", "😎", "🤔", "😮", "😢", "😡", "🥳",
-    "👍", "👎", "👏", "🙌", "🤝", "✌️", "🤞", "💪", "🔥", "⚡",
-    "❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "💯", "✨",
-    "🎉", "🎊", "🏆", "🥇", "🚀", "⭐", "🌟", "💥", "💨", "🎯",
-    "😜", "🤪", "😏", "🙃", "😈", "👻", "💀", "🤡", "👑", "🧠",
+    // Personagem & temas do jogo (linha 1)
+    "🧒", "⌨️", "🎈", "🏎️", "🚴", "🏁", "🏆", "🥇", "🥈", "🥉",
+    // Matemática & acertar (linha 2)
+    "➕", "➖", "✖️", "➗", "🔢", "🧠", "💡", "🎯", "✅", "❌",
+    // Velocidade & energia (linha 3)
+    "⚡", "🔥", "💨", "💥", "💯", "✨", "🌟", "⭐", "🚀", "⏱️",
+    // Reações faciais (linha 4)
+    "😀", "😂", "😍", "🤩", "😎", "🤔", "😮", "😢", "😤", "🥳",
+    // Mãos & gestos (linha 5)
+    "👍", "👎", "👏", "🙌", "🤝", "💪", "🤞", "👆", "🙏", "👑",
+    // Diversão (linha 6)
+    "🎉", "🎊", "🎮", "❤️", "💙", "💚", "💛", "💜", "🤡", "💀",
   ];
 
   return (
