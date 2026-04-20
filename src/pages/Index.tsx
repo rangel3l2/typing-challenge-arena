@@ -133,6 +133,9 @@ const Index = () => {
     } else {
       // Normal name confirm
       if (playerName.trim()) {
+        localStorage.setItem("typerace_player_name", playerName.trim());
+        // Register identity so the player has a code for the global chat
+        if (!playerCode) registerIdentity(playerName.trim()).catch(() => {});
         setMode(mode === "name" ? "idle" : "name");
       }
     }
