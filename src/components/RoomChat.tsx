@@ -25,12 +25,20 @@ interface RoomChatProps {
 }
 
 const EmojiPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => {
+  // Emoticons temáticos do jogo: menino, digitação, matemática, corrida, balões + clássicos
   const commonEmojis = [
-    "😀", "😂", "😍", "🤩", "😎", "🤔", "😮", "😢", "😡", "🥳",
-    "👍", "👎", "👏", "🙌", "🤝", "✌️", "🤞", "💪", "🔥", "⚡",
-    "❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "💯", "✨",
-    "🎉", "🎊", "🏆", "🥇", "🚀", "⭐", "🌟", "💥", "💨", "🎯",
-    "😜", "🤪", "😏", "🙃", "😈", "👻", "💀", "🤡", "👑", "🧠",
+    // Personagem & temas do jogo (linha 1)
+    "🧒", "⌨️", "🎈", "🏎️", "🚴", "🏁", "🏆", "🥇", "🥈", "🥉",
+    // Matemática & acertar (linha 2)
+    "➕", "➖", "✖️", "➗", "🔢", "🧠", "💡", "🎯", "✅", "❌",
+    // Velocidade & energia (linha 3)
+    "⚡", "🔥", "💨", "💥", "💯", "✨", "🌟", "⭐", "🚀", "⏱️",
+    // Reações faciais (linha 4)
+    "😀", "😂", "😍", "🤩", "😎", "🤔", "😮", "😢", "😤", "🥳",
+    // Mãos & gestos (linha 5)
+    "👍", "👎", "👏", "🙌", "🤝", "💪", "🤞", "👆", "🙏", "👑",
+    // Diversão (linha 6)
+    "🎉", "🎊", "🎮", "❤️", "💙", "💚", "💛", "💜", "🤡", "💀",
   ];
 
   return (
@@ -71,13 +79,13 @@ const StickerPicker = ({ onSelect, onClose }: { onSelect: (sticker: Sticker) => 
       exit={{ opacity: 0, y: 10 }}
       className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-xl p-3 shadow-xl z-50"
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex gap-1">
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1">
           {STICKER_PACKS.map((pack, i) => (
             <button
               key={pack.name}
               onClick={() => setActivePack(i)}
-              className={`text-xs px-2 py-1 rounded-lg font-body transition-colors ${
+              className={`text-[11px] px-2 py-1 rounded-lg font-body transition-colors whitespace-nowrap shrink-0 ${
                 i === activePack ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -85,19 +93,20 @@ const StickerPicker = ({ onSelect, onClose }: { onSelect: (sticker: Sticker) => 
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0">
           <X className="w-3 h-3" />
         </button>
       </div>
-      <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto">
+      <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
         {STICKER_PACKS[activePack].stickers.map((sticker) => (
           <button
             key={sticker.id}
             onClick={() => { onSelect(sticker); onClose(); }}
-            className="text-3xl hover:bg-muted rounded-lg p-1 transition-colors flex items-center justify-center"
+            className="text-2xl hover:bg-muted rounded-lg p-2 transition-colors flex flex-col items-center justify-center gap-0.5"
             title={sticker.label}
           >
-            {sticker.url}
+            <span>{sticker.url}</span>
+            <span className="text-[9px] font-body text-muted-foreground leading-none">{sticker.label}</span>
           </button>
         ))}
       </div>
