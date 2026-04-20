@@ -1,12 +1,13 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin } from "lucide-react";
+import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin, MessageCircle, User } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
 import heroCharImg from "@/assets/hero-character.webp";
 import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
 import { useSession } from "@/hooks/useSession";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import GlobalChat from "@/components/GlobalChat";
 const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,7 +29,8 @@ const HeroImage = ({ className }: { className?: string }) => {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { restoreFromTag } = useSession();
+  const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
+  const [rightTab, setRightTab] = useState<"hero" | "chat">("hero");
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
