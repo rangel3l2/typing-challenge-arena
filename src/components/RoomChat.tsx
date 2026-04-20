@@ -1,10 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send, Smile, Image, Mic, Square, X, Play, Pause, ChevronDown } from "lucide-react";
-import { STICKER_PACKS, type Sticker } from "@/lib/stickers";
+import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe } from "lucide-react";
+import { EmojiPicker, StickerPicker, AudioPlayer, type Sticker } from "@/components/ChatPickers";
+import { filterProfanity, containsProfanity, tokenizeMessage, getReportedIds, reportMessage } from "@/lib/chatModeration";
+import { toast } from "sonner";
 
 interface ChatMessage {
+  id: string;
+  session_id: string;
+  player_name: string;
+  player_color: string;
+  message_type: string;
+  content: string;
+  audio_url: string | null;
+  created_at: string;
+}
+
+interface GlobalContextMessage {
   id: string;
   session_id: string;
   player_name: string;
@@ -22,6 +35,8 @@ interface RoomChatProps {
   playerColor: string;
   /** When true, renders as a large always-visible panel (use between matches) */
   expanded?: boolean;
+  /** Other players in the room (used to fetch prior global conversation context) */
+  participantSessionIds?: string[];
 }
 
 const EmojiPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => {
