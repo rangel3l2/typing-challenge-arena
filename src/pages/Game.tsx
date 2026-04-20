@@ -692,6 +692,7 @@ const Game = () => {
                   playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
                   playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
                   expanded
+                  participantSessionIds={players.map(p => p.session_id)}
                 />
               )}
             </motion.div>
@@ -863,6 +864,7 @@ const Game = () => {
                   playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
                   playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
                   expanded
+                  participantSessionIds={players.map(p => p.session_id)}
                 />
               )}
             </motion.div>
@@ -947,6 +949,7 @@ const Game = () => {
                   playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
                   playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
                   expanded
+                  participantSessionIds={players.map(p => p.session_id)}
                 />
               )}
             </motion.div>
@@ -961,6 +964,7 @@ const Game = () => {
           sessionId={sessionId}
           playerName={stateName || players.find(p => p.session_id === sessionId)?.name || "Jogador"}
           playerColor={players.find(p => p.session_id === sessionId)?.color || "#888888"}
+          participantSessionIds={players.map(p => p.session_id)}
         />
       )}
     </div>

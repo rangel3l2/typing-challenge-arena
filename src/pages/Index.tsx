@@ -1,12 +1,13 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin } from "lucide-react";
+import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin, MessageCircle, User } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
 import heroCharImg from "@/assets/hero-character.webp";
 import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
 import { useSession } from "@/hooks/useSession";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import GlobalChat from "@/components/GlobalChat";
 const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,7 +29,8 @@ const HeroImage = ({ className }: { className?: string }) => {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { restoreFromTag } = useSession();
+  const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
+  const [rightTab, setRightTab] = useState<"hero" | "chat">("hero");
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
@@ -131,6 +133,9 @@ const Index = () => {
     } else {
       // Normal name confirm
       if (playerName.trim()) {
+        localStorage.setItem("typerace_player_name", playerName.trim());
+        // Register identity so the player has a code for the global chat
+        if (!playerCode) registerIdentity(playerName.trim()).catch(() => {});
         setMode(mode === "name" ? "idle" : "name");
       }
     }
@@ -499,23 +504,79 @@ const Index = () => {
             </motion.button>
           </div>
 
-          {/* RIGHT COLUMN - Character (desktop only) */}
+          {/* RIGHT COLUMN - Tabbed: Personagem | Chat Global (desktop only) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="hidden lg:flex items-center justify-center relative"
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="hidden lg:flex flex-col gap-3 h-[560px]"
           >
-            {/* Glow ring */}
-            <div className="absolute w-[90%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
-            <div className="absolute w-[80%] aspect-square rounded-full border border-primary/15 animate-float" />
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <HeroImage className="relative z-10 w-full max-w-lg drop-shadow-2xl" />
-            </motion.div>
+            {/* Tab switcher */}
+            <div className="flex gap-1 p-1 glass-card self-center">
+              <button
+                onClick={() => setRightTab("hero")}
+                aria-pressed={rightTab === "hero"}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-display font-bold transition-all ${
+                  rightTab === "hero" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                Personagem
+              </button>
+              <button
+                onClick={() => setRightTab("chat")}
+                aria-pressed={rightTab === "chat"}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-display font-bold transition-all relative ${
+                  rightTab === "chat" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Chat Global
+                {rightTab !== "chat" && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent animate-pulse" />
+                )}
+              </button>
+            </div>
+
+            {/* Tab content */}
+            <div className="flex-1 flex items-center justify-center relative min-h-0">
+              {rightTab === "hero" ? (
+                <motion.div
+                  key="hero"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="w-full h-full flex items-center justify-center relative"
+                >
+                  <div className="absolute w-[80%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
+                  <div className="absolute w-[70%] aspect-square rounded-full border border-primary/15 animate-float" />
+                  <motion.div
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <HeroImage className="relative z-10 w-full max-w-md drop-shadow-2xl" />
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full">
+                  <GlobalChat
+                    sessionId={sessionId}
+                    playerName={playerName}
+                    playerCode={playerCode || ""}
+                  />
+                </motion.div>
+              )}
+            </div>
           </motion.div>
+        </div>
+
+        {/* MOBILE: Chat Global below the main content */}
+        <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
+          <GlobalChat
+            sessionId={sessionId}
+            playerName={playerName}
+            playerCode={playerCode || ""}
+            compact
+          />
         </div>
       </main>
 

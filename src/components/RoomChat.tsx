@@ -1,10 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send, Smile, Image, Mic, Square, X, Play, Pause, ChevronDown } from "lucide-react";
-import { STICKER_PACKS, type Sticker } from "@/lib/stickers";
+import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe } from "lucide-react";
+import { EmojiPicker, StickerPicker, AudioPlayer, type Sticker } from "@/components/ChatPickers";
+import { filterProfanity, containsProfanity, tokenizeMessage, getReportedIds, reportMessage } from "@/lib/chatModeration";
+import { toast } from "sonner";
 
 interface ChatMessage {
+  id: string;
+  session_id: string;
+  player_name: string;
+  player_color: string;
+  message_type: string;
+  content: string;
+  audio_url: string | null;
+  created_at: string;
+}
+
+interface GlobalContextMessage {
   id: string;
   session_id: string;
   player_name: string;
@@ -22,143 +35,22 @@ interface RoomChatProps {
   playerColor: string;
   /** When true, renders as a large always-visible panel (use between matches) */
   expanded?: boolean;
+  /** Other players in the room (used to fetch prior global conversation context) */
+  participantSessionIds?: string[];
 }
 
-const EmojiPicker = ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => {
-  // Emoticons temáticos do jogo: menino, digitação, matemática, corrida, balões + clássicos
-  const commonEmojis = [
-    // Personagem & temas do jogo (linha 1)
-    "🧒", "⌨️", "🎈", "🏎️", "🚴", "🏁", "🏆", "🥇", "🥈", "🥉",
-    // Matemática & acertar (linha 2)
-    "➕", "➖", "✖️", "➗", "🔢", "🧠", "💡", "🎯", "✅", "❌",
-    // Velocidade & energia (linha 3)
-    "⚡", "🔥", "💨", "💥", "💯", "✨", "🌟", "⭐", "🚀", "⏱️",
-    // Reações faciais (linha 4)
-    "😀", "😂", "😍", "🤩", "😎", "🤔", "😮", "😢", "😤", "🥳",
-    // Mãos & gestos (linha 5)
-    "👍", "👎", "👏", "🙌", "🤝", "💪", "🤞", "👆", "🙏", "👑",
-    // Diversão (linha 6)
-    "🎉", "🎊", "🎮", "❤️", "💙", "💚", "💛", "💜", "🤡", "💀",
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-xl p-3 shadow-xl z-50"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-body font-semibold text-muted-foreground">Emojis</span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-      <div className="grid grid-cols-10 gap-1 max-h-32 overflow-y-auto">
-        {commonEmojis.map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => { onSelect(emoji); onClose(); }}
-            className="text-xl hover:bg-muted rounded p-0.5 transition-colors"
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
-const StickerPicker = ({ onSelect, onClose }: { onSelect: (sticker: Sticker) => void; onClose: () => void }) => {
-  const [activePack, setActivePack] = useState(0);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-xl p-3 shadow-xl z-50"
-    >
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1">
-          {STICKER_PACKS.map((pack, i) => (
-            <button
-              key={pack.name}
-              onClick={() => setActivePack(i)}
-              className={`text-[11px] px-2 py-1 rounded-lg font-body transition-colors whitespace-nowrap shrink-0 ${
-                i === activePack ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {pack.name}
-            </button>
-          ))}
-        </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0">
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-      <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
-        {STICKER_PACKS[activePack].stickers.map((sticker) => (
-          <button
-            key={sticker.id}
-            onClick={() => { onSelect(sticker); onClose(); }}
-            className="text-2xl hover:bg-muted rounded-lg p-2 transition-colors flex flex-col items-center justify-center gap-0.5"
-            title={sticker.label}
-          >
-            <span>{sticker.url}</span>
-            <span className="text-[9px] font-body text-muted-foreground leading-none">{sticker.label}</span>
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
-const AudioPlayer = ({ url }: { url: string }) => {
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    audio.addEventListener("loadedmetadata", () => setDuration(audio.duration));
-    audio.addEventListener("timeupdate", () => setProgress(audio.currentTime / (audio.duration || 1)));
-    audio.addEventListener("ended", () => { setPlaying(false); setProgress(0); });
-    return () => { audio.pause(); audio.src = ""; };
-  }, [url]);
-
-  const toggle = () => {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); } else { audioRef.current.play(); }
-    setPlaying(!playing);
-  };
-
-  return (
-    <div className="flex items-center gap-2 min-w-[140px]">
-      <button onClick={toggle} className="shrink-0 w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary hover:bg-primary/30 transition-colors">
-        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
-      </button>
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress * 100}%` }} />
-      </div>
-      <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-        {duration > 0 ? `${Math.floor(duration)}s` : "..."}
-      </span>
-    </div>
-  );
-};
-
-const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false }: RoomChatProps) => {
+const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false, participantSessionIds = [] }: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [globalContext, setGlobalContext] = useState<GlobalContextMessage[]>([]);
+  const [showContext, setShowContext] = useState(false);
   const [input, setInput] = useState("");
   const [showEmojis, setShowEmojis] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [reported, setReported] = useState<Set<string>>(getReportedIds);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -209,25 +101,52 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
     if (effectivelyOpen) setUnreadCount(0);
   }, [effectivelyOpen]);
 
-  const sendMessage = useCallback(async (type: string, content: string, audioUrl?: string) => {
-    if (!content.trim() && !audioUrl) return;
+  // Fetch prior global conversation history with the other participants in this room.
+  // Keeps the social thread continuous between the lobby and the match.
+  useEffect(() => {
+    if (!roomId) return;
+    const others = participantSessionIds.filter((s) => s && s !== sessionId);
+    if (others.length === 0) { setGlobalContext([]); return; }
+    const ids = [sessionId, ...others];
+    const load = async () => {
+      const { data } = await supabase
+        .from("global_messages")
+        .select("id, session_id, player_name, player_color, message_type, content, audio_url, created_at")
+        .in("session_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (data) setGlobalContext((data as GlobalContextMessage[]).reverse());
+    };
+    load();
+  }, [roomId, sessionId, participantSessionIds.join(",")]);
+
+  const sendMessage = useCallback(async (type: string, rawContent: string, audioUrl?: string) => {
+    if (!rawContent.trim() && !audioUrl) return;
+    const content = type === "text" ? filterProfanity(rawContent.slice(0, 200)).trim() : rawContent.trim();
     await supabase.from("room_messages").insert({
       room_id: roomId,
       session_id: sessionId,
       player_name: playerName,
       player_color: playerColor,
       message_type: type,
-      content: content.trim(),
+      content,
       audio_url: audioUrl || null,
     });
   }, [roomId, sessionId, playerName, playerColor]);
 
   const handleSend = () => {
     if (!input.trim()) return;
+    if (containsProfanity(input)) toast.warning("Mensagem ajustada para manter o chat amigável 💛");
     sendMessage("text", input);
     setInput("");
     setShowEmojis(false);
     setShowStickers(false);
+  };
+
+  const handleReport = (id: string) => {
+    reportMessage(id);
+    setReported(new Set(getReportedIds()));
+    toast.success("Mensagem ocultada");
   };
 
   const handleEmojiSelect = (emoji: string) => {
@@ -295,50 +214,121 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
 
   const isMe = (msg: ChatMessage) => msg.session_id === sessionId;
 
+  const visibleMessages = useMemo(() => messages.filter((m) => !reported.has(m.id)), [messages, reported]);
+  const visibleContext = useMemo(() => globalContext.filter((m) => !reported.has(m.id)), [globalContext, reported]);
+
+  const renderTextContent = (text: string, mine: boolean) => (
+    <p className="text-sm font-body break-words">
+      {tokenizeMessage(text).map((tok, i) =>
+        tok.type === "code" ? (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs ${
+              mine ? "bg-primary-foreground/20" : "bg-accent/20 text-accent"
+            }`}
+          >
+            🎮 {tok.value}
+          </span>
+        ) : (
+          <span key={i}>{tok.value}</span>
+        )
+      )}
+    </p>
+  );
+
   const panelBody = (
     <>
       {/* Header */}
       <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-center gap-2 shrink-0">
         <MessageCircle className="w-4 h-4 text-primary" />
         <span className="font-display font-bold text-foreground text-sm">Chat da Sala</span>
-        <span className="text-xs text-muted-foreground ml-auto">{messages.length} msg</span>
+        <span className="text-xs text-muted-foreground ml-auto">{visibleMessages.length} msg</span>
       </div>
+
+      {/* Prior global conversation context */}
+      {visibleContext.length > 0 && (
+        <div className="border-b border-border bg-muted/20 shrink-0">
+          <button
+            onClick={() => setShowContext((v) => !v)}
+            className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-body font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Globe className="w-3 h-3" />
+            <History className="w-3 h-3" />
+            Conversa anterior no chat global ({visibleContext.length})
+            <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${showContext ? "rotate-180" : ""}`} />
+          </button>
+          <AnimatePresence>
+            {showContext && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-3 pb-2 space-y-1.5 max-h-32 overflow-y-auto"
+              >
+                {visibleContext.map((m) => (
+                  <div key={m.id} className="flex items-start gap-1.5 text-[11px] font-body">
+                    <div className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: m.player_color }} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-muted-foreground">{m.player_name}: </span>
+                      <span className="text-foreground/70 break-words">
+                        {m.message_type === "audio" ? "🎤 Áudio" : m.message_type === "sticker" ? m.content : m.content}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <p className="text-center text-muted-foreground/50 text-xs font-body mt-8">
             Nenhuma mensagem ainda. Diga oi! 👋
           </p>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${isMe(msg) ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[75%] ${isMe(msg) ? "order-1" : ""}`}>
-              {!isMe(msg) && (
-                <div className="flex items-center gap-1 mb-0.5">
-                  <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: msg.player_color }} />
-                  <span className="text-[10px] font-body font-semibold text-muted-foreground">{msg.player_name}</span>
-                </div>
-              )}
-              <div className={`rounded-2xl px-3 py-1.5 ${
-                isMe(msg)
-                  ? "bg-primary text-primary-foreground rounded-br-md"
-                  : "bg-muted text-foreground rounded-bl-md"
-              } ${msg.message_type === "sticker" ? "bg-transparent !px-0 !py-0 text-4xl" : ""}`}>
-                {msg.message_type === "audio" && msg.audio_url ? (
-                  <AudioPlayer url={msg.audio_url} />
-                ) : msg.message_type === "sticker" ? (
-                  <span className="text-5xl leading-none">{msg.content}</span>
-                ) : (
-                  <p className="text-sm font-body break-words">{msg.content}</p>
+        {visibleMessages.map((msg) => {
+          const mine = isMe(msg);
+          return (
+            <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} group`}>
+              <div className={`max-w-[75%] ${mine ? "order-1" : ""}`}>
+                {!mine && (
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: msg.player_color }} />
+                    <span className="text-[10px] font-body font-semibold text-muted-foreground">{msg.player_name}</span>
+                  </div>
                 )}
+                <div className={`rounded-2xl px-3 py-1.5 ${
+                  mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md"
+                } ${msg.message_type === "sticker" ? "bg-transparent !px-0 !py-0 text-4xl" : ""}`}>
+                  {msg.message_type === "audio" && msg.audio_url ? (
+                    <AudioPlayer url={msg.audio_url} />
+                  ) : msg.message_type === "sticker" ? (
+                    <span className="text-5xl leading-none">{msg.content}</span>
+                  ) : (
+                    renderTextContent(msg.content, mine)
+                  )}
+                </div>
+                <div className={`flex items-center gap-1.5 mt-0.5 ${mine ? "justify-end" : ""}`}>
+                  <span className="text-[9px] text-muted-foreground/50">
+                    {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {!mine && (
+                    <button
+                      onClick={() => handleReport(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground/40 hover:text-destructive transition-all"
+                      title="Denunciar / ocultar"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className={`text-[9px] text-muted-foreground/50 mt-0.5 ${isMe(msg) ? "text-right" : ""}`}>
-                {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-              </p>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 

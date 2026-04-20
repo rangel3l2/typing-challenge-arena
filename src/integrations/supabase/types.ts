@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      global_messages: {
+        Row: {
+          audio_url: string | null
+          content: string
+          created_at: string
+          id: string
+          message_type: string
+          player_code: string
+          player_color: string
+          player_name: string
+          room_code: string | null
+          session_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          player_code?: string
+          player_color?: string
+          player_name: string
+          room_code?: string | null
+          session_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          player_code?: string
+          player_color?: string
+          player_name?: string
+          room_code?: string | null
+          session_id?: string
+        }
+        Relationships: []
+      }
       player_identities: {
         Row: {
           created_at: string
