@@ -214,50 +214,121 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
 
   const isMe = (msg: ChatMessage) => msg.session_id === sessionId;
 
+  const visibleMessages = useMemo(() => messages.filter((m) => !reported.has(m.id)), [messages, reported]);
+  const visibleContext = useMemo(() => globalContext.filter((m) => !reported.has(m.id)), [globalContext, reported]);
+
+  const renderTextContent = (text: string, mine: boolean) => (
+    <p className="text-sm font-body break-words">
+      {tokenizeMessage(text).map((tok, i) =>
+        tok.type === "code" ? (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs ${
+              mine ? "bg-primary-foreground/20" : "bg-accent/20 text-accent"
+            }`}
+          >
+            🎮 {tok.value}
+          </span>
+        ) : (
+          <span key={i}>{tok.value}</span>
+        )
+      )}
+    </p>
+  );
+
   const panelBody = (
     <>
       {/* Header */}
       <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-center gap-2 shrink-0">
         <MessageCircle className="w-4 h-4 text-primary" />
         <span className="font-display font-bold text-foreground text-sm">Chat da Sala</span>
-        <span className="text-xs text-muted-foreground ml-auto">{messages.length} msg</span>
+        <span className="text-xs text-muted-foreground ml-auto">{visibleMessages.length} msg</span>
       </div>
+
+      {/* Prior global conversation context */}
+      {visibleContext.length > 0 && (
+        <div className="border-b border-border bg-muted/20 shrink-0">
+          <button
+            onClick={() => setShowContext((v) => !v)}
+            className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-body font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Globe className="w-3 h-3" />
+            <History className="w-3 h-3" />
+            Conversa anterior no chat global ({visibleContext.length})
+            <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${showContext ? "rotate-180" : ""}`} />
+          </button>
+          <AnimatePresence>
+            {showContext && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-3 pb-2 space-y-1.5 max-h-32 overflow-y-auto"
+              >
+                {visibleContext.map((m) => (
+                  <div key={m.id} className="flex items-start gap-1.5 text-[11px] font-body">
+                    <div className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: m.player_color }} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-muted-foreground">{m.player_name}: </span>
+                      <span className="text-foreground/70 break-words">
+                        {m.message_type === "audio" ? "🎤 Áudio" : m.message_type === "sticker" ? m.content : m.content}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <p className="text-center text-muted-foreground/50 text-xs font-body mt-8">
             Nenhuma mensagem ainda. Diga oi! 👋
           </p>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${isMe(msg) ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[75%] ${isMe(msg) ? "order-1" : ""}`}>
-              {!isMe(msg) && (
-                <div className="flex items-center gap-1 mb-0.5">
-                  <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: msg.player_color }} />
-                  <span className="text-[10px] font-body font-semibold text-muted-foreground">{msg.player_name}</span>
-                </div>
-              )}
-              <div className={`rounded-2xl px-3 py-1.5 ${
-                isMe(msg)
-                  ? "bg-primary text-primary-foreground rounded-br-md"
-                  : "bg-muted text-foreground rounded-bl-md"
-              } ${msg.message_type === "sticker" ? "bg-transparent !px-0 !py-0 text-4xl" : ""}`}>
-                {msg.message_type === "audio" && msg.audio_url ? (
-                  <AudioPlayer url={msg.audio_url} />
-                ) : msg.message_type === "sticker" ? (
-                  <span className="text-5xl leading-none">{msg.content}</span>
-                ) : (
-                  <p className="text-sm font-body break-words">{msg.content}</p>
+        {visibleMessages.map((msg) => {
+          const mine = isMe(msg);
+          return (
+            <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} group`}>
+              <div className={`max-w-[75%] ${mine ? "order-1" : ""}`}>
+                {!mine && (
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: msg.player_color }} />
+                    <span className="text-[10px] font-body font-semibold text-muted-foreground">{msg.player_name}</span>
+                  </div>
                 )}
+                <div className={`rounded-2xl px-3 py-1.5 ${
+                  mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md"
+                } ${msg.message_type === "sticker" ? "bg-transparent !px-0 !py-0 text-4xl" : ""}`}>
+                  {msg.message_type === "audio" && msg.audio_url ? (
+                    <AudioPlayer url={msg.audio_url} />
+                  ) : msg.message_type === "sticker" ? (
+                    <span className="text-5xl leading-none">{msg.content}</span>
+                  ) : (
+                    renderTextContent(msg.content, mine)
+                  )}
+                </div>
+                <div className={`flex items-center gap-1.5 mt-0.5 ${mine ? "justify-end" : ""}`}>
+                  <span className="text-[9px] text-muted-foreground/50">
+                    {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {!mine && (
+                    <button
+                      onClick={() => handleReport(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground/40 hover:text-destructive transition-all"
+                      title="Denunciar / ocultar"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className={`text-[9px] text-muted-foreground/50 mt-0.5 ${isMe(msg) ? "text-right" : ""}`}>
-                {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-              </p>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
