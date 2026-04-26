@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe } from "lucide-react";
+import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe, Users } from "lucide-react";
 import { EmojiPicker, StickerPicker, AudioPlayer, type Sticker } from "@/components/ChatPickers";
 import { filterProfanity, containsProfanity, tokenizeMessage, getReportedIds, reportMessage } from "@/lib/chatModeration";
+import GlobalChat from "@/components/GlobalChat";
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -37,10 +38,27 @@ interface RoomChatProps {
   expanded?: boolean;
   /** Other players in the room (used to fetch prior global conversation context) */
   participantSessionIds?: string[];
+  /** Player code (for the embedded global chat tab) */
+  playerCode?: string;
+  /** Default visible tab. "global" is useful right after creating a room so the owner can share. */
+  defaultTab?: "room" | "global";
+  /** Show the Global tab inside this chat (only makes sense in expanded mode). */
+  showGlobalTab?: boolean;
 }
 
-const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false, participantSessionIds = [] }: RoomChatProps) => {
+const RoomChat = ({
+  roomId,
+  sessionId,
+  playerName,
+  playerColor,
+  expanded = false,
+  participantSessionIds = [],
+  playerCode = "",
+  defaultTab = "room",
+  showGlobalTab = false,
+}: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"room" | "global">(defaultTab);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [globalContext, setGlobalContext] = useState<GlobalContextMessage[]>([]);
   const [showContext, setShowContext] = useState(false);
@@ -58,6 +76,7 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
 
   // When expanded mode is active, the chat is always considered "visible" (no unread badge)
   const effectivelyOpen = expanded || isOpen;
+
 
   // Fetch initial messages
   useEffect(() => {
@@ -396,9 +415,47 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg mx-auto h-[360px] bg-card border-2 border-primary/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary mt-6"
+        className="w-full max-w-lg mx-auto bg-card border-2 border-primary/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary mt-6"
       >
-        {panelBody}
+        {showGlobalTab && (
+          <div className="flex shrink-0 border-b border-border bg-muted/30">
+            <button
+              onClick={() => setActiveTab("global")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-display font-bold transition-colors ${
+                activeTab === "global"
+                  ? "bg-primary/15 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Chat Global
+            </button>
+            <button
+              onClick={() => setActiveTab("room")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-display font-bold transition-colors ${
+                activeTab === "room"
+                  ? "bg-primary/15 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Chat da Sala
+            </button>
+          </div>
+        )}
+        <div className="h-[360px] flex flex-col overflow-hidden">
+          {showGlobalTab && activeTab === "global" ? (
+            <GlobalChat
+              sessionId={sessionId}
+              playerName={playerName}
+              playerCode={playerCode}
+              playerColor={playerColor}
+              compact
+            />
+          ) : (
+            panelBody
+          )}
+        </div>
       </motion.div>
     );
   }
