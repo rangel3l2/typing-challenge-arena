@@ -538,6 +538,7 @@ const Index = () => {
                 )}
               </button>
             </div>
+            )}
 
             {/* Tab content */}
             <div className="flex-1 flex items-center justify-center relative min-h-0">
