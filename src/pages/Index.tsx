@@ -511,7 +511,8 @@ const Index = () => {
             transition={{ delay: 0.3, duration: 0.5 }}
             className="hidden lg:flex flex-col gap-3 h-[560px]"
           >
-            {/* Tab switcher */}
+            {/* Tab switcher — Chat só aparece após confirmar o nome */}
+            {mode !== "name" && (
             <div className="flex gap-1 p-1 glass-card self-center">
               <button
                 onClick={() => setRightTab("hero")}
