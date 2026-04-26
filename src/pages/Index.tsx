@@ -511,7 +511,8 @@ const Index = () => {
             transition={{ delay: 0.3, duration: 0.5 }}
             className="hidden lg:flex flex-col gap-3 h-[560px]"
           >
-            {/* Tab switcher */}
+            {/* Tab switcher — Chat só aparece após confirmar o nome */}
+            {mode !== "name" && (
             <div className="flex gap-1 p-1 glass-card self-center">
               <button
                 onClick={() => setRightTab("hero")}
@@ -537,10 +538,11 @@ const Index = () => {
                 )}
               </button>
             </div>
+            )}
 
             {/* Tab content */}
             <div className="flex-1 flex items-center justify-center relative min-h-0">
-              {rightTab === "hero" ? (
+              {rightTab === "hero" || mode === "name" ? (
                 <motion.div
                   key="hero"
                   initial={{ opacity: 0 }}
@@ -569,15 +571,17 @@ const Index = () => {
           </motion.div>
         </div>
 
-        {/* MOBILE: Chat Global below the main content */}
-        <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
-          <GlobalChat
-            sessionId={sessionId}
-            playerName={playerName}
-            playerCode={playerCode || ""}
-            compact
-          />
-        </div>
+        {/* MOBILE: Chat Global below the main content — só após confirmar nome */}
+        {mode !== "name" && (
+          <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
+            <GlobalChat
+              sessionId={sessionId}
+              playerName={playerName}
+              playerCode={playerCode || ""}
+              compact
+            />
+          </div>
+        )}
       </main>
 
       {/* ─── FOOTER ─── */}
