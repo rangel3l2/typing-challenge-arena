@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe } from "lucide-react";
+import { MessageCircle, Send, Smile, Image, Mic, Square, X, ChevronDown, History, Globe, Users } from "lucide-react";
 import { EmojiPicker, StickerPicker, AudioPlayer, type Sticker } from "@/components/ChatPickers";
 import { filterProfanity, containsProfanity, tokenizeMessage, getReportedIds, reportMessage } from "@/lib/chatModeration";
+import GlobalChat from "@/components/GlobalChat";
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -37,10 +38,27 @@ interface RoomChatProps {
   expanded?: boolean;
   /** Other players in the room (used to fetch prior global conversation context) */
   participantSessionIds?: string[];
+  /** Player code (for the embedded global chat tab) */
+  playerCode?: string;
+  /** Default visible tab. "global" is useful right after creating a room so the owner can share. */
+  defaultTab?: "room" | "global";
+  /** Show the Global tab inside this chat (only makes sense in expanded mode). */
+  showGlobalTab?: boolean;
 }
 
-const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false, participantSessionIds = [] }: RoomChatProps) => {
+const RoomChat = ({
+  roomId,
+  sessionId,
+  playerName,
+  playerColor,
+  expanded = false,
+  participantSessionIds = [],
+  playerCode = "",
+  defaultTab = "room",
+  showGlobalTab = false,
+}: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"room" | "global">(defaultTab);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [globalContext, setGlobalContext] = useState<GlobalContextMessage[]>([]);
   const [showContext, setShowContext] = useState(false);
@@ -58,6 +76,7 @@ const RoomChat = ({ roomId, sessionId, playerName, playerColor, expanded = false
 
   // When expanded mode is active, the chat is always considered "visible" (no unread badge)
   const effectivelyOpen = expanded || isOpen;
+
 
   // Fetch initial messages
   useEffect(() => {
