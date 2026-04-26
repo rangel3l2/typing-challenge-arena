@@ -151,10 +151,19 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
     setShowStickers(false);
   };
 
+  const activeRoomCode = getActiveRoomCode();
+
   const handleShareRoom = () => {
     const code = getActiveRoomCode();
     if (!code) {
-      toast.info("Crie ou entre em uma sala primeiro para compartilhá-la");
+      // No active room — take the player straight into the create-room flow
+      if (!playerName.trim()) {
+        toast.error("Digite seu nome primeiro");
+        return;
+      }
+      localStorage.setItem("typerace_player_name", playerName.trim());
+      toast.info("Crie sua sala — depois é só voltar e compartilhar! 🎮");
+      navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
       return;
     }
     sendMessage("text", `Bora jogar na minha sala: ${code} 🎮`, undefined, code);
@@ -337,14 +346,18 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick action: share my room */}
+      {/* Quick action: share my room (or create one) */}
       <div className="px-2 pt-2 shrink-0">
         <button
           onClick={handleShareRoom}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-accent/15 text-accent border border-accent/30 hover:bg-accent/25 transition-all text-xs font-body font-semibold"
+          className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl border transition-all text-xs font-body font-semibold ${
+            activeRoomCode
+              ? "bg-accent/15 text-accent border-accent/30 hover:bg-accent/25"
+              : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+          }`}
         >
           <Share2 className="w-3 h-3" />
-          Compartilhar minha sala atual
+          {activeRoomCode ? `Compartilhar minha sala (${activeRoomCode})` : "Crie uma sala para compartilhar"}
         </button>
       </div>
 
