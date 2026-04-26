@@ -151,10 +151,19 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
     setShowStickers(false);
   };
 
+  const activeRoomCode = getActiveRoomCode();
+
   const handleShareRoom = () => {
     const code = getActiveRoomCode();
     if (!code) {
-      toast.info("Crie ou entre em uma sala primeiro para compartilhá-la");
+      // No active room — take the player straight into the create-room flow
+      if (!playerName.trim()) {
+        toast.error("Digite seu nome primeiro");
+        return;
+      }
+      localStorage.setItem("typerace_player_name", playerName.trim());
+      toast.info("Crie sua sala — depois é só voltar e compartilhar! 🎮");
+      navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
       return;
     }
     sendMessage("text", `Bora jogar na minha sala: ${code} 🎮`, undefined, code);
