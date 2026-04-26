@@ -571,15 +571,17 @@ const Index = () => {
           </motion.div>
         </div>
 
-        {/* MOBILE: Chat Global below the main content */}
-        <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
-          <GlobalChat
-            sessionId={sessionId}
-            playerName={playerName}
-            playerCode={playerCode || ""}
-            compact
-          />
-        </div>
+        {/* MOBILE: Chat Global below the main content — só após confirmar nome */}
+        {mode !== "name" && (
+          <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
+            <GlobalChat
+              sessionId={sessionId}
+              playerName={playerName}
+              playerCode={playerCode || ""}
+              compact
+            />
+          </div>
+        )}
       </main>
 
       {/* ─── FOOTER ─── */}
