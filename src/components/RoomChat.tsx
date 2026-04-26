@@ -44,6 +44,8 @@ interface RoomChatProps {
   defaultTab?: "room" | "global";
   /** Show the Global tab inside this chat (only makes sense in expanded mode). */
   showGlobalTab?: boolean;
+  /** True for the room owner — used to prompt when a new player joins. */
+  isOwner?: boolean;
 }
 
 const RoomChat = ({
@@ -56,6 +58,7 @@ const RoomChat = ({
   playerCode = "",
   defaultTab = "room",
   showGlobalTab = false,
+  isOwner = false,
 }: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"room" | "global">(defaultTab);
@@ -69,6 +72,8 @@ const RoomChat = ({
   const [recordingTime, setRecordingTime] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [reported, setReported] = useState<Set<string>>(getReportedIds);
+  const [joinPrompt, setJoinPrompt] = useState<string | null>(null);
+  const prevParticipantCountRef = useRef<number>(participantSessionIds.length);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -76,6 +81,17 @@ const RoomChat = ({
 
   // When expanded mode is active, the chat is always considered "visible" (no unread badge)
   const effectivelyOpen = expanded || isOpen;
+
+  // Detect new joiners — prompt the owner to choose between Global (invite more) and Room (chat with newcomers).
+  useEffect(() => {
+    const count = participantSessionIds.length;
+    const prev = prevParticipantCountRef.current;
+    if (isOwner && showGlobalTab && count > prev && prev >= 1 && activeTab === "global") {
+      setJoinPrompt(`Alguém entrou na sua sala! 🎉`);
+    }
+    prevParticipantCountRef.current = count;
+  }, [participantSessionIds.length, isOwner, showGlobalTab, activeTab]);
+
 
 
   // Fetch initial messages
@@ -443,7 +459,7 @@ const RoomChat = ({
             </button>
           </div>
         )}
-        <div className="h-[360px] flex flex-col overflow-hidden">
+        <div className="h-[360px] flex flex-col overflow-hidden relative">
           {showGlobalTab && activeTab === "global" ? (
             <GlobalChat
               sessionId={sessionId}
@@ -455,6 +471,51 @@ const RoomChat = ({
           ) : (
             panelBody
           )}
+
+          {/* Owner-only prompt: a new player just joined the room */}
+          <AnimatePresence>
+            {joinPrompt && showGlobalTab && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="absolute inset-x-3 top-3 z-10 bg-card border-2 border-primary/60 rounded-xl shadow-2xl p-3 glow-primary"
+              >
+                <div className="flex items-start gap-2 mb-2">
+                  <Users className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-xs font-body font-semibold text-foreground flex-1">
+                    {joinPrompt}
+                    <span className="block text-[11px] font-normal text-muted-foreground mt-0.5">
+                      Onde você quer ficar?
+                    </span>
+                  </p>
+                  <button
+                    onClick={() => setJoinPrompt(null)}
+                    className="text-muted-foreground/60 hover:text-foreground"
+                    aria-label="Fechar"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setJoinPrompt(null)}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-muted text-foreground text-[11px] font-display font-bold hover:bg-muted/80 transition-colors"
+                  >
+                    <Globe className="w-3 h-3" />
+                    Continuar no Global
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab("room"); setJoinPrompt(null); }}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-display font-bold hover:brightness-110 transition-all"
+                  >
+                    <Users className="w-3 h-3" />
+                    Ir para Sala
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     );

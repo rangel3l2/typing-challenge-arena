@@ -697,6 +697,7 @@ const Game = () => {
                   expanded
                   showGlobalTab
                   defaultTab="global"
+                  isOwner={isOwner}
                   participantSessionIds={players.map(p => p.session_id)}
                 />
               )}
