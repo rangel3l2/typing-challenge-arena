@@ -44,6 +44,8 @@ interface RoomChatProps {
   defaultTab?: "room" | "global";
   /** Show the Global tab inside this chat (only makes sense in expanded mode). */
   showGlobalTab?: boolean;
+  /** True for the room owner — used to prompt when a new player joins. */
+  isOwner?: boolean;
 }
 
 const RoomChat = ({
@@ -56,6 +58,7 @@ const RoomChat = ({
   playerCode = "",
   defaultTab = "room",
   showGlobalTab = false,
+  isOwner = false,
 }: RoomChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"room" | "global">(defaultTab);
@@ -69,6 +72,8 @@ const RoomChat = ({
   const [recordingTime, setRecordingTime] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [reported, setReported] = useState<Set<string>>(getReportedIds);
+  const [joinPrompt, setJoinPrompt] = useState<string | null>(null);
+  const prevParticipantCountRef = useRef<number>(participantSessionIds.length);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -76,6 +81,17 @@ const RoomChat = ({
 
   // When expanded mode is active, the chat is always considered "visible" (no unread badge)
   const effectivelyOpen = expanded || isOpen;
+
+  // Detect new joiners — prompt the owner to choose between Global (invite more) and Room (chat with newcomers).
+  useEffect(() => {
+    const count = participantSessionIds.length;
+    const prev = prevParticipantCountRef.current;
+    if (isOwner && showGlobalTab && count > prev && prev >= 1 && activeTab === "global") {
+      setJoinPrompt(`Alguém entrou na sua sala! 🎉`);
+    }
+    prevParticipantCountRef.current = count;
+  }, [participantSessionIds.length, isOwner, showGlobalTab, activeTab]);
+
 
 
   // Fetch initial messages
