@@ -542,7 +542,7 @@ const Index = () => {
 
             {/* Tab content */}
             <div className="flex-1 flex items-center justify-center relative min-h-0">
-              {rightTab === "hero" ? (
+              {rightTab === "hero" || mode === "name" ? (
                 <motion.div
                   key="hero"
                   initial={{ opacity: 0 }}
