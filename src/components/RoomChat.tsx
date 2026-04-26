@@ -415,9 +415,47 @@ const RoomChat = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg mx-auto h-[360px] bg-card border-2 border-primary/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary mt-6"
+        className="w-full max-w-lg mx-auto bg-card border-2 border-primary/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden glow-primary mt-6"
       >
-        {panelBody}
+        {showGlobalTab && (
+          <div className="flex shrink-0 border-b border-border bg-muted/30">
+            <button
+              onClick={() => setActiveTab("global")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-display font-bold transition-colors ${
+                activeTab === "global"
+                  ? "bg-primary/15 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Chat Global
+            </button>
+            <button
+              onClick={() => setActiveTab("room")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-display font-bold transition-colors ${
+                activeTab === "room"
+                  ? "bg-primary/15 text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Chat da Sala
+            </button>
+          </div>
+        )}
+        <div className="h-[360px] flex flex-col overflow-hidden">
+          {showGlobalTab && activeTab === "global" ? (
+            <GlobalChat
+              sessionId={sessionId}
+              playerName={playerName}
+              playerCode={playerCode}
+              playerColor={playerColor}
+              compact
+            />
+          ) : (
+            panelBody
+          )}
+        </div>
       </motion.div>
     );
   }
