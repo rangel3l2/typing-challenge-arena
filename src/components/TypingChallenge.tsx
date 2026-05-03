@@ -369,10 +369,13 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
         <p className="text-base sm:text-lg md:text-xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
             let className = "text-muted-foreground/40";
+            const isCursor = i === currentIndex;
             if (i < currentIndex) {
               className = "text-primary";
-            } else if (i === currentIndex) {
-              className = "bg-primary/20 text-foreground border-b-2 border-primary";
+            } else if (isCursor) {
+              className = mistake
+                ? "bg-destructive/30 text-destructive-foreground border-b-2 border-destructive animate-pulse rounded-sm"
+                : "bg-primary/20 text-foreground border-b-2 border-primary";
             }
             return (
               <span key={i} className={`${className} transition-colors duration-100`}>
@@ -381,6 +384,27 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
             );
           })}
         </p>
+
+        {/* Mistake feedback: expected vs typed */}
+        {mistake && (
+          <motion.div
+            key={mistake.key}
+            initial={{ opacity: 0, y: 6, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-3 flex items-center justify-center gap-2 sm:gap-3 text-xs sm:text-sm font-body"
+            aria-live="polite"
+          >
+            <span className="text-muted-foreground">Esperado:</span>
+            <span className="px-2.5 py-1 rounded-md bg-primary/15 border border-primary/40 text-primary font-display font-bold text-base sm:text-lg min-w-[2rem] text-center">
+              {mistake.expected === " " ? "␣" : mistake.expected || "—"}
+            </span>
+            <span className="text-muted-foreground">→ Você digitou:</span>
+            <span className="px-2.5 py-1 rounded-md bg-destructive/15 border border-destructive/50 text-destructive font-display font-bold text-base sm:text-lg min-w-[2rem] text-center line-through decoration-2">
+              {mistake.typed === " " ? "␣" : mistake.typed}
+            </span>
+          </motion.div>
+        )}
 
         {!startTime && (
           <motion.p
