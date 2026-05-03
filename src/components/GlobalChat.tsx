@@ -234,6 +234,11 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
   };
 
   const handleJoinByCode = (code: string) => {
+    const status = roomStatuses[code.toUpperCase()];
+    if (status === "closed") {
+      toast.error("Essa sala não existe mais");
+      return;
+    }
     if (!playerName.trim()) {
       toast.error("Digite seu nome primeiro");
       return;
