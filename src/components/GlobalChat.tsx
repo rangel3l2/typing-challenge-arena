@@ -62,6 +62,8 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
   const [recordingTime, setRecordingTime] = useState(0);
   const [reported, setReported] = useState<Set<string>>(getReportedIds);
   const [onlineCount, setOnlineCount] = useState(1);
+  // Status of rooms referenced in chat: "open" (joinable), "closed" (ended/abandoned/missing), or undefined (loading)
+  const [roomStatuses, setRoomStatuses] = useState<Record<string, "open" | "closed">>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
