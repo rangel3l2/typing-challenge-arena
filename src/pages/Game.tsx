@@ -12,6 +12,11 @@ import RoomChat from "@/components/RoomChat";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
 import { generateProgressiveChallenges, DEFAULT_ROUNDS, type MatchResult } from "@/lib/wordDifficulty";
+import { toast } from "sonner";
+
+// Lobby disband timing (room with only the owner waiting)
+const LOBBY_WARN_MS = 4 * 60 * 1000;   // 4 minutes — warn the owner
+const LOBBY_DISBAND_MS = 5 * 60 * 1000; // 5 minutes — actually disband
 
 type GamePhase = "lobby" | "countdown" | "playing" | "roundResults" | "finalResults";
 
@@ -298,7 +303,68 @@ const Game = () => {
     } else if (status === "playing") setPhase("playing");
     else if (status === "round_results") setPhase("roundResults");
     else if (status === "final_results") setPhase("finalResults");
-  }, [room?.status]);
+    else if (status === "abandoned") {
+      toast.info("Sala desfeita por inatividade 💤", { description: "Redirecionando para o início..." });
+      sessionStorage.removeItem("typerace_active_room");
+      setTimeout(() => navigate("/"), 1800);
+    }
+  }, [room?.status, navigate]);
+
+  // Auto-disband empty lobby (owner waiting alone too long)
+  useEffect(() => {
+    if (!room || !isOwner || isSoloMode) return;
+    if (phase !== "lobby") return;
+    if (players.length !== 1) return; // only when owner is alone
+
+    const startedAt = Date.now();
+    let warned = false;
+
+    const tick = setInterval(async () => {
+      const elapsed = Date.now() - startedAt;
+
+      if (!warned && elapsed >= LOBBY_WARN_MS) {
+        warned = true;
+        toast.warning("Sua sala está prestes a ser desfeita", {
+          description: "Convide alguém ou ela será fechada em 1 minuto por inatividade.",
+        });
+        // System message in room chat
+        await supabase.from("room_messages").insert({
+          room_id: room.id,
+          session_id: "system",
+          player_name: "Sistema",
+          player_color: "hsl(45 95% 55%)",
+          message_type: "text",
+          content: "⚠️ A sala será desfeita em 1 minuto por inatividade. Compartilhe o código!",
+        });
+      }
+
+      if (elapsed >= LOBBY_DISBAND_MS) {
+        clearInterval(tick);
+        // Mark room as abandoned + post system messages in both chats
+        await Promise.all([
+          supabase.from("rooms").update({ status: "abandoned" }).eq("id", room.id),
+          supabase.from("room_messages").insert({
+            room_id: room.id,
+            session_id: "system",
+            player_name: "Sistema",
+            player_color: "hsl(0 75% 55%)",
+            message_type: "text",
+            content: `💤 Sala ${room.code} desfeita por inatividade.`,
+          }),
+          supabase.from("global_messages").insert({
+            session_id: "system",
+            player_name: "Sistema",
+            player_color: "hsl(0 75% 55%)",
+            message_type: "text",
+            content: `💤 A sala ${room.code} foi desfeita por inatividade.`,
+            room_code: room.code,
+          }),
+        ]);
+      }
+    }, 5000);
+
+    return () => clearInterval(tick);
+  }, [room?.id, room?.code, isOwner, isSoloMode, phase, players.length]);
 
   // Countdown timer
   useEffect(() => {
