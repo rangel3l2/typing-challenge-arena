@@ -12,6 +12,11 @@ import RoomChat from "@/components/RoomChat";
 import { useSession } from "@/hooks/useSession";
 import { useRoom, type RoomPlayer } from "@/hooks/useRoom";
 import { generateProgressiveChallenges, DEFAULT_ROUNDS, type MatchResult } from "@/lib/wordDifficulty";
+import { toast } from "sonner";
+
+// Lobby disband timing (room with only the owner waiting)
+const LOBBY_WARN_MS = 4 * 60 * 1000;   // 4 minutes — warn the owner
+const LOBBY_DISBAND_MS = 5 * 60 * 1000; // 5 minutes — actually disband
 
 type GamePhase = "lobby" | "countdown" | "playing" | "roundResults" | "finalResults";
 
