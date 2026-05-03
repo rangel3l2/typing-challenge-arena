@@ -199,6 +199,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
     if (ch === expectedChar) {
       const newIndex = currentIndex + 1;
       setCurrentIndex(newIndex);
+      setMistake(null);
       playAccelerateSound();
 
       if (newIndex >= text.length) {
