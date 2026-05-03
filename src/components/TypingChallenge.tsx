@@ -234,7 +234,15 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       setErrors(prev => prev + 1);
       wordErrorsRef.current++;
 
-      const now = Date.now();
+      // Visual feedback: highlight expected vs typed
+      setMistake({ expected: expectedChar ?? "", typed: ch, key: Date.now() });
+      if (mistakeTimerRef.current) window.clearTimeout(mistakeTimerRef.current);
+      mistakeTimerRef.current = window.setTimeout(() => setMistake(null), 1200);
+
+      // Haptic feedback on mobile
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try { navigator.vibrate(40); } catch {}
+      }
       const timeSinceLastError = now - lastErrorTimeRef.current;
 
       if (timeSinceLastError <= ERROR_WINDOW_MS && lastErrorTimeRef.current > 0) {
