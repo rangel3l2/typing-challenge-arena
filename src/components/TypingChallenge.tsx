@@ -88,12 +88,12 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (startTime && !isComplete) {
+      if (startTime && !isComplete && !isPaused) {
         setCurrentWpm(calculateWpm());
       }
     }, 500);
     return () => clearInterval(interval);
-  }, [startTime, isComplete, calculateWpm]);
+  }, [startTime, isComplete, isPaused, calculateWpm]);
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 100);
