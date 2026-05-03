@@ -216,7 +216,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
 
   // Process a single typed character (shared by hardware + soft keyboards)
   const processChar = useCallback((ch: string) => {
-    if (isComplete) return;
+    if (isComplete || isPaused) return;
     if (!ch || ch.length !== 1) return;
 
     if (!startTime) {
