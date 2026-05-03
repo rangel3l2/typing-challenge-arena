@@ -667,7 +667,18 @@ const Game = () => {
           {phase === "lobby" && (
             <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
               <h1 className="text-4xl md:text-5xl font-display font-bold mb-2 text-gradient-primary">Sala de Espera</h1>
-              <p className="text-muted-foreground mb-4 font-body">Aguardando jogadores...</p>
+              <p className="text-muted-foreground mb-2 font-body">Aguardando jogadores...</p>
+              {(() => {
+                const myName = stateName || players.find(p => p.session_id === sessionId)?.name;
+                if (!myName) return null;
+                return (
+                  <div className="mb-4 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-sm font-body">
+                    <span className="text-muted-foreground">Jogador: </span>
+                    <span className="font-bold text-primary">{myName}</span>
+                    {playerCode && <span className="text-muted-foreground/70">#{playerCode}</span>}
+                  </div>
+                );
+              })()}
 
               {/* Share buttons */}
               <div className="flex gap-3 mb-8">
