@@ -168,28 +168,21 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
     return targetBound.start;
   }, [getCurrentWordBoundary, getWordBoundaryByIdx]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Process a single typed character (shared by hardware + soft keyboards)
+  const processChar = useCallback((ch: string) => {
     if (isComplete) return;
-    if (["Shift", "Control", "Alt", "Meta", "Tab", "CapsLock"].includes(e.key)) return;
-
-    e.preventDefault();
+    if (!ch || ch.length !== 1) return;
 
     if (!startTime) {
       setStartTime(Date.now());
       wordStartTimeRef.current = Date.now();
     }
 
-    // No backspace allowed — penalty system replaces it
-    if (e.key === "Backspace") return;
-
-    if (e.key.length !== 1) return;
-
     setTotalKeystrokes(prev => prev + 1);
     wordKeystrokesRef.current++;
 
     const expectedChar = text[currentIndex];
 
-    // Check if we're crossing a word boundary
     const prevBoundary = getCurrentWordBoundary(currentIndex - 1);
     const currBoundary = getCurrentWordBoundary(currentIndex);
     if (prevBoundary && currBoundary && prevBoundary.wordIdx !== currBoundary.wordIdx) {
@@ -201,13 +194,12 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       currentWordIndexRef.current = currBoundary.wordIdx;
     }
 
-    if (e.key === expectedChar) {
+    if (ch === expectedChar) {
       const newIndex = currentIndex + 1;
       setCurrentIndex(newIndex);
       playAccelerateSound();
 
       if (newIndex >= text.length) {
-        // Finalize last word
         const lastBound = getCurrentWordBoundary(currentIndex);
         if (lastBound) finalizeWord(lastBound.wordIdx);
 
@@ -234,7 +226,6 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
         onComplete(wpm, accuracy, elapsed, matchResult);
       }
     } else {
-      // ERROR: apply penalty system — skid sound + stop engine
       stopEngineSound();
       playSkidSound();
       setErrors(prev => prev + 1);
@@ -244,10 +235,8 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       const timeSinceLastError = now - lastErrorTimeRef.current;
 
       if (timeSinceLastError <= ERROR_WINDOW_MS && lastErrorTimeRef.current > 0) {
-        // Rapid error
         rapidErrorCountRef.current++;
       } else {
-        // Reset rapid error counter — first error or too much time passed
         rapidErrorCountRef.current = 1;
       }
       lastErrorTimeRef.current = now;
@@ -256,6 +245,27 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       setCurrentIndex(newIdx);
     }
   }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
+
+  // Hardware keyboard (desktop): use keydown to catch every key cleanly
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isComplete) return;
+    if (["Shift", "Control", "Alt", "Meta", "Tab", "CapsLock"].includes(e.key)) return;
+    if (e.key === "Backspace") { e.preventDefault(); return; } // Backspace blocked
+    if (e.key.length !== 1) return;
+    e.preventDefault();
+    processChar(e.key);
+  }, [isComplete, processChar]);
+
+  // Soft keyboard (mobile/tablet): keydown is unreliable on Android, use beforeinput
+  const handleBeforeInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    const ne = e.nativeEvent as InputEvent;
+    e.preventDefault();
+    if (isComplete) return;
+    if (ne.inputType === "deleteContentBackward" || ne.inputType === "deleteContentForward") return;
+    const data = ne.data || "";
+    for (const ch of data) processChar(ch);
+  }, [isComplete, processChar]);
+
 
   // Report progress as character-level percentage
   useEffect(() => {
