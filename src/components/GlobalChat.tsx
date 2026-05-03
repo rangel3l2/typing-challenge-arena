@@ -132,18 +132,22 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
     (async () => {
       const { data } = await supabase
         .from("rooms")
-        .select("code,status")
+        .select("code,status,updated_at")
         .in("code", missing);
       if (cancelled) return;
+      // A room counts as "open" only if it's still in lobby/playing AND was updated recently (last 15 min).
+      const STALE_MS = 15 * 60 * 1000;
+      const now = Date.now();
       setRoomStatuses((prev) => {
         const next = { ...prev };
         const found = new Set<string>();
-        (data || []).forEach((r: { code: string; status: string }) => {
+        (data || []).forEach((r: { code: string; status: string; updated_at: string }) => {
           const code = r.code.toUpperCase();
           found.add(code);
-          next[code] = r.status === "lobby" || r.status === "playing" ? "open" : "closed";
+          const fresh = now - new Date(r.updated_at).getTime() < STALE_MS;
+          const active = r.status === "lobby" || r.status === "playing";
+          next[code] = active && fresh ? "open" : "closed";
         });
-        // Codes that weren't returned at all → don't exist
         for (const c of missing) if (!found.has(c)) next[c] = "closed";
         return next;
       });
