@@ -34,8 +34,11 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
   const [currentWpm, setCurrentWpm] = useState(0);
   const [penaltyFlash, setPenaltyFlash] = useState(false);
   const [mistake, setMistake] = useState<{ expected: string; typed: string; key: number } | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mistakeTimerRef = useRef<number | null>(null);
+  const pausedAtRef = useRef<number | null>(null);
+  const pausedTotalRef = useRef(0);
 
   // Per-word tracking
   const wordsRef = useRef(analyzeText(text));
@@ -85,12 +88,12 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (startTime && !isComplete) {
+      if (startTime && !isComplete && !isPaused) {
         setCurrentWpm(calculateWpm());
       }
     }, 500);
     return () => clearInterval(interval);
-  }, [startTime, isComplete, calculateWpm]);
+  }, [startTime, isComplete, isPaused, calculateWpm]);
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 100);
@@ -98,6 +101,47 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
   }, []);
 
   const refocusInput = () => inputRef.current?.focus();
+
+  // Pause / Resume logic — triggered when input loses focus, keyboard closes, or tab hides
+  const pauseGame = useCallback(() => {
+    if (isComplete || !startTime) return;
+    setIsPaused(prev => {
+      if (prev) return prev;
+      pausedAtRef.current = Date.now();
+      stopEngineSound();
+      return true;
+    });
+  }, [isComplete, startTime]);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(prev => {
+      if (!prev) return prev;
+      if (pausedAtRef.current) {
+        const delta = Date.now() - pausedAtRef.current;
+        pausedTotalRef.current += delta;
+        // Shift timing references forward so paused time isn't counted
+        if (startTime) setStartTime(startTime + delta);
+        if (wordStartTimeRef.current) wordStartTimeRef.current += delta;
+        pausedAtRef.current = null;
+      }
+      return false;
+    });
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [startTime]);
+
+  const handleResumeClick = useCallback(() => {
+    inputRef.current?.focus();
+    resumeGame();
+  }, [resumeGame]);
+
+  // Listen for tab/window visibility changes to also pause
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) pauseGame();
+    };
+    window.addEventListener("visibilitychange", onVis);
+    return () => window.removeEventListener("visibilitychange", onVis);
+  }, [pauseGame]);
 
   // Finalize a word's result when we move past it
   const finalizeWord = useCallback((wordIdx: number) => {
@@ -172,7 +216,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
 
   // Process a single typed character (shared by hardware + soft keyboards)
   const processChar = useCallback((ch: string) => {
-    if (isComplete) return;
+    if (isComplete || isPaused) return;
     if (!ch || ch.length !== 1) return;
 
     if (!startTime) {
@@ -256,7 +300,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       const newIdx = applyPenalty(rapidErrorCountRef.current, currentIndex);
       setCurrentIndex(newIdx);
     }
-  }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
+  }, [currentIndex, errors, isComplete, isPaused, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
 
   // Hardware keyboard (desktop): use keydown to catch every key cleanly
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -311,7 +355,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
         onChange={() => { /* handled by onBeforeInput */ }}
         onKeyDown={handleKeyDown}
         onBeforeInput={handleBeforeInput}
-        onBlur={refocusInput}
+        onBlur={pauseGame}
         autoFocus
         aria-label="Área de digitação"
         style={{
@@ -362,9 +406,9 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       {/* Typing area */}
       <div
         onClick={refocusInput}
-        className={`glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all ${
+        className={`relative glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all ${
           penaltyFlash ? "ring-2 ring-destructive/60 bg-destructive/5" : ""
-        }`}
+        } ${isPaused ? "ring-2 ring-accent/60" : ""}`}
       >
         <p className="text-base sm:text-lg md:text-xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
@@ -415,6 +459,31 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
             <span className="hidden md:inline">Clique aqui e comece a digitar...</span>
             <span className="md:hidden">⌨️ Toque aqui para abrir o teclado e começar</span>
           </motion.p>
+        )}
+
+        {/* Pause overlay — appears when keyboard closes / input loses focus */}
+        {isPaused && !isComplete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-background/85 backdrop-blur-sm p-4"
+            onClick={(e) => { e.stopPropagation(); handleResumeClick(); }}
+          >
+            <p className="text-2xl sm:text-3xl">⏸️</p>
+            <p className="font-display font-bold text-base sm:text-lg text-foreground text-center">
+              Jogo pausado
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground text-center max-w-xs">
+              O teclado foi fechado. Toque para retomar e continuar digitando.
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleResumeClick(); }}
+              className="mt-1 px-5 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-sm sm:text-base hover:bg-primary/90 transition-colors"
+            >
+              ▶ Retomar
+            </button>
+          </motion.div>
         )}
       </div>
 
