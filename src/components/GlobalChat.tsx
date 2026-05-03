@@ -247,8 +247,9 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
       toast.error("Digite seu nome primeiro");
       return;
     }
-    localStorage.setItem("typerace_player_name", playerName.trim());
-    navigate(`/join/${code}`);
+    const name = playerName.trim();
+    localStorage.setItem("typerace_player_name", name);
+    navigate(`/game`, { state: { playerName: name, roomCode: code.toUpperCase(), action: "join" } });
   };
 
   // Audio recording
