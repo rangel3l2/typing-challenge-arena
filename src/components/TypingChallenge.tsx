@@ -376,7 +376,8 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
             transition={{ duration: 2, repeat: Infinity }}
             className="text-muted-foreground text-center mt-3 text-xs"
           >
-            Clique aqui e comece a digitar...
+            <span className="hidden md:inline">Clique aqui e comece a digitar...</span>
+            <span className="md:hidden">⌨️ Toque aqui para abrir o teclado e começar</span>
           </motion.p>
         )}
       </div>
