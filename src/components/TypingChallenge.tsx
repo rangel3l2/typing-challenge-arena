@@ -33,7 +33,9 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
   const [isComplete, setIsComplete] = useState(false);
   const [currentWpm, setCurrentWpm] = useState(0);
   const [penaltyFlash, setPenaltyFlash] = useState(false);
+  const [mistake, setMistake] = useState<{ expected: string; typed: string; key: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mistakeTimerRef = useRef<number | null>(null);
 
   // Per-word tracking
   const wordsRef = useRef(analyzeText(text));
