@@ -355,7 +355,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
         onChange={() => { /* handled by onBeforeInput */ }}
         onKeyDown={handleKeyDown}
         onBeforeInput={handleBeforeInput}
-        onBlur={refocusInput}
+        onBlur={pauseGame}
         autoFocus
         aria-label="Área de digitação"
         style={{
