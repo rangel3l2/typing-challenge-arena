@@ -102,6 +102,47 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
 
   const refocusInput = () => inputRef.current?.focus();
 
+  // Pause / Resume logic — triggered when input loses focus, keyboard closes, or tab hides
+  const pauseGame = useCallback(() => {
+    if (isComplete || !startTime) return;
+    setIsPaused(prev => {
+      if (prev) return prev;
+      pausedAtRef.current = Date.now();
+      stopEngineSound();
+      return true;
+    });
+  }, [isComplete, startTime]);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(prev => {
+      if (!prev) return prev;
+      if (pausedAtRef.current) {
+        const delta = Date.now() - pausedAtRef.current;
+        pausedTotalRef.current += delta;
+        // Shift timing references forward so paused time isn't counted
+        if (startTime) setStartTime(startTime + delta);
+        if (wordStartTimeRef.current) wordStartTimeRef.current += delta;
+        pausedAtRef.current = null;
+      }
+      return false;
+    });
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [startTime]);
+
+  const handleResumeClick = useCallback(() => {
+    inputRef.current?.focus();
+    resumeGame();
+  }, [resumeGame]);
+
+  // Listen for tab/window visibility changes to also pause
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) pauseGame();
+    };
+    window.addEventListener("visibilitychange", onVis);
+    return () => window.removeEventListener("visibilitychange", onVis);
+  }, [pauseGame]);
+
   // Finalize a word's result when we move past it
   const finalizeWord = useCallback((wordIdx: number) => {
     const words = wordsRef.current;
