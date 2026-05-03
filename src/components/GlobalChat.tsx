@@ -355,38 +355,48 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
                     <span className="text-5xl leading-none">{msg.content}</span>
                   ) : (
                     <p className="text-sm font-body break-words">
-                      {tokenizeMessage(msg.content).map((tok, i) =>
-                        tok.type === "code" ? (
+                      {tokenizeMessage(msg.content).map((tok, i) => {
+                        if (tok.type !== "code") return <span key={i}>{tok.value}</span>;
+                        const closed = roomStatuses[tok.value.toUpperCase()] === "closed";
+                        return (
                           <button
                             key={i}
                             onClick={() => handleJoinByCode(tok.value)}
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs transition-all hover:scale-105 ${
-                              mine
-                                ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
-                                : "bg-accent/20 text-accent hover:bg-accent/30"
+                            disabled={closed}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs transition-all ${
+                              closed
+                                ? "bg-muted-foreground/15 text-muted-foreground line-through cursor-not-allowed opacity-70"
+                                : `hover:scale-105 ${mine
+                                    ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
+                                    : "bg-accent/20 text-accent hover:bg-accent/30"}`
                             }`}
-                            title={`Entrar na sala ${tok.value}`}
+                            title={closed ? "Sala encerrada" : `Entrar na sala ${tok.value}`}
                           >
-                            🎮 {tok.value}
+                            {closed ? "🚫" : "🎮"} {tok.value}
+                            {closed && <span className="ml-1 text-[9px] font-body normal-case no-underline">encerrada</span>}
                           </button>
-                        ) : (
-                          <span key={i}>{tok.value}</span>
-                        )
-                      )}
+                        );
+                      })}
                     </p>
                   )}
-                  {msg.room_code && msg.message_type === "text" && (
-                    <button
-                      onClick={() => handleJoinByCode(msg.room_code!)}
-                      className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-display font-bold transition-all hover:scale-[1.02] ${
-                        mine
-                          ? "bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25"
-                          : "bg-accent text-accent-foreground hover:brightness-110"
-                      }`}
-                    >
-                      🎮 Entrar na sala
-                    </button>
-                  )}
+                  {msg.room_code && msg.message_type === "text" && (() => {
+                    const closed = roomStatuses[msg.room_code.toUpperCase()] === "closed";
+                    return (
+                      <button
+                        onClick={() => handleJoinByCode(msg.room_code!)}
+                        disabled={closed}
+                        className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-display font-bold transition-all ${
+                          closed
+                            ? "bg-muted-foreground/15 text-muted-foreground cursor-not-allowed opacity-70"
+                            : `hover:scale-[1.02] ${mine
+                                ? "bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25"
+                                : "bg-accent text-accent-foreground hover:brightness-110"}`
+                        }`}
+                      >
+                        {closed ? "🚫 Sala encerrada" : "🎮 Entrar na sala"}
+                      </button>
+                    );
+                  })()}
                 </div>
                 <div className={`flex items-center gap-1.5 mt-0.5 ${mine ? "justify-end" : ""}`}>
                   <span className="text-[9px] text-muted-foreground/50">
