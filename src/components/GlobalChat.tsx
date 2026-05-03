@@ -113,6 +113,62 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Collect all room codes referenced in messages and check whether they still exist / are open
+  const referencedCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of messages) {
+      if (m.room_code) set.add(m.room_code.toUpperCase());
+      for (const tok of tokenizeMessage(m.content)) {
+        if (tok.type === "code") set.add(tok.value.toUpperCase());
+      }
+    }
+    return Array.from(set);
+  }, [messages]);
+
+  useEffect(() => {
+    const missing = referencedCodes.filter((c) => !(c in roomStatuses));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("rooms")
+        .select("code,status")
+        .in("code", missing);
+      if (cancelled) return;
+      setRoomStatuses((prev) => {
+        const next = { ...prev };
+        const found = new Set<string>();
+        (data || []).forEach((r: { code: string; status: string }) => {
+          const code = r.code.toUpperCase();
+          found.add(code);
+          next[code] = r.status === "lobby" || r.status === "playing" ? "open" : "closed";
+        });
+        // Codes that weren't returned at all → don't exist
+        for (const c of missing) if (!found.has(c)) next[c] = "closed";
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [referencedCodes, roomStatuses]);
+
+  // Watch room status changes in realtime so "closed" appears live in the chat
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-chat-rooms")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms" }, (payload) => {
+        const row = payload.new as { code?: string; status?: string };
+        if (!row?.code) return;
+        const code = row.code.toUpperCase();
+        setRoomStatuses((prev) => ({
+          ...prev,
+          [code]: row.status === "lobby" || row.status === "playing" ? "open" : "closed",
+        }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+
   const sendMessage = useCallback(async (type: string, rawContent: string, audioUrl?: string, roomCode?: string) => {
     if (!playerName.trim()) {
       toast.error("Digite seu nome antes de enviar mensagens");
