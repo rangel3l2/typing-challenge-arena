@@ -62,6 +62,8 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
   const [recordingTime, setRecordingTime] = useState(0);
   const [reported, setReported] = useState<Set<string>>(getReportedIds);
   const [onlineCount, setOnlineCount] = useState(1);
+  // Status of rooms referenced in chat: "open" (joinable), "closed" (ended/abandoned/missing), or undefined (loading)
+  const [roomStatuses, setRoomStatuses] = useState<Record<string, "open" | "closed">>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -110,6 +112,62 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Collect all room codes referenced in messages and check whether they still exist / are open
+  const referencedCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of messages) {
+      if (m.room_code) set.add(m.room_code.toUpperCase());
+      for (const tok of tokenizeMessage(m.content)) {
+        if (tok.type === "code") set.add(tok.value.toUpperCase());
+      }
+    }
+    return Array.from(set);
+  }, [messages]);
+
+  useEffect(() => {
+    const missing = referencedCodes.filter((c) => !(c in roomStatuses));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("rooms")
+        .select("code,status")
+        .in("code", missing);
+      if (cancelled) return;
+      setRoomStatuses((prev) => {
+        const next = { ...prev };
+        const found = new Set<string>();
+        (data || []).forEach((r: { code: string; status: string }) => {
+          const code = r.code.toUpperCase();
+          found.add(code);
+          next[code] = r.status === "lobby" || r.status === "playing" ? "open" : "closed";
+        });
+        // Codes that weren't returned at all → don't exist
+        for (const c of missing) if (!found.has(c)) next[c] = "closed";
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [referencedCodes, roomStatuses]);
+
+  // Watch room status changes in realtime so "closed" appears live in the chat
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-chat-rooms")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms" }, (payload) => {
+        const row = payload.new as { code?: string; status?: string };
+        if (!row?.code) return;
+        const code = row.code.toUpperCase();
+        setRoomStatuses((prev) => ({
+          ...prev,
+          [code]: row.status === "lobby" || row.status === "playing" ? "open" : "closed",
+        }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
 
   const sendMessage = useCallback(async (type: string, rawContent: string, audioUrl?: string, roomCode?: string) => {
     if (!playerName.trim()) {
@@ -176,6 +234,11 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
   };
 
   const handleJoinByCode = (code: string) => {
+    const status = roomStatuses[code.toUpperCase()];
+    if (status === "closed") {
+      toast.error("Essa sala não existe mais");
+      return;
+    }
     if (!playerName.trim()) {
       toast.error("Digite seu nome primeiro");
       return;
@@ -292,38 +355,48 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
                     <span className="text-5xl leading-none">{msg.content}</span>
                   ) : (
                     <p className="text-sm font-body break-words">
-                      {tokenizeMessage(msg.content).map((tok, i) =>
-                        tok.type === "code" ? (
+                      {tokenizeMessage(msg.content).map((tok, i) => {
+                        if (tok.type !== "code") return <span key={i}>{tok.value}</span>;
+                        const closed = roomStatuses[tok.value.toUpperCase()] === "closed";
+                        return (
                           <button
                             key={i}
                             onClick={() => handleJoinByCode(tok.value)}
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs transition-all hover:scale-105 ${
-                              mine
-                                ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
-                                : "bg-accent/20 text-accent hover:bg-accent/30"
+                            disabled={closed}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-bold text-xs transition-all ${
+                              closed
+                                ? "bg-muted-foreground/15 text-muted-foreground line-through cursor-not-allowed opacity-70"
+                                : `hover:scale-105 ${mine
+                                    ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
+                                    : "bg-accent/20 text-accent hover:bg-accent/30"}`
                             }`}
-                            title={`Entrar na sala ${tok.value}`}
+                            title={closed ? "Sala encerrada" : `Entrar na sala ${tok.value}`}
                           >
-                            🎮 {tok.value}
+                            {closed ? "🚫" : "🎮"} {tok.value}
+                            {closed && <span className="ml-1 text-[9px] font-body normal-case no-underline">encerrada</span>}
                           </button>
-                        ) : (
-                          <span key={i}>{tok.value}</span>
-                        )
-                      )}
+                        );
+                      })}
                     </p>
                   )}
-                  {msg.room_code && msg.message_type === "text" && (
-                    <button
-                      onClick={() => handleJoinByCode(msg.room_code!)}
-                      className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-display font-bold transition-all hover:scale-[1.02] ${
-                        mine
-                          ? "bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25"
-                          : "bg-accent text-accent-foreground hover:brightness-110"
-                      }`}
-                    >
-                      🎮 Entrar na sala
-                    </button>
-                  )}
+                  {msg.room_code && msg.message_type === "text" && (() => {
+                    const closed = roomStatuses[msg.room_code.toUpperCase()] === "closed";
+                    return (
+                      <button
+                        onClick={() => handleJoinByCode(msg.room_code!)}
+                        disabled={closed}
+                        className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-display font-bold transition-all ${
+                          closed
+                            ? "bg-muted-foreground/15 text-muted-foreground cursor-not-allowed opacity-70"
+                            : `hover:scale-[1.02] ${mine
+                                ? "bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25"
+                                : "bg-accent text-accent-foreground hover:brightness-110"}`
+                        }`}
+                      >
+                        {closed ? "🚫 Sala encerrada" : "🎮 Entrar na sala"}
+                      </button>
+                    );
+                  })()}
                 </div>
                 <div className={`flex items-center gap-1.5 mt-0.5 ${mine ? "justify-end" : ""}`}>
                   <span className="text-[9px] text-muted-foreground/50">
