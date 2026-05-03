@@ -284,14 +284,34 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-4xl mx-auto"
     >
+      {/* Hidden but real input — receives both hardware and on-screen keyboards.
+          Positioned off-screen (not display:none) so mobile browsers will open
+          the soft keyboard when we call .focus(). */}
       <input
         ref={inputRef}
         type="text"
-        className="sr-only"
+        inputMode="text"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        value=""
+        onChange={() => { /* handled by onBeforeInput */ }}
         onKeyDown={handleKeyDown}
+        onBeforeInput={handleBeforeInput}
         onBlur={refocusInput}
         autoFocus
         aria-label="Área de digitação"
+        style={{
+          position: "fixed",
+          opacity: 0,
+          pointerEvents: "none",
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          fontSize: 16, // prevent iOS zoom on focus
+        }}
       />
 
       {/* Header info */}
