@@ -406,9 +406,9 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       {/* Typing area */}
       <div
         onClick={refocusInput}
-        className={`glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all ${
+        className={`relative glass-card p-4 sm:p-6 cursor-text focus-within:ring-2 focus-within:ring-primary/50 transition-all ${
           penaltyFlash ? "ring-2 ring-destructive/60 bg-destructive/5" : ""
-        }`}
+        } ${isPaused ? "ring-2 ring-accent/60" : ""}`}
       >
         <p className="text-base sm:text-lg md:text-xl leading-relaxed font-body select-none" style={{ wordBreak: "break-word" }}>
           {text.split("").map((char, i) => {
