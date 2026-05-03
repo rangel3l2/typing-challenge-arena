@@ -243,6 +243,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         try { navigator.vibrate(40); } catch {}
       }
+      const now = Date.now();
       const timeSinceLastError = now - lastErrorTimeRef.current;
 
       if (timeSinceLastError <= ERROR_WINDOW_MS && lastErrorTimeRef.current > 0) {
