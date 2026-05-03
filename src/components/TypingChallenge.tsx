@@ -300,7 +300,7 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
       const newIdx = applyPenalty(rapidErrorCountRef.current, currentIndex);
       setCurrentIndex(newIdx);
     }
-  }, [currentIndex, errors, isComplete, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
+  }, [currentIndex, errors, isComplete, isPaused, onComplete, startTime, text, totalKeystrokes, getCurrentWordBoundary, finalizeWord, applyPenalty]);
 
   // Hardware keyboard (desktop): use keydown to catch every key cleanly
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
