@@ -347,6 +347,10 @@ export function useRoom(sessionId: string) {
       if (existing) {
         pid = (existing as RoomPlayer).id;
         setMyPlayerId(pid);
+        // Refresh stored name in case the player typed a different one when rejoining
+        if ((existing as RoomPlayer).name !== playerName) {
+          await supabase.from("room_players").update({ name: playerName }).eq("id", pid);
+        }
       } else {
         // Get player count for color assignment
         const { count } = await supabase
