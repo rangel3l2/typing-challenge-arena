@@ -460,6 +460,31 @@ const TypingChallenge = ({ text, round, totalRounds, difficulty, difficultyTier,
             <span className="md:hidden">⌨️ Toque aqui para abrir o teclado e começar</span>
           </motion.p>
         )}
+
+        {/* Pause overlay — appears when keyboard closes / input loses focus */}
+        {isPaused && !isComplete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-background/85 backdrop-blur-sm p-4"
+            onClick={(e) => { e.stopPropagation(); handleResumeClick(); }}
+          >
+            <p className="text-2xl sm:text-3xl">⏸️</p>
+            <p className="font-display font-bold text-base sm:text-lg text-foreground text-center">
+              Jogo pausado
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground text-center max-w-xs">
+              O teclado foi fechado. Toque para retomar e continuar digitando.
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleResumeClick(); }}
+              className="mt-1 px-5 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-sm sm:text-base hover:bg-primary/90 transition-colors"
+            >
+              ▶ Retomar
+            </button>
+          </motion.div>
+        )}
       </div>
 
       {/* Penalty indicator */}
