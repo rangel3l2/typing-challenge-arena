@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 
-const APK_URL = "https://euvoujogar.com.br/app-admin.apk";
+const DEFAULT_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+const DEFAULT_CHECKSUM_HEX =
+  "ebe9f1d0b6e3238af63c768c1d8c8e708ab911502434454cd47e0766836c5b28";
 
 const hexToBase64UrlSafe = (hexString: string): string => {
   try {
@@ -29,9 +31,8 @@ export default function Provisionamento() {
   const [component, setComponent] = useState(
     "deltazero.amarok.foss/.receivers.AdminReceiver"
   );
-  const [checksumHex, setChecksumHex] = useState(
-    "32aaf66465c5e7d093db2f12647528a1aaedcc8872d18a7393a8542761993486"
-  );
+  const [apkUrl, setApkUrl] = useState(DEFAULT_APK_URL);
+  const [checksumHex, setChecksumHex] = useState(DEFAULT_CHECKSUM_HEX);
   const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
   const [touched, setTouched] = useState({
@@ -61,7 +62,7 @@ export default function Provisionamento() {
     const obj: Record<string, string> = {
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
-        APK_URL,
+        apkUrl,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM":
         checksumBase64Url,
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
@@ -69,7 +70,7 @@ export default function Provisionamento() {
       "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE": "WPA",
     };
     return JSON.stringify(obj);
-  }, [component, checksumBase64Url, ssid, password, allValid]);
+  }, [component, apkUrl, checksumBase64Url, ssid, password, allValid]);
 
   return (
     <main className="min-h-screen bg-background text-foreground p-6">
@@ -85,7 +86,18 @@ export default function Provisionamento() {
 
         <section className="rounded-xl border border-border bg-card p-4 space-y-3">
           <h2 className="font-semibold">Download do APK</h2>
-          <p className="text-sm text-muted-foreground break-all">{APK_URL}</p>
+          <div className="space-y-2">
+            <Label htmlFor="apkUrl">URL pública do APK</Label>
+            <Input
+              id="apkUrl"
+              value={apkUrl}
+              onChange={(e) => setApkUrl(e.target.value)}
+              placeholder="https://seu-dominio/app-admin.apk"
+            />
+            <p className="text-xs text-muted-foreground">
+              O tablet baixa o APK desta URL durante o provisionamento. Deve ser HTTPS e estar acessível publicamente.
+            </p>
+          </div>
           <Button asChild>
             <a href="/app-admin.apk" download>
               Baixar app-admin.apk
