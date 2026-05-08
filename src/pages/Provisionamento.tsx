@@ -68,7 +68,7 @@ export default function Provisionamento() {
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
         apkUrl,
-      "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM":
+      "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM":
         checksumBase64Url,
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
       "android.app.extra.PROVISIONING_WIFI_PASSWORD": password,
