@@ -86,7 +86,18 @@ export default function Provisionamento() {
 
         <section className="rounded-xl border border-border bg-card p-4 space-y-3">
           <h2 className="font-semibold">Download do APK</h2>
-          <p className="text-sm text-muted-foreground break-all">{APK_URL}</p>
+          <div className="space-y-2">
+            <Label htmlFor="apkUrl">URL pública do APK</Label>
+            <Input
+              id="apkUrl"
+              value={apkUrl}
+              onChange={(e) => setApkUrl(e.target.value)}
+              placeholder="https://seu-dominio/app-admin.apk"
+            />
+            <p className="text-xs text-muted-foreground">
+              O tablet baixa o APK desta URL durante o provisionamento. Deve ser HTTPS e estar acessível publicamente.
+            </p>
+          </div>
           <Button asChild>
             <a href="/app-admin.apk" download>
               Baixar app-admin.apk
