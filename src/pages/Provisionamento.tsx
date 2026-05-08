@@ -3,7 +3,8 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw, Upload } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const getDefaultApkUrl = (): string => {
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -45,6 +46,50 @@ export default function Provisionamento() {
     ssid: false,
     password: false,
   });
+  const [recomputing, setRecomputing] = useState(false);
+
+  const computeSha256Hex = async (buffer: ArrayBuffer): Promise<string> => {
+    const hash = await crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  };
+
+  const recomputeFromUrl = async () => {
+    setRecomputing(true);
+    try {
+      const res = await fetch(apkUrl, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      const hex = await computeSha256Hex(buf);
+      setChecksumHex(hex);
+      setTouched((p) => ({ ...p, checksum: true }));
+      toast({ title: "Checksum atualizado", description: hex.slice(0, 16) + "…" });
+    } catch (e: any) {
+      toast({
+        title: "Falha ao baixar APK",
+        description: e?.message ?? "Verifique a URL pública.",
+        variant: "destructive",
+      });
+    } finally {
+      setRecomputing(false);
+    }
+  };
+
+  const recomputeFromFile = async (file: File) => {
+    setRecomputing(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const hex = await computeSha256Hex(buf);
+      setChecksumHex(hex);
+      setTouched((p) => ({ ...p, checksum: true }));
+      toast({ title: "Checksum calculado", description: hex.slice(0, 16) + "…" });
+    } catch (e: any) {
+      toast({ title: "Erro ao ler arquivo", variant: "destructive" });
+    } finally {
+      setRecomputing(false);
+    }
+  };
 
   const checksumBase64Url = useMemo(
     () => hexToBase64UrlSafe(checksumHex),
@@ -103,11 +148,36 @@ export default function Provisionamento() {
               O tablet baixa o APK desta URL durante o provisionamento. Deve ser HTTPS e estar acessível publicamente.
             </p>
           </div>
-          <Button asChild>
-            <a href="/app-admin.apk" download>
-              Baixar app-admin.apk
-            </a>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <a href="/app-admin.apk" download>
+                Baixar app-admin.apk
+              </a>
+            </Button>
+            <Button onClick={recomputeFromUrl} disabled={recomputing}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${recomputing ? "animate-spin" : ""}`} />
+              Recalcular checksum da URL
+            </Button>
+            <Button asChild variant="secondary" disabled={recomputing}>
+              <label className="cursor-pointer">
+                <Upload className="w-4 h-4 mr-2" />
+                Calcular de um .apk local
+                <input
+                  type="file"
+                  accept=".apk,application/vnd.android.package-archive"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) recomputeFromFile(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Após substituir o APK no servidor, clique em <strong>Recalcular</strong> para atualizar o SHA-256 e regenerar o QR Code automaticamente.
+          </p>
         </section>
 
         <section className="grid md:grid-cols-2 gap-6">
