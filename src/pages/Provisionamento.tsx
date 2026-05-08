@@ -35,7 +35,7 @@ const isValidWifiPassword = (pw: string): boolean => pw.length >= 8 && pw.length
 
 export default function Provisionamento() {
   const [component, setComponent] = useState(
-    "deltazero.amarok.foss/.receivers.AdminReceiver"
+    "deltazero.amarok.foss/deltazero.amarok.receivers.AdminReceiver"
   );
   const [apkUrl, setApkUrl] = useState(getDefaultApkUrl);
   const [checksumHex, setChecksumHex] = useState(DEFAULT_CHECKSUM_HEX);
