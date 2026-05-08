@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 
-const APK_URL = "https://euvoujogar.com.br/app-admin.apk";
+const DEFAULT_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+const DEFAULT_CHECKSUM_HEX =
+  "ebe9f1d0b6e3238af63c768c1d8c8e708ab911502434454cd47e0766836c5b28";
 
 const hexToBase64UrlSafe = (hexString: string): string => {
   try {
