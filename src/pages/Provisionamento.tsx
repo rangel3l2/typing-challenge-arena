@@ -26,7 +26,7 @@ export default function Provisionamento() {
   const [checksumHex, setChecksumHex] = useState(
     "32aaf66465c5e7d093db2f12647528a1aaedcc8872d18a7393a8542761993486"
   );
-  const [ssid, setSsid] = useState("rede Rangel");
+  const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
 
   const checksumBase64Url = useMemo(
@@ -43,6 +43,7 @@ export default function Provisionamento() {
         checksumBase64Url || "SEU_CHECKSUM_AQUI",
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
       "android.app.extra.PROVISIONING_WIFI_PASSWORD": password,
+      "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE": "WPA",
     };
     return JSON.stringify(obj);
   }, [component, checksumBase64Url, ssid, password]);
