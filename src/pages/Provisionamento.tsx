@@ -36,7 +36,7 @@ export default function Provisionamento() {
   const [component, setComponent] = useState(
     "deltazero.amarok.foss/.receivers.AdminReceiver"
   );
-  const [apkUrl, setApkUrl] = useState(DEFAULT_APK_URL);
+  const [apkUrl, setApkUrl] = useState(getDefaultApkUrl);
   const [checksumHex, setChecksumHex] = useState(DEFAULT_CHECKSUM_HEX);
   const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
