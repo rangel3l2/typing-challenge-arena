@@ -8,6 +8,7 @@ import Game from "./pages/Game";
 import Ranking from "./pages/Ranking";
 import Acertar from "./pages/Acertar";
 import Sobre from "./pages/Sobre";
+import Provisionamento from "./pages/Provisionamento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/acertar" element={<Acertar />} />
           <Route path="/sobre" element={<Sobre />} />
+          <Route path="/provisionamento" element={<Provisionamento />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
