@@ -70,7 +70,7 @@ export default function Provisionamento() {
       "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE": "WPA",
     };
     return JSON.stringify(obj);
-  }, [component, checksumBase64Url, ssid, password, allValid]);
+  }, [component, apkUrl, checksumBase64Url, ssid, password, allValid]);
 
   return (
     <main className="min-h-screen bg-background text-foreground p-6">
