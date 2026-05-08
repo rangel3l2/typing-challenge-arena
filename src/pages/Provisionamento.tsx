@@ -62,7 +62,7 @@ export default function Provisionamento() {
     const obj: Record<string, string> = {
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
-        APK_URL,
+        apkUrl,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM":
         checksumBase64Url,
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
