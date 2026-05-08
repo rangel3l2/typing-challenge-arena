@@ -5,7 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 
-const DEFAULT_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+const getDefaultApkUrl = (): string => {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/app-admin.apk`;
+  }
+  return "https://www.euvoujogar.com.br/app-admin.apk";
+};
 const DEFAULT_CHECKSUM_HEX =
   "ebe9f1d0b6e3238af63c768c1d8c8e708ab911502434454cd47e0766836c5b28";
 
