@@ -3,33 +3,20 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, RefreshCw, Upload } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const getDefaultApkUrl = (): string => {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/app-admin.apk`;
-  }
-  return "https://www.euvoujogar.com.br/app-admin.apk";
-};
-const DEFAULT_CHECKSUM_HEX =
-  "ebe9f1d0b6e3238af63c768c1d8c8e708ab911502434454cd47e0766836c5b28";
+const PUBLIC_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
 
-const hexToBase64UrlSafe = (hexString: string): string => {
-  try {
-    const match = hexString.match(/\w{2}/g);
-    if (!match) return "";
-    const base64 = btoa(
-      match.map((a) => String.fromCharCode(parseInt(a, 16))).join("")
-    );
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  } catch (e) {
-    return "";
-  }
+const getDefaultApkUrl = (): string => {
+  return PUBLIC_APK_URL;
 };
+const DEFAULT_SIGNATURE_CHECKSUM =
+  "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
 
 // Validation helpers
-const isValidHex = (hex: string): boolean => /^[0-9a-fA-F]+$/.test(hex) && hex.length === 64;
+const isValidChecksum = (checksum: string): boolean =>
+  /^[A-Za-z0-9_-]{43}$/.test(checksum);
 const isValidSsid = (ssid: string): boolean => ssid.length >= 1 && ssid.length <= 32;
 const isValidWifiPassword = (pw: string): boolean => pw.length >= 8 && pw.length <= 63;
 
@@ -38,7 +25,7 @@ export default function Provisionamento() {
     "deltazero.amarok.foss/deltazero.amarok.receivers.AdminReceiver"
   );
   const [apkUrl, setApkUrl] = useState(getDefaultApkUrl);
-  const [checksumHex, setChecksumHex] = useState(DEFAULT_CHECKSUM_HEX);
+  const [checksum, setChecksum] = useState(DEFAULT_SIGNATURE_CHECKSUM);
   const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
   const [touched, setTouched] = useState({
@@ -46,64 +33,20 @@ export default function Provisionamento() {
     ssid: false,
     password: false,
   });
-  const [recomputing, setRecomputing] = useState(false);
-
-  const computeSha256Hex = async (buffer: ArrayBuffer): Promise<string> => {
-    const hash = await crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+  const restoreDefaultChecksum = () => {
+    setChecksum(DEFAULT_SIGNATURE_CHECKSUM);
+    setTouched((p) => ({ ...p, checksum: true }));
+    toast({ title: "Checksum restaurado", description: DEFAULT_SIGNATURE_CHECKSUM });
   };
-
-  const recomputeFromUrl = async () => {
-    setRecomputing(true);
-    try {
-      const res = await fetch(apkUrl, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = await res.arrayBuffer();
-      const hex = await computeSha256Hex(buf);
-      setChecksumHex(hex);
-      setTouched((p) => ({ ...p, checksum: true }));
-      toast({ title: "Checksum atualizado", description: hex.slice(0, 16) + "…" });
-    } catch (e: any) {
-      toast({
-        title: "Falha ao baixar APK",
-        description: e?.message ?? "Verifique a URL pública.",
-        variant: "destructive",
-      });
-    } finally {
-      setRecomputing(false);
-    }
-  };
-
-  const recomputeFromFile = async (file: File) => {
-    setRecomputing(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const hex = await computeSha256Hex(buf);
-      setChecksumHex(hex);
-      setTouched((p) => ({ ...p, checksum: true }));
-      toast({ title: "Checksum calculado", description: hex.slice(0, 16) + "…" });
-    } catch (e: any) {
-      toast({ title: "Erro ao ler arquivo", variant: "destructive" });
-    } finally {
-      setRecomputing(false);
-    }
-  };
-
-  const checksumBase64Url = useMemo(
-    () => hexToBase64UrlSafe(checksumHex),
-    [checksumHex]
-  );
 
   // Validate fields
   const errors = useMemo(() => {
     return {
-      checksum: !isValidHex(checksumHex),
+      checksum: !isValidChecksum(checksum),
       ssid: !isValidSsid(ssid),
       password: !isValidWifiPassword(password),
     };
-  }, [checksumHex, ssid, password]);
+  }, [checksum, ssid, password]);
 
   const allValid = !errors.checksum && !errors.ssid && !errors.password;
 
@@ -113,14 +56,13 @@ export default function Provisionamento() {
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
         apkUrl,
-      "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM":
-        checksumBase64Url,
+      "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": checksum,
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
       "android.app.extra.PROVISIONING_WIFI_PASSWORD": password,
       "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE": "WPA",
     };
     return JSON.stringify(obj);
-  }, [component, apkUrl, checksumBase64Url, ssid, password, allValid]);
+  }, [component, apkUrl, checksum, ssid, password, allValid]);
 
   return (
     <main className="min-h-screen bg-background text-foreground p-6">
@@ -150,33 +92,17 @@ export default function Provisionamento() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <a href="/app-admin.apk" download>
+              <a href={apkUrl} download>
                 Baixar app-admin.apk
               </a>
             </Button>
-            <Button onClick={recomputeFromUrl} disabled={recomputing}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${recomputing ? "animate-spin" : ""}`} />
-              Recalcular checksum da URL
-            </Button>
-            <Button asChild variant="secondary" disabled={recomputing}>
-              <label className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" />
-                Calcular de um .apk local
-                <input
-                  type="file"
-                  accept=".apk,application/vnd.android.package-archive"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) recomputeFromFile(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+            <Button onClick={restoreDefaultChecksum} variant="secondary">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Restaurar checksum oficial
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Após substituir o APK no servidor, clique em <strong>Recalcular</strong> para atualizar o SHA-256 e regenerar o QR Code automaticamente.
+            Este QR usa o checksum da assinatura do APK, não o SHA-256 do arquivo inteiro.
           </p>
         </section>
 
@@ -195,23 +121,23 @@ export default function Provisionamento() {
 
             <div className="space-y-2">
               <Label htmlFor="checksum">
-                Checksum (Hexadecimal)
+                Checksum Base64
               </Label>
               <Input
                 id="checksum"
-                value={checksumHex}
+                value={checksum}
                 onChange={(e) => {
-                  setChecksumHex(e.target.value);
+                  setChecksum(e.target.value.trim());
                   setTouched((prev) => ({ ...prev, checksum: true }));
                 }}
                 onBlur={() => setTouched((prev) => ({ ...prev, checksum: true }))}
-                placeholder="SHA-256 do APK em hexadecimal"
+                placeholder="Checksum da assinatura em Base64 URL-safe"
                 className={touched.checksum && errors.checksum ? "border-destructive focus-visible:ring-destructive" : ""}
               />
               {touched.checksum && errors.checksum && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  O checksum deve ser uma string hexadecimal de exatamente 64 caracteres.
+                  O checksum deve ser Base64 URL-safe com 43 caracteres.
                 </p>
               )}
             </div>
