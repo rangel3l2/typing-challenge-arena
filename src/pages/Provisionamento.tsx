@@ -6,11 +6,10 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
+const PUBLIC_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+
 const getDefaultApkUrl = (): string => {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/app-admin.apk`;
-  }
-  return "https://www.euvoujogar.com.br/app-admin.apk";
+  return PUBLIC_APK_URL;
 };
 const DEFAULT_SIGNATURE_CHECKSUM =
   "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
@@ -93,7 +92,7 @@ export default function Provisionamento() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <a href="/app-admin.apk" download>
+              <a href={apkUrl} download>
                 Baixar app-admin.apk
               </a>
             </Button>
