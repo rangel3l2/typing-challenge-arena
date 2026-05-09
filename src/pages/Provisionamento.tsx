@@ -3,7 +3,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, RefreshCw, Upload } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const getDefaultApkUrl = (): string => {
@@ -97,29 +97,13 @@ export default function Provisionamento() {
                 Baixar app-admin.apk
               </a>
             </Button>
-            <Button onClick={recomputeFromUrl} disabled={recomputing}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${recomputing ? "animate-spin" : ""}`} />
-              Recalcular checksum da URL
-            </Button>
-            <Button asChild variant="secondary" disabled={recomputing}>
-              <label className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" />
-                Calcular de um .apk local
-                <input
-                  type="file"
-                  accept=".apk,application/vnd.android.package-archive"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) recomputeFromFile(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+            <Button onClick={restoreDefaultChecksum} variant="secondary">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Restaurar checksum oficial
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Após substituir o APK no servidor, clique em <strong>Recalcular</strong> para atualizar o SHA-256 e regenerar o QR Code automaticamente.
+            Este QR usa o checksum da assinatura do APK, não o SHA-256 do arquivo inteiro.
           </p>
         </section>
 
@@ -138,23 +122,23 @@ export default function Provisionamento() {
 
             <div className="space-y-2">
               <Label htmlFor="checksum">
-                Checksum (Hexadecimal)
+                Checksum Base64
               </Label>
               <Input
                 id="checksum"
-                value={checksumHex}
+                value={checksum}
                 onChange={(e) => {
-                  setChecksumHex(e.target.value);
+                  setChecksum(e.target.value.trim());
                   setTouched((prev) => ({ ...prev, checksum: true }));
                 }}
                 onBlur={() => setTouched((prev) => ({ ...prev, checksum: true }))}
-                placeholder="SHA-256 do APK em hexadecimal"
+                placeholder="Checksum da assinatura em Base64 URL-safe"
                 className={touched.checksum && errors.checksum ? "border-destructive focus-visible:ring-destructive" : ""}
               />
               {touched.checksum && errors.checksum && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  O checksum deve ser uma string hexadecimal de exatamente 64 caracteres.
+                  O checksum deve ser Base64 URL-safe com 43 caracteres.
                 </p>
               )}
             </div>
