@@ -12,7 +12,7 @@ const getDefaultApkUrl = (): string => {
   return PUBLIC_APK_URL;
 };
 const DEFAULT_SIGNATURE_CHECKSUM =
-  "3yVZR-Qd5MPzMorN04EWgcWrT1sOgeToqOy6xatjsfQ";
+  "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
 
 // Validation helpers
 const isValidChecksum = (checksum: string): boolean =>
