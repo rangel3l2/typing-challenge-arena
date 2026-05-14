@@ -3,7 +3,8 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, ShieldCheck, ShieldAlert, Download, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 
 // GitHub repo onde ficam o APK + latest.json + sha256.txt.
@@ -13,6 +14,7 @@ const GITHUB_REPO = "tablet-EPT-Manager";
 const GITHUB_BRANCH = "main";
 const GITHUB_RELEASES_BASE = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/releases`;
 const LATEST_JSON_URL = `${GITHUB_RELEASES_BASE}/latest.json`;
+const SHA256_TXT_URL = `${GITHUB_RELEASES_BASE}/sha256.txt`;
 
 // Fallback caso o fetch do GitHub falhe (último APK conhecido).
 const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.1+fd95cb3-foss.apk`;
@@ -40,6 +42,129 @@ export default function Provisionamento() {
   const [checksum, setChecksum] = useState(DEFAULT_SIGNATURE_CHECKSUM);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
+
+  // SHA-256 verification state
+  type VerifyStatus = "idle" | "downloading" | "verifying" | "ok" | "error";
+  const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
+  const [verifyProgress, setVerifyProgress] = useState(0);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [expectedSha, setExpectedSha] = useState<string | null>(null);
+  const [actualSha, setActualSha] = useState<string | null>(null);
+  const [apkBlobUrl, setApkBlobUrl] = useState<string | null>(null);
+  const [apkFileName, setApkFileName] = useState<string>("app-admin.apk");
+
+  const resetVerification = () => {
+    setVerifyStatus("idle");
+    setVerifyProgress(0);
+    setVerifyError(null);
+    setExpectedSha(null);
+    setActualSha(null);
+    if (apkBlobUrl) {
+      URL.revokeObjectURL(apkBlobUrl);
+      setApkBlobUrl(null);
+    }
+  };
+
+  const bufferToHex = (buf: ArrayBuffer): string =>
+    Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+  const downloadAndVerify = async () => {
+    resetVerification();
+    setVerifyStatus("downloading");
+    try {
+      // 1. Buscar SHA-256 esperado
+      const fileName = apkUrl.split("/").pop() || "app-admin.apk";
+      setApkFileName(fileName);
+      const shaRes = await fetch(`${SHA256_TXT_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (!shaRes.ok) throw new Error(`Falha ao buscar sha256.txt (HTTP ${shaRes.status})`);
+      const shaText = await shaRes.text();
+      // formato: "<hash>  <filename>" (uma ou várias linhas)
+      const lines = shaText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      let expected: string | null = null;
+      for (const line of lines) {
+        const m = line.match(/^([a-fA-F0-9]{64})\s+\*?(.+)$/);
+        if (m) {
+          if (m[2] === fileName || lines.length === 1) {
+            expected = m[1].toLowerCase();
+            if (m[2] === fileName) break;
+          }
+        }
+      }
+      if (!expected) throw new Error(`SHA-256 esperado não encontrado para ${fileName} no sha256.txt`);
+      setExpectedSha(expected);
+
+      // 2. Baixar APK com progresso
+      const apkRes = await fetch(apkUrl, { cache: "no-store" });
+      if (!apkRes.ok) throw new Error(`Falha ao baixar APK (HTTP ${apkRes.status})`);
+      const total = Number(apkRes.headers.get("content-length")) || 0;
+      const reader = apkRes.body?.getReader();
+      if (!reader) throw new Error("Stream do APK indisponível");
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          received += value.length;
+          if (total) setVerifyProgress(Math.round((received / total) * 100));
+        }
+      }
+      const blob = new Blob(chunks as BlobPart[], { type: "application/vnd.android.package-archive" });
+      const buf = await blob.arrayBuffer();
+
+      // 3. Computar SHA-256
+      setVerifyStatus("verifying");
+      const digest = await crypto.subtle.digest("SHA-256", buf);
+      const actual = bufferToHex(digest);
+      setActualSha(actual);
+
+      if (actual !== expected) {
+        setVerifyStatus("error");
+        setVerifyError(
+          `Soma de verificação SHA-256 não confere. O arquivo baixado pode estar corrompido ou ter sido adulterado. NÃO instale.`
+        );
+        toast({
+          title: "SHA-256 inválido",
+          description: "O APK baixado não corresponde ao hash oficial.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 4. Sucesso — disponibilizar para instalação
+      const url = URL.createObjectURL(blob);
+      setApkBlobUrl(url);
+      setVerifyStatus("ok");
+      toast({
+        title: "APK verificado",
+        description: "SHA-256 confere. Você já pode instalar com segurança.",
+      });
+    } catch (err) {
+      setVerifyStatus("error");
+      setVerifyError(err instanceof Error ? err.message : String(err));
+      toast({
+        title: "Falha na verificação",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (apkBlobUrl) URL.revokeObjectURL(apkBlobUrl);
+    };
+  }, [apkBlobUrl]);
+
+  // Resetar verificação ao trocar de URL do APK
+  useEffect(() => {
+    resetVerification();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apkUrl]);
 
   const fetchLatest = async (silent = false) => {
     setLoadingLatest(true);
@@ -144,11 +269,25 @@ export default function Provisionamento() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <a href={apkUrl} download>
-                Baixar APK
-              </a>
+            <Button
+              onClick={downloadAndVerify}
+              disabled={verifyStatus === "downloading" || verifyStatus === "verifying"}
+            >
+              {verifyStatus === "downloading" ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Baixando... {verifyProgress > 0 ? `${verifyProgress}%` : ""}</>
+              ) : verifyStatus === "verifying" ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando SHA-256...</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" /> Baixar e verificar APK</>
+              )}
             </Button>
+            {verifyStatus === "ok" && apkBlobUrl && (
+              <Button asChild variant="default">
+                <a href={apkBlobUrl} download={apkFileName}>
+                  <ShieldCheck className="w-4 h-4 mr-2" /> Salvar APK verificado para instalar
+                </a>
+              </Button>
+            )}
             <Button onClick={() => fetchLatest(false)} variant="secondary" disabled={loadingLatest}>
               <RefreshCw className={`w-4 h-4 mr-2 ${loadingLatest ? "animate-spin" : ""}`} />
               {loadingLatest ? "Buscando..." : "Buscar versão mais recente"}
@@ -157,6 +296,34 @@ export default function Provisionamento() {
               Restaurar checksum oficial
             </Button>
           </div>
+
+          {verifyStatus === "ok" && (
+            <Alert className="border-green-500/50 text-green-700 dark:text-green-400 [&>svg]:text-green-600">
+              <ShieldCheck className="h-4 w-4" />
+              <AlertTitle>APK verificado com sucesso</AlertTitle>
+              <AlertDescription className="space-y-1">
+                <p>A soma de verificação SHA-256 confere com o valor oficial. É seguro instalar.</p>
+                <p className="font-mono text-[10px] break-all opacity-80">SHA-256: {actualSha}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {verifyStatus === "error" && (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Falha na verificação — não instale o APK</AlertTitle>
+              <AlertDescription className="space-y-1">
+                <p>{verifyError}</p>
+                {expectedSha && (
+                  <p className="font-mono text-[10px] break-all">Esperado: {expectedSha}</p>
+                )}
+                {actualSha && (
+                  <p className="font-mono text-[10px] break-all">Obtido:   {actualSha}</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {latestVersion && (
             <p className="text-xs text-muted-foreground">
               Versão atual no GitHub: <span className="font-mono">v{latestVersion}</span>
