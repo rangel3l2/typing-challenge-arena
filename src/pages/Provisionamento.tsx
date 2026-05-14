@@ -14,6 +14,7 @@ const GITHUB_REPO = "tablet-EPT-Manager";
 const GITHUB_BRANCH = "main";
 const GITHUB_RELEASES_BASE = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/releases`;
 const LATEST_JSON_URL = `${GITHUB_RELEASES_BASE}/latest.json`;
+const SHA256_TXT_URL = `${GITHUB_RELEASES_BASE}/sha256.txt`;
 
 // Fallback caso o fetch do GitHub falhe (último APK conhecido).
 const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.1+fd95cb3-foss.apk`;
