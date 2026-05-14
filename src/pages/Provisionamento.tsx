@@ -269,11 +269,25 @@ export default function Provisionamento() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <a href={apkUrl} download>
-                Baixar APK
-              </a>
+            <Button
+              onClick={downloadAndVerify}
+              disabled={verifyStatus === "downloading" || verifyStatus === "verifying"}
+            >
+              {verifyStatus === "downloading" ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Baixando... {verifyProgress > 0 ? `${verifyProgress}%` : ""}</>
+              ) : verifyStatus === "verifying" ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando SHA-256...</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" /> Baixar e verificar APK</>
+              )}
             </Button>
+            {verifyStatus === "ok" && apkBlobUrl && (
+              <Button asChild variant="default">
+                <a href={apkBlobUrl} download={apkFileName}>
+                  <ShieldCheck className="w-4 h-4 mr-2" /> Salvar APK verificado para instalar
+                </a>
+              </Button>
+            )}
             <Button onClick={() => fetchLatest(false)} variant="secondary" disabled={loadingLatest}>
               <RefreshCw className={`w-4 h-4 mr-2 ${loadingLatest ? "animate-spin" : ""}`} />
               {loadingLatest ? "Buscando..." : "Buscar versão mais recente"}
@@ -282,6 +296,34 @@ export default function Provisionamento() {
               Restaurar checksum oficial
             </Button>
           </div>
+
+          {verifyStatus === "ok" && (
+            <Alert className="border-green-500/50 text-green-700 dark:text-green-400 [&>svg]:text-green-600">
+              <ShieldCheck className="h-4 w-4" />
+              <AlertTitle>APK verificado com sucesso</AlertTitle>
+              <AlertDescription className="space-y-1">
+                <p>A soma de verificação SHA-256 confere com o valor oficial. É seguro instalar.</p>
+                <p className="font-mono text-[10px] break-all opacity-80">SHA-256: {actualSha}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {verifyStatus === "error" && (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Falha na verificação — não instale o APK</AlertTitle>
+              <AlertDescription className="space-y-1">
+                <p>{verifyError}</p>
+                {expectedSha && (
+                  <p className="font-mono text-[10px] break-all">Esperado: {expectedSha}</p>
+                )}
+                {actualSha && (
+                  <p className="font-mono text-[10px] break-all">Obtido:   {actualSha}</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {latestVersion && (
             <p className="text-xs text-muted-foreground">
               Versão atual no GitHub: <span className="font-mono">v{latestVersion}</span>
