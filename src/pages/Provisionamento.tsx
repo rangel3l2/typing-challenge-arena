@@ -146,16 +146,37 @@ export default function Provisionamento() {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <a href={apkUrl} download>
-                Baixar app-admin.apk
+                Baixar APK
               </a>
             </Button>
+            <Button onClick={() => fetchLatest(false)} variant="secondary" disabled={loadingLatest}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingLatest ? "animate-spin" : ""}`} />
+              {loadingLatest ? "Buscando..." : "Buscar versão mais recente"}
+            </Button>
             <Button onClick={restoreDefaultChecksum} variant="secondary">
-              <RefreshCw className="w-4 h-4 mr-2" />
               Restaurar checksum oficial
             </Button>
           </div>
+          {latestVersion && (
+            <p className="text-xs text-muted-foreground">
+              Versão atual no GitHub: <span className="font-mono">v{latestVersion}</span>
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
-            Este QR usa o checksum da assinatura do APK, não o SHA-256 do arquivo inteiro.
+            O APK e o <span className="font-mono">latest.json</span> são lidos do repositório{" "}
+            <a
+              href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/tree/${GITHUB_BRANCH}/releases`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              {GITHUB_OWNER}/{GITHUB_REPO}/releases
+            </a>
+            . Para publicar nova versão, faça commit do novo APK e atualize o <span className="font-mono">latest.json</span> (campo <span className="font-mono">releaseFile</span>) na branch <span className="font-mono">{GITHUB_BRANCH}</span>.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Este QR usa o checksum da <strong>assinatura</strong> do APK (constante entre builds com a mesma chave), não o SHA-256 do arquivo.
+            Se trocar a chave de assinatura, adicione o campo <span className="font-mono">signatureChecksum</span> no <span className="font-mono">latest.json</span>.
           </p>
         </section>
 
