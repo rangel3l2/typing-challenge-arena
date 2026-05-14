@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,25 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const PUBLIC_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+// GitHub repo onde ficam o APK + latest.json + sha256.txt.
+// Para publicar uma nova versão: faça commit dos arquivos novos em /releases na branch main.
+const GITHUB_OWNER = "rangel3l21";
+const GITHUB_REPO = "tablet-EPT-Manager";
+const GITHUB_BRANCH = "main";
+const GITHUB_RELEASES_BASE = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/releases`;
+const LATEST_JSON_URL = `${GITHUB_RELEASES_BASE}/latest.json`;
 
-const getDefaultApkUrl = (): string => {
-  return PUBLIC_APK_URL;
-};
+// Fallback caso o fetch do GitHub falhe (último APK conhecido).
+const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.1+fd95cb3-foss.apk`;
 const DEFAULT_SIGNATURE_CHECKSUM =
   "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
+
+interface LatestManifest {
+  releaseFile?: string;
+  downloadUrl?: string;
+  signatureChecksum?: string;
+  version?: string;
+}
 
 // Validation helpers
 const isValidChecksum = (checksum: string): boolean =>
