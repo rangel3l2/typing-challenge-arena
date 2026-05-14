@@ -36,8 +36,49 @@ export default function Provisionamento() {
   const [component, setComponent] = useState(
     "deltazero.amarok.foss/deltazero.amarok.receivers.AdminReceiver"
   );
-  const [apkUrl, setApkUrl] = useState(getDefaultApkUrl);
+  const [apkUrl, setApkUrl] = useState(FALLBACK_APK_URL);
   const [checksum, setChecksum] = useState(DEFAULT_SIGNATURE_CHECKSUM);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [loadingLatest, setLoadingLatest] = useState(false);
+
+  const fetchLatest = async (silent = false) => {
+    setLoadingLatest(true);
+    try {
+      const res = await fetch(`${LATEST_JSON_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: LatestManifest = await res.json();
+      const file = data.releaseFile;
+      if (file) {
+        const url = `${GITHUB_RELEASES_BASE}/${file}`;
+        setApkUrl(url);
+      }
+      if (data.signatureChecksum) {
+        setChecksum(data.signatureChecksum);
+      }
+      if (data.version) setLatestVersion(data.version);
+      if (!silent) {
+        toast({
+          title: "Versão mais recente carregada",
+          description: data.version ? `v${data.version}` : "latest.json carregado do GitHub",
+        });
+      }
+    } catch (err) {
+      if (!silent) {
+        toast({
+          title: "Falha ao buscar latest.json",
+          description: String(err),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoadingLatest(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLatest(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
   const [touched, setTouched] = useState({
