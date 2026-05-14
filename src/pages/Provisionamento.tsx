@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,25 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const PUBLIC_APK_URL = "https://typing-dash-race.lovable.app/app-admin.apk";
+// GitHub repo onde ficam o APK + latest.json + sha256.txt.
+// Para publicar uma nova versão: faça commit dos arquivos novos em /releases na branch main.
+const GITHUB_OWNER = "rangel3l21";
+const GITHUB_REPO = "tablet-EPT-Manager";
+const GITHUB_BRANCH = "main";
+const GITHUB_RELEASES_BASE = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/releases`;
+const LATEST_JSON_URL = `${GITHUB_RELEASES_BASE}/latest.json`;
 
-const getDefaultApkUrl = (): string => {
-  return PUBLIC_APK_URL;
-};
+// Fallback caso o fetch do GitHub falhe (último APK conhecido).
+const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.1+fd95cb3-foss.apk`;
 const DEFAULT_SIGNATURE_CHECKSUM =
   "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
+
+interface LatestManifest {
+  releaseFile?: string;
+  downloadUrl?: string;
+  signatureChecksum?: string;
+  version?: string;
+}
 
 // Validation helpers
 const isValidChecksum = (checksum: string): boolean =>
@@ -24,8 +36,49 @@ export default function Provisionamento() {
   const [component, setComponent] = useState(
     "deltazero.amarok.foss/deltazero.amarok.receivers.AdminReceiver"
   );
-  const [apkUrl, setApkUrl] = useState(getDefaultApkUrl);
+  const [apkUrl, setApkUrl] = useState(FALLBACK_APK_URL);
   const [checksum, setChecksum] = useState(DEFAULT_SIGNATURE_CHECKSUM);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [loadingLatest, setLoadingLatest] = useState(false);
+
+  const fetchLatest = async (silent = false) => {
+    setLoadingLatest(true);
+    try {
+      const res = await fetch(`${LATEST_JSON_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: LatestManifest = await res.json();
+      const file = data.releaseFile;
+      if (file) {
+        const url = `${GITHUB_RELEASES_BASE}/${file}`;
+        setApkUrl(url);
+      }
+      if (data.signatureChecksum) {
+        setChecksum(data.signatureChecksum);
+      }
+      if (data.version) setLatestVersion(data.version);
+      if (!silent) {
+        toast({
+          title: "Versão mais recente carregada",
+          description: data.version ? `v${data.version}` : "latest.json carregado do GitHub",
+        });
+      }
+    } catch (err) {
+      if (!silent) {
+        toast({
+          title: "Falha ao buscar latest.json",
+          description: String(err),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoadingLatest(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLatest(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [ssid, setSsid] = useState("Rangel");
   const [password, setPassword] = useState("211292abc");
   const [touched, setTouched] = useState({
@@ -93,16 +146,37 @@ export default function Provisionamento() {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <a href={apkUrl} download>
-                Baixar app-admin.apk
+                Baixar APK
               </a>
             </Button>
+            <Button onClick={() => fetchLatest(false)} variant="secondary" disabled={loadingLatest}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingLatest ? "animate-spin" : ""}`} />
+              {loadingLatest ? "Buscando..." : "Buscar versão mais recente"}
+            </Button>
             <Button onClick={restoreDefaultChecksum} variant="secondary">
-              <RefreshCw className="w-4 h-4 mr-2" />
               Restaurar checksum oficial
             </Button>
           </div>
+          {latestVersion && (
+            <p className="text-xs text-muted-foreground">
+              Versão atual no GitHub: <span className="font-mono">v{latestVersion}</span>
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
-            Este QR usa o checksum da assinatura do APK, não o SHA-256 do arquivo inteiro.
+            O APK e o <span className="font-mono">latest.json</span> são lidos do repositório{" "}
+            <a
+              href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/tree/${GITHUB_BRANCH}/releases`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              {GITHUB_OWNER}/{GITHUB_REPO}/releases
+            </a>
+            . Para publicar nova versão, faça commit do novo APK e atualize o <span className="font-mono">latest.json</span> (campo <span className="font-mono">releaseFile</span>) na branch <span className="font-mono">{GITHUB_BRANCH}</span>.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Este QR usa o checksum da <strong>assinatura</strong> do APK (constante entre builds com a mesma chave), não o SHA-256 do arquivo.
+            Se trocar a chave de assinatura, adicione o campo <span className="font-mono">signatureChecksum</span> no <span className="font-mono">latest.json</span>.
           </p>
         </section>
 
