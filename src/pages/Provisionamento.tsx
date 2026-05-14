@@ -113,7 +113,7 @@ export default function Provisionamento() {
           if (total) setVerifyProgress(Math.round((received / total) * 100));
         }
       }
-      const blob = new Blob(chunks, { type: "application/vnd.android.package-archive" });
+      const blob = new Blob(chunks as BlobPart[], { type: "application/vnd.android.package-archive" });
       const buf = await blob.arrayBuffer();
 
       // 3. Computar SHA-256
