@@ -230,7 +230,7 @@ export default function Provisionamento() {
 
   const json = useMemo(() => {
     if (!allValid) return "";
-    const obj: Record<string, string> = {
+    const obj: Record<string, unknown> = {
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
         apkUrl,
@@ -238,6 +238,12 @@ export default function Provisionamento() {
       "android.app.extra.PROVISIONING_WIFI_SSID": ssid,
       "android.app.extra.PROVISIONING_WIFI_PASSWORD": password,
       "android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE": "WPA",
+      // Mantém a câmera habilitada após o provisionamento como Device Owner.
+      // O AdminReceiver do Amarok lê este bundle e respeita as flags.
+      "android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": {
+        keep_camera_enabled: true,
+        disable_camera: false,
+      },
     };
     return JSON.stringify(obj);
   }, [component, apkUrl, checksum, ssid, password, allValid]);
