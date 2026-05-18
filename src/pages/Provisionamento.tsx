@@ -17,7 +17,7 @@ const LATEST_JSON_URL = `${GITHUB_RELEASES_BASE}/latest.json`;
 const SHA256_TXT_URL = `${GITHUB_RELEASES_BASE}/sha256.txt`;
 
 // Fallback caso o fetch do GitHub falhe (último APK conhecido).
-const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.1+fd95cb3-foss.apk`;
+const FALLBACK_APK_URL = `${GITHUB_RELEASES_BASE}/Amarok-v0.10.2+e1f522b-foss.apk`;
 const DEFAULT_SIGNATURE_CHECKSUM =
   "Mqr2ZGXF59CT2y8SZHUooartzIhy0Ypzk6hUJ2GZNIY";
 
