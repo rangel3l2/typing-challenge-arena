@@ -17,6 +17,9 @@ type JsonBlock = Record<string, unknown>;
 const numberField = (name: string, value: number, minimum = -9999, maximum = 9999): JsonBlock => ({
   type: "field_number", name, value, min: minimum, max: maximum, precision: 0.1,
 });
+const steeringField = (name: string, value = 0): JsonBlock => ({
+  type: "field_ev3_steering", name, value,
+});
 const dropdown = (name: string, options: string[]): JsonBlock => ({
   type: "field_dropdown", name, options: options.map((option) => [option, option]),
 });
@@ -32,6 +35,102 @@ const reporter = (type: string, message0: string, args0: JsonBlock[], style: str
 
 export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
   if (BlocklyModule.Blocks.ev3_start) return;
+
+  class FieldEV3Steering extends BlocklyModule.FieldNumber {
+    constructor(value: number | string = 0) {
+      super(value, -100, 100, 1);
+      this.SERIALIZABLE = true;
+    }
+
+    static fromJson(options: Blockly.FieldConfig) {
+      return new FieldEV3Steering(Number((options as Blockly.FieldConfig & { value?: number }).value ?? 0));
+    }
+
+    protected getText_() {
+      const value = Math.round(Number(this.getValue()) || 0);
+      if (value === 0) return "reto: 0";
+      return value < 0 ? `esquerda: ${value}` : `direita: ${value}`;
+    }
+
+    protected showEditor_() {
+      const dropdown = BlocklyModule.DropDownDiv;
+      dropdown.hideWithoutAnimation();
+      dropdown.clearContent();
+      dropdown.setColour("#ef42b4", "#c81791");
+
+      const editor = document.createElement("div");
+      editor.className = "ev3-steering-editor";
+      editor.tabIndex = 0;
+      editor.setAttribute("role", "slider");
+      editor.setAttribute("aria-label", "Direção do movimento");
+      editor.setAttribute("aria-valuemin", "-100");
+      editor.setAttribute("aria-valuemax", "100");
+
+      const dial = document.createElement("div");
+      dial.className = "ev3-steering-dial";
+      for (let index = 0; index <= 24; index += 1) {
+        const tick = document.createElement("i");
+        tick.style.setProperty("--tick-angle", `${-135 + index * 11.25}deg`);
+        dial.appendChild(tick);
+      }
+
+      const pointer = document.createElement("span");
+      pointer.className = "ev3-steering-pointer";
+      pointer.setAttribute("aria-hidden", "true");
+      const center = document.createElement("button");
+      center.className = "ev3-steering-center";
+      center.type = "button";
+      center.title = "Voltar para reto: 0";
+      center.setAttribute("aria-label", "Voltar para reto");
+      center.textContent = "❉";
+      dial.append(pointer, center);
+      editor.appendChild(dial);
+
+      const renderValue = (rawValue: number) => {
+        const value = Math.max(-100, Math.min(100, Math.round(rawValue)));
+        this.setValue(value);
+        pointer.style.setProperty("--steering-angle", `${value * 1.35}deg`);
+        editor.setAttribute("aria-valuenow", String(value));
+        editor.setAttribute("aria-valuetext", value === 0 ? "reto" : value < 0 ? `esquerda ${Math.abs(value)}` : `direita ${value}`);
+      };
+      const updateFromPointer = (event: PointerEvent) => {
+        const bounds = dial.getBoundingClientRect();
+        const dx = event.clientX - (bounds.left + bounds.width / 2);
+        const dy = event.clientY - (bounds.top + bounds.height / 2);
+        const angle = Math.max(-135, Math.min(135, Math.atan2(dx, -dy) * 180 / Math.PI));
+        renderValue(angle / 1.35);
+      };
+
+      dial.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        dial.setPointerCapture(event.pointerId);
+        updateFromPointer(event);
+      });
+      dial.addEventListener("pointermove", (event) => {
+        if (dial.hasPointerCapture(event.pointerId)) updateFromPointer(event);
+      });
+      center.addEventListener("click", (event) => {
+        event.stopPropagation();
+        renderValue(0);
+        editor.focus();
+      });
+      editor.addEventListener("keydown", (event) => {
+        const current = Number(this.getValue()) || 0;
+        if (event.key === "ArrowLeft" || event.key === "ArrowDown") renderValue(current - (event.shiftKey ? 10 : 5));
+        else if (event.key === "ArrowRight" || event.key === "ArrowUp") renderValue(current + (event.shiftKey ? 10 : 5));
+        else if (event.key === "Home" || event.key === "0") renderValue(0);
+        else return;
+        event.preventDefault();
+      });
+
+      dropdown.getContentDiv().appendChild(editor);
+      renderValue(Number(this.getValue()) || 0);
+      dropdown.showPositionedByField(this);
+      editor.focus();
+    }
+  }
+
+  BlocklyModule.fieldRegistry.register("field_ev3_steering", FieldEV3Steering);
 
   const motorPorts = ["A", "B", "C", "D"];
   const colours = ["vermelho", "verde", "azul", "amarelo", "preto", "branco", "prata", "marrom", "sem cor"];
@@ -60,7 +159,7 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
 
     stack("ev3_move_direction", "⚙ mover para %1 por %2 rotações", [dropdown("DIRECTION", ["a frente", "para trás"]), numberField("ROTATIONS", 1, 0, 100)], "movement_blocks"),
     stack("ev3_move_steer", "⚙ mover %1 por %2 rotações", [numberField("STEERING", 0, -100, 100), numberField("ROTATIONS", 1, 0, 100)], "movement_blocks"),
-    stack("ev3_move_start", "⚙ iniciar movimento %1", [numberField("STEERING", 0, -100, 100)], "movement_blocks"),
+    stack("ev3_move_start", "❉ iniciar movimento %1", [steeringField("STEERING")], "movement_blocks"),
     stack("ev3_move_stop", "⚙ parar de mover", [], "movement_blocks"),
     stack("ev3_move_set_speed", "⚙ definir velocidade de movimento para %1 %%", [numberField("SPEED", 50, -100, 100)], "movement_blocks"),
     stack(

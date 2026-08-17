@@ -182,6 +182,10 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
   };
 }
 
+export function hasActiveDrivePower(world: WorldState) {
+  return Math.abs(world.robot.leftPower) > 0.001 || Math.abs(world.robot.rightPower) > 0.001;
+}
+
 function countIndent(value: string) {
   return value.match(/^ */)?.[0].length ?? 0;
 }

@@ -25,6 +25,7 @@ import {
   createRunner,
   createWorld,
   drawWorld,
+  hasActiveDrivePower,
   parseProgram,
   ProgramError,
   restartRound,
@@ -421,7 +422,7 @@ export default function EuVouProgramar() {
             setRunning(false);
             setStatus("complete");
             addLog(world.competition.lastEvent, "warning");
-          } else if (runner.finished) {
+          } else if (runner.finished && !hasActiveDrivePower(world)) {
             world.robot.leftPower = 0;
             world.robot.rightPower = 0;
             runningRef.current = false;

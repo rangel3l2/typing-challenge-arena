@@ -2,7 +2,7 @@ import * as Blockly from "blockly";
 import { describe, expect, it } from "vitest";
 import { generatePython, registerEV3Blocks } from "./blocks";
 import { cloneHardware, EMPTY_HARDWARE, isRobotComplete, isRobotReady } from "./hardware";
-import { createRunner, createWorld, parseProgram, stepRunner } from "./simulator";
+import { advanceWorld, createRunner, createWorld, hasActiveDrivePower, parseProgram, stepRunner } from "./simulator";
 
 registerEV3Blocks(Blockly);
 
@@ -35,6 +35,19 @@ describe("bloco de motores de movimento", () => {
     expect(code).toContain("motor_movimento_direito = 3");
     expect(code).toContain("motors.set_power(motor_movimento_esquerdo");
     expect(code).toContain("motors.set_power(motor_movimento_direito");
+
+    workspace.dispose();
+  });
+
+  it("mostra a direção como no seletor do EV3 Classroom", () => {
+    const workspace = new Blockly.Workspace();
+    const block = workspace.newBlock("ev3_move_start");
+
+    expect(block.getField("STEERING")?.getText()).toBe("reto: 0");
+    block.setFieldValue(-45, "STEERING");
+    expect(block.getField("STEERING")?.getText()).toBe("esquerda: -45");
+    block.setFieldValue(35, "STEERING");
+    expect(block.getField("STEERING")?.getText()).toBe("direita: 35");
 
     workspace.dispose();
   });
@@ -76,6 +89,27 @@ utils.sleep(1)
 
     expect(world.robot.leftPower).toBe(0.5);
     expect(world.robot.rightPower).toBe(0.5);
+  });
+
+  it("mantém o movimento iniciado mesmo depois de concluir a sequência de blocos", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.B = "large";
+    hardware.motors.C = "large";
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram(`
+motor_movimento_esquerdo = 1
+motor_movimento_direito = 2
+motors.set_power(motor_movimento_esquerdo, 0.5)
+motors.set_power(motor_movimento_direito, 0.5)
+`));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+    const initialPosition = { x: world.robot.x, y: world.robot.y };
+    advanceWorld(world, 0.25, () => undefined);
+
+    expect(runner.finished).toBe(true);
+    expect(hasActiveDrivePower(world)).toBe(true);
+    expect(Math.hypot(world.robot.x - initialPosition.x, world.robot.y - initialPosition.y)).toBeGreaterThan(0);
   });
 });
 

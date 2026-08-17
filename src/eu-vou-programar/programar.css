@@ -142,6 +142,15 @@ button { cursor: pointer; }
 .ev3-editor-shell .blocklyEditableText>rect { fill:#fff !important; fill-opacity:.98 !important; stroke:rgba(31,39,50,.16) !important; stroke-width:1px !important; }
 .ev3-editor-shell .blocklyEditableText>.blocklyText { fill:#2a3039 !important; }
 .ev3-editor-shell .blocklyMainBackground { stroke:none; }
+.ev3-steering-editor { width:178px; height:178px; display:grid; place-items:center; padding:10px; outline:none; touch-action:none; user-select:none; }
+.ev3-steering-editor:focus-visible { border-radius:8px; box-shadow:inset 0 0 0 3px rgba(255,255,255,.72); }
+.ev3-steering-dial { position:relative; width:150px; height:150px; border-radius:50%; background:linear-gradient(145deg,#db0796,#cf008a); box-shadow:inset 0 0 0 2px rgba(255,255,255,.08),0 8px 18px rgba(121,0,79,.24); cursor:crosshair; }
+.ev3-steering-dial>i { position:absolute; left:50%; top:50%; width:2px; height:8px; border-radius:2px; background:rgba(255,255,255,.62); transform:translate(-50%,-50%) rotate(var(--tick-angle)) translateY(-61px); transform-origin:center; pointer-events:none; }
+.ev3-steering-dial>i:nth-child(3n+1) { width:3px; height:11px; background:#fff; }
+.ev3-steering-pointer { --steering-angle:0deg; position:absolute; z-index:2; left:50%; top:12px; width:3px; height:63px; border-radius:99px; background:#fff; transform:translateX(-50%) rotate(var(--steering-angle)); transform-origin:50% 100%; pointer-events:none; filter:drop-shadow(0 2px 2px rgba(99,0,65,.22)); }
+.ev3-steering-pointer::before { content:""; position:absolute; left:50%; top:-1px; width:9px; height:9px; border-left:3px solid #fff; border-top:3px solid #fff; transform:translateX(-50%) rotate(45deg); }
+.ev3-steering-center { position:absolute; z-index:3; left:50%; top:50%; display:grid; place-items:center; width:45px; height:45px; padding:0; border:4px solid #fff; border-radius:50%; background:#e716aa; color:#fff; font-size:25px; line-height:1; transform:translate(-50%,-50%); box-shadow:0 4px 10px rgba(91,0,62,.23); }
+.ev3-steering-center:hover,.ev3-steering-center:focus-visible { background:#c90088; outline:3px solid rgba(255,255,255,.65); outline-offset:2px; }
 .editor-wrap { flex:1; min-height:0; display:grid; grid-template-columns:43px 1fr; overflow:hidden; background:#20252e; color:#e7edf5; }
 .line-numbers { padding:19px 10px; background:#1b2028; color:#747f8e; text-align:right; font:12px/24px ui-monospace,SFMono-Regular,Consolas,monospace; user-select:none; }
 .line-numbers span { display:block; }.editor-wrap pre { margin:0; padding:19px 17px; white-space:pre; font:13px/24px ui-monospace,SFMono-Regular,Consolas,monospace; }
