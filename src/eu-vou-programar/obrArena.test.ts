@@ -105,4 +105,44 @@ describe("catálogo de objetivos da arena", () => {
     expect(cleanWorld.success).toBe(true);
     expect(cleanWorld.competition.victimTouches).toBe(0);
   });
+
+  it("exige paradas cromáticas contínuas de 1, 2, 3 e 4 segundos no desafio 9", () => {
+    const world = createWorld(DEFAULT_HARDWARE, 8, "easy");
+
+    world.robot.x = 159;
+    world.robot.y = 528;
+    advanceWorld(world, 0.9, () => undefined);
+    expect(world.competition.scoredHazards).not.toContain("e9-blue-stop");
+    advanceWorld(world, 0.2, () => undefined);
+    expect(world.competition.scoredHazards).toContain("e9-blue-stop");
+
+    world.robot.x = 319;
+    world.robot.y = 473;
+    advanceWorld(world, 1.2, () => undefined);
+    expect(world.competition.scoredHazards).not.toContain("e9-yellow-stop");
+
+    world.robot.leftPower = 0.1;
+    world.robot.rightPower = 0.1;
+    advanceWorld(world, 0.1, () => undefined);
+    world.robot.leftPower = 0;
+    world.robot.rightPower = 0;
+    world.robot.x = 319;
+    world.robot.y = 473;
+    advanceWorld(world, 1.9, () => undefined);
+    expect(world.competition.scoredHazards).not.toContain("e9-yellow-stop");
+    advanceWorld(world, 0.2, () => undefined);
+    expect(world.competition.scoredHazards).toContain("e9-yellow-stop");
+
+    world.robot.x = 469;
+    world.robot.y = 418;
+    advanceWorld(world, 3.1, () => undefined);
+    expect(world.competition.scoredHazards).toContain("e9-green-stop");
+
+    world.robot.x = 584;
+    world.robot.y = 363;
+    advanceWorld(world, 3.9, () => undefined);
+    expect(world.success).toBe(false);
+    advanceWorld(world, 0.2, () => undefined);
+    expect(world.success).toBe(true);
+  });
 });

@@ -2,7 +2,7 @@ export interface ArenaPoint { x: number; y: number }
 export interface ArenaRect { x: number; y: number; width: number; height: number }
 
 export type ArenaLevel = "easy" | "medium" | "hard";
-export type OBRHazardKind = "gap" | "bump" | "ramp" | "intersection" | "obstacle" | "passage" | "checkpoint" | "sensor-gate";
+export type OBRHazardKind = "gap" | "bump" | "ramp" | "intersection" | "obstacle" | "passage" | "checkpoint" | "sensor-gate" | "timed-stop";
 export type GreenRule = "left" | "right" | "straight" | "dead-end";
 export type ArenaMarkerColour = "azul" | "amarelo" | "vermelho" | "verde" | "prata" | "preto";
 
@@ -11,10 +11,10 @@ export interface OBRFloorMarker extends ArenaRect { id: string; label: string; c
 export interface OBRArenaObstacle extends ArenaRect { colour?: string; sensorColour?: string }
 export interface OBRHazard {
   id: string; kind: OBRHazardKind; label: string; points: number; x: number; y: number; radius: number;
-  requiredHeading?: number; requiredColour?: ArenaMarkerColour; rect?: ArenaRect;
+  requiredHeading?: number; requiredColour?: ArenaMarkerColour; requiredSeconds?: number; rect?: ArenaRect;
 }
 export interface OBRStart extends ArenaPoint { angle: number }
-export interface OBRChallengeGoal extends ArenaPoint { radius: number; holdSeconds: number; label: string; requiredHeading?: number; stopRequired?: boolean }
+export interface OBRChallengeGoal extends ArenaPoint { radius: number; holdSeconds: number; label: string; requiredHeading?: number; requiredColour?: ArenaMarkerColour; stopRequired?: boolean }
 export interface OBRChallenge {
   number: number; title: string; objective: string; hint: string; successMessage: string;
   requiredHazards: string[]; requireHazardOrder?: boolean; maxCollisions?: number; maxVictimTouches?: number; timeLimit: number; goal: OBRChallengeGoal;
@@ -44,6 +44,7 @@ const m = (id: string, label: string, colour: ArenaMarkerColour, x: number, y: n
 const h = (id: string, label: string, x: number, y: number, points = 10, requiredHeading?: number): OBRHazard => ({ id, kind: "checkpoint", label, points, x, y, radius: 28, requiredHeading });
 const ev = (id: string, kind: OBRHazardKind, label: string, x: number, y: number, points = 10, requiredHeading?: number, rect?: ArenaRect): OBRHazard => ({ id, kind, label, points, x, y, radius: kind === "obstacle" ? 42 : 30, requiredHeading, rect });
 const sensorGate = (id: string, label: string, x: number, y: number, colour: ArenaMarkerColour = "vermelho"): OBRHazard => ({ id, kind: "sensor-gate", label, points: 20, x, y, radius: 40, requiredColour: colour });
+const timedStop = (id: string, label: string, colour: ArenaMarkerColour, seconds: number, x: number, y: number): OBRHazard => ({ id, kind: "timed-stop", label, points: 10, x, y, radius: 70, requiredColour: colour, requiredSeconds: seconds });
 const leftGreen = (id: string, x: number, y: number): OBRGreenMarker => ({ id, rule: "left", x: x - 17, y: y - 17, width: 13, height: 13 });
 const rightGreen = (id: string, x: number, y: number): OBRGreenMarker => ({ id, rule: "right", x: x + 4, y: y + 4, width: 13, height: 13 });
 
@@ -96,9 +97,9 @@ const easyLayouts: OBRLayout[] = [
   makeLayout("easy", 8, "Travessia da sala de resgate", "Entre na sala pelo portão prateado, não toque em nenhuma bolinha e saia pelo portão preto.", "A linha termina na entrada. Dentro da sala, use distância e giroscópio para contornar as três bolinhas e localizar a saída preta.",
     [{x:70,y:510},{x:210,y:510},{x:270,y:450},{x:270,y:370},{x:430,y:370},{x:500,y:300},{x:570,y:300},{x:620,y:250},{x:650,y:220}],
     { exitPath:[{x:815,y:340},{x:815,y:390}], finishStripe:{x:0,y:0,width:0,height:0}, hazards:[h("e8-silver","Entrada prateada atravessada",675,220,10,0),h("e8-black","Saída preta atravessada",815,370,20,Math.PI/2)], requiredHazards:["e8-silver","e8-black"], requireHazardOrder:true, maxVictimTouches:0, goal:{...goal(815,370,"Entre pela prata e saia pelo preto",0.12,Math.PI/2),stopRequired:false}, timeLimit:180, successMessage:"Sala atravessada sem tocar nas bolinhas!" }),
-  makeLayout("easy", 9, "Sequência cromática", "Leia azul, amarelo e azul novamente, nessa ordem, antes de parar no vermelho.", "A mesma cor azul aparece duas vezes: use uma etapa ou contador para saber em qual delas está.",
+  makeLayout("easy", 9, "Cronômetro cromático", "Pare 1 segundo no azul, 2 segundos no amarelo, 3 segundos no verde e 4 segundos no vermelho, respeitando essa ordem.", "Use a leitura de cor para escolher o tempo de espera. Reinicie ou compare o temporizador em cada estação para não misturar as contagens.",
     [{x:70,y:510},{x:200,y:510},{x:255,y:455},{x:360,y:455},{x:415,y:400},{x:510,y:400},{x:565,y:345},{x:625,y:345}],
-    { floorMarkers:[m("e9-a","1","azul",200,510),m("e9-b","2","amarelo",360,455),m("e9-c","3","azul",510,400),m("e9-end","FIM","vermelho",625,345,32,36)], hazards:[h("e9-ha","Primeiro azul",200,510),h("e9-hb","Amarelo",360,455),h("e9-hc","Segundo azul",510,400)], requiredHazards:["e9-ha","e9-hb","e9-hc"], requireHazardOrder:true, goal:goal(625,345,"Respeite a sequência e pare no vermelho"), timeLimit:100 }),
+    { floorMarkers:[m("e9-blue","1 s","azul",200,510,36,34),m("e9-yellow","2 s","amarelo",360,455,36,34),m("e9-green","3 s","verde",510,400,36,34),m("e9-red","4 s","vermelho",625,345,38,38)], hazards:[timedStop("e9-blue-stop","Azul: parada de 1 segundo","azul",1,200,510),timedStop("e9-yellow-stop","Amarelo: parada de 2 segundos","amarelo",2,360,455),timedStop("e9-green-stop","Verde: parada de 3 segundos","verde",3,510,400)], requiredHazards:["e9-blue-stop","e9-yellow-stop","e9-green-stop"], requireHazardOrder:true, goal:{...goal(625,345,"Depois das outras cores, pare 4 segundos no vermelho",4),radius:70,requiredColour:"vermelho"}, timeLimit:130, successMessage:"Sequência cromática concluída com os quatro tempos corretos!" }),
   makeLayout("easy", 10, "Linha fantasma", "Atravesse longos trechos sem linha usando memória de direção e reencontre o traçado três vezes.", "Quando ambos os sensores enxergarem branco, mantenha o rumo com o giroscópio.",
     [{x:70,y:510},{x:240,y:510},{x:310,y:440},{x:455,y:440},{x:525,y:370},{x:630,y:370}],
     { gaps:[{x:130,y:493,width:72,height:34},{x:335,y:423,width:78,height:34},{x:535,y:353,width:62,height:34}], floorMarkers:[m("e10-red","FIM","vermelho",630,370,32,36)], hazards:[ev("e10-a","gap","Primeiro trecho fantasma",220,510),ev("e10-b","gap","Segundo trecho fantasma",430,440),ev("e10-c","gap","Terceiro trecho fantasma",610,370)], requiredHazards:["e10-a","e10-b","e10-c"], goal:goal(630,370,"Reencontre a linha 3 vezes e pare"), maxCollisions:0, timeLimit:120 }),

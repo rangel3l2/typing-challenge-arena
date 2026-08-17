@@ -63,6 +63,7 @@ export interface CompetitionState {
   challengePoints: number;
   scoredTiles: string[];
   scoredHazards: string[];
+  hazardHoldTimes: Record<string, number>;
   collisionCount: number;
   victimTouches: number;
   lastEvent: string;
@@ -171,6 +172,7 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
       challengePoints: 0,
       scoredTiles: [startTile],
       scoredHazards: [],
+      hazardHoldTimes: {},
       collisionCount: 0,
       victimTouches: 0,
       lastEvent: "Ladrilho de partida: +5 pontos",
@@ -717,6 +719,12 @@ function sensorGateDetected(world: WorldState, colour: string) {
   return sideColourDetected(world, "left", colour) && sideColourDetected(world, "right", colour);
 }
 
+function groundColourDetected(world: WorldState, colour: string) {
+  return SENSOR_PORTS.some((port) => world.hardware.sensors[port] === "color"
+    && world.hardware.sensorMounts[port]?.aim === "ground"
+    && sensorColor(world, port) === colour);
+}
+
 function reflectedLightForColor(color: string) {
   return ({ preto: 8, marrom: 20, azul: 28, vermelho: 42, verde: 48, prata: 70, amarelo: 72, branco: 88 } as Record<string, number>)[color] ?? 50;
 }
@@ -784,16 +792,41 @@ function updateCompetition(world: WorldState, delta: number) {
     competition.lastEvent = `Novo ladrilho percorrido: +5 pontos`;
   }
 
+  const stopped = Math.abs(world.robot.leftPower) < 0.02 && Math.abs(world.robot.rightPower) < 0.02;
+
   for (const hazard of world.layout.hazards) {
     if (competition.scoredHazards.includes(hazard.id)) continue;
-    const reached = hazard.kind === "sensor-gate"
-      ? sensorGateDetected(world, hazard.requiredColour ?? "vermelho")
-      : Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius && headingMatches(world.robot.angle, hazard.requiredHeading);
-    if (reached) {
-      if (challenge.requireHazardOrder && challenge.requiredHazards.includes(hazard.id)) {
-        const nextRequired = challenge.requiredHazards.find((id) => !competition.scoredHazards.includes(id));
-        if (nextRequired !== hazard.id) continue;
+
+    if (challenge.requireHazardOrder && challenge.requiredHazards.includes(hazard.id)) {
+      const nextRequired = challenge.requiredHazards.find((id) => !competition.scoredHazards.includes(id));
+      if (nextRequired !== hazard.id) {
+        if (hazard.kind === "timed-stop") competition.hazardHoldTimes[hazard.id] = 0;
+        continue;
       }
+    }
+
+    let reached = false;
+    if (hazard.kind === "sensor-gate") {
+      reached = sensorGateDetected(world, hazard.requiredColour ?? "vermelho");
+    } else if (hazard.kind === "timed-stop") {
+      const onStation = Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius
+        && headingMatches(world.robot.angle, hazard.requiredHeading)
+        && groundColourDetected(world, hazard.requiredColour ?? "branco");
+      if (onStation && stopped) {
+        const requiredSeconds = hazard.requiredSeconds ?? 1;
+        competition.hazardHoldTimes[hazard.id] = (competition.hazardHoldTimes[hazard.id] ?? 0) + delta;
+        const heldSeconds = Math.min(requiredSeconds, competition.hazardHoldTimes[hazard.id]);
+        competition.lastEvent = `${hazard.label}: ${heldSeconds.toFixed(1)} de ${requiredSeconds} s`;
+        reached = competition.hazardHoldTimes[hazard.id] >= requiredSeconds;
+      } else {
+        competition.hazardHoldTimes[hazard.id] = 0;
+      }
+    } else {
+      reached = Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius
+        && headingMatches(world.robot.angle, hazard.requiredHeading);
+    }
+
+    if (reached) {
       competition.scoredHazards.push(hazard.id);
       competition.challengePoints += hazard.points;
       competition.lastEvent = hazard.points ? `${hazard.label}: +${hazard.points} pontos` : hazard.label;
@@ -801,8 +834,8 @@ function updateCompetition(world: WorldState, delta: number) {
   }
 
   const challengeGoal = challenge.goal;
-  const onFinish = Math.hypot(world.robot.x - challengeGoal.x, world.robot.y - challengeGoal.y) <= challengeGoal.radius;
-  const stopped = Math.abs(world.robot.leftPower) < 0.02 && Math.abs(world.robot.rightPower) < 0.02;
+  const insideGoal = Math.hypot(world.robot.x - challengeGoal.x, world.robot.y - challengeGoal.y) <= challengeGoal.radius;
+  const onFinish = insideGoal && (challengeGoal.requiredColour === undefined || groundColourDetected(world, challengeGoal.requiredColour));
   const headingReady = headingMatches(world.robot.angle, challengeGoal.requiredHeading);
   const hazardsReady = challenge.requiredHazards.every((id) => competition.scoredHazards.includes(id));
   const collisionsReady = challenge.maxCollisions === undefined || competition.collisionCount <= challenge.maxCollisions;
@@ -857,6 +890,7 @@ export function restartRound(world: WorldState) {
     challengePoints: 0,
     scoredTiles: [tileKeyAt(start.x, start.y)],
     scoredHazards: [],
+    hazardHoldTimes: {},
     collisionCount: 0,
     victimTouches: 0,
     lastEvent: "Ladrilho de partida: +5 pontos",
