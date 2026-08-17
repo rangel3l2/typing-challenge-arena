@@ -52,6 +52,7 @@ export interface Victim extends ArenaPoint {
   id: string;
   type: "alive" | "dead";
   rescued: boolean;
+  touched: boolean;
 }
 
 export interface CompetitionState {
@@ -63,6 +64,7 @@ export interface CompetitionState {
   scoredTiles: string[];
   scoredHazards: string[];
   collisionCount: number;
+  victimTouches: number;
   lastEvent: string;
   finishStopped: number;
   roundOver: boolean;
@@ -157,9 +159,9 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
     hardware: cloneHardware(hardware),
     layout,
     victims: [
-      { id: "alive-1", type: "alive", x: layout.rescueRoom.x + 90, y: layout.rescueRoom.y + 90, rescued: false },
-      { id: "alive-2", type: "alive", x: layout.rescueRoom.x + 185, y: layout.rescueRoom.y + 105, rescued: false },
-      { id: "dead-1", type: "dead", x: layout.rescueRoom.x + 145, y: layout.rescueRoom.y + 205, rescued: false },
+      { id: "alive-1", type: "alive", x: layout.rescueRoom.x + 90, y: layout.rescueRoom.y + 90, rescued: false, touched: false },
+      { id: "alive-2", type: "alive", x: layout.rescueRoom.x + 185, y: layout.rescueRoom.y + 105, rescued: false, touched: false },
+      { id: "dead-1", type: "dead", x: layout.rescueRoom.x + 145, y: layout.rescueRoom.y + 205, rescued: false, touched: false },
     ],
     competition: {
       level,
@@ -170,6 +172,7 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
       scoredTiles: [startTile],
       scoredHazards: [],
       collisionCount: 0,
+      victimTouches: 0,
       lastEvent: "Ladrilho de partida: +5 pontos",
       finishStopped: 0,
       roundOver: false,
@@ -803,7 +806,9 @@ function updateCompetition(world: WorldState, delta: number) {
   const headingReady = headingMatches(world.robot.angle, challengeGoal.requiredHeading);
   const hazardsReady = challenge.requiredHazards.every((id) => competition.scoredHazards.includes(id));
   const collisionsReady = challenge.maxCollisions === undefined || competition.collisionCount <= challenge.maxCollisions;
-  competition.finishStopped = onFinish && stopped && headingReady && hazardsReady && collisionsReady ? competition.finishStopped + delta : 0;
+  const victimsReady = challenge.maxVictimTouches === undefined || competition.victimTouches <= challenge.maxVictimTouches;
+  const motionReady = challengeGoal.stopRequired === false || stopped;
+  competition.finishStopped = onFinish && motionReady && headingReady && hazardsReady && collisionsReady && victimsReady ? competition.finishStopped + delta : 0;
   if (onFinish && stopped && !hazardsReady) {
     const missing = challenge.requiredHazards.filter((id) => !competition.scoredHazards.includes(id)).length;
     competition.lastEvent = `Objetivo encontrado, mas ainda faltam ${missing} etapa${missing === 1 ? "" : "s"}`;
@@ -811,6 +816,8 @@ function updateCompetition(world: WorldState, delta: number) {
     competition.lastEvent = "Posição correta, mas a orientação do robô ainda não confere";
   } else if (onFinish && stopped && !collisionsReady) {
     competition.lastEvent = "Este desafio exige reiniciar e completar sem colisões";
+  } else if (onFinish && !victimsReady) {
+    competition.lastEvent = "Uma bolinha foi tocada; reinicie para tentar a travessia novamente";
   }
   if (competition.finishStopped >= challengeGoal.holdSeconds && !world.success) {
     competition.lastEvent = challenge.successMessage;
@@ -838,7 +845,10 @@ export function restartRound(world: WorldState) {
   world.success = false;
   world.collisionReported = false;
   world.collisionAngle = undefined;
-  for (const victim of world.victims) victim.rescued = false;
+  for (const victim of world.victims) {
+    victim.rescued = false;
+    victim.touched = false;
+  }
   world.competition = {
     level: world.competition.level,
     elapsed: 0,
@@ -848,6 +858,7 @@ export function restartRound(world: WorldState) {
     scoredTiles: [tileKeyAt(start.x, start.y)],
     scoredHazards: [],
     collisionCount: 0,
+    victimTouches: 0,
     lastEvent: "Ladrilho de partida: +5 pontos",
     finishStopped: 0,
     roundOver: false,
@@ -861,10 +872,12 @@ export function advanceWorld(world: WorldState, delta: number, emit: (message: s
   const nextAngle = robot.angle + angularVelocity * delta;
   const nextX = robot.x + Math.cos(nextAngle) * linearVelocity * delta;
   const nextY = robot.y + Math.sin(nextAngle) * linearVelocity * delta;
+  const touchedVictim = world.victims.find((victim) => !victim.rescued && Math.hypot(nextX - victim.x, nextY - victim.y) < ROBOT_RADIUS + 10);
   const hitsWall = nextX - ROBOT_RADIUS < WALL_MARGIN || nextX + ROBOT_RADIUS > WORLD_WIDTH - WALL_MARGIN
     || nextY - ROBOT_RADIUS < WALL_MARGIN || nextY + ROBOT_RADIUS > WORLD_HEIGHT - WALL_MARGIN;
   const hitsObstacle = world.obstacles.some((obstacle) => circleHitsRectangle(nextX, nextY, ROBOT_RADIUS, obstacle))
-    || rescueWallRectangles(world.layout).some((wall) => circleHitsArenaRect(nextX, nextY, ROBOT_RADIUS, wall));
+    || rescueWallRectangles(world.layout).some((wall) => circleHitsArenaRect(nextX, nextY, ROBOT_RADIUS, wall))
+    || Boolean(touchedVictim);
 
   robot.angle = nextAngle;
   if (hitsWall || hitsObstacle) {
@@ -873,7 +886,16 @@ export function advanceWorld(world: WorldState, delta: number, emit: (message: s
     if (!world.collisionReported) {
       world.collisionReported = true;
       world.competition.collisionCount += 1;
-      emit("O robô encostou em um obstáculo.", "warning");
+      if (touchedVictim) {
+        if (!touchedVictim.touched) {
+          touchedVictim.touched = true;
+          world.competition.victimTouches += 1;
+          world.competition.lastEvent = "Bolinha tocada: a travessia precisa ser reiniciada";
+        }
+        emit("O robô tocou em uma bolinha da sala de resgate.", "warning");
+      } else {
+        emit("O robô encostou em um obstáculo.", "warning");
+      }
     }
   } else {
     robot.x = nextX;
@@ -1000,8 +1022,10 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   context.strokeRect(world.layout.silverGate.x, world.layout.silverGate.y, world.layout.silverGate.width, world.layout.silverGate.height);
   context.fillStyle = "#121519";
   context.fillRect(world.layout.blackGate.x, world.layout.blackGate.y, world.layout.blackGate.width, world.layout.blackGate.height);
-  context.fillStyle = "#e23f3f";
-  context.fillRect(world.layout.finishStripe.x, world.layout.finishStripe.y, world.layout.finishStripe.width, world.layout.finishStripe.height);
+  if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
+    context.fillStyle = "#e23f3f";
+    context.fillRect(world.layout.finishStripe.x, world.layout.finishStripe.y, world.layout.finishStripe.width, world.layout.finishStripe.height);
+  }
 
   const areaSize = 72;
   context.fillStyle = "#2ea552";
@@ -1050,8 +1074,10 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   context.font = "900 9px Nunito, sans-serif";
   context.fillText("PARTIDA", 38, 558);
   context.fillText("SALA DE RESGATE", room.x + 88, room.y + room.height - 14);
-  context.fillStyle = "#b83232";
-  context.fillText("CHEGADA", world.layout.finishStripe.x - 20, world.layout.finishStripe.y + 58);
+  if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
+    context.fillStyle = "#b83232";
+    context.fillText("CHEGADA", world.layout.finishStripe.x - 20, world.layout.finishStripe.y + 58);
+  }
 
   for (const obstacle of world.obstacles) {
     context.save();
@@ -1083,6 +1109,11 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
     else { victimGradient.addColorStop(0, "#555b61"); victimGradient.addColorStop(1, "#16191c"); }
     context.fillStyle = victimGradient;
     context.beginPath(); context.arc(victim.x, victim.y, 10, 0, Math.PI * 2); context.fill();
+    if (victim.touched) {
+      context.strokeStyle = "#e23f3f";
+      context.lineWidth = 3;
+      context.beginPath(); context.arc(victim.x, victim.y, 15, 0, Math.PI * 2); context.stroke();
+    }
     context.restore();
   }
 

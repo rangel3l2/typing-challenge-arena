@@ -14,10 +14,10 @@ export interface OBRHazard {
   requiredHeading?: number; requiredColour?: ArenaMarkerColour; rect?: ArenaRect;
 }
 export interface OBRStart extends ArenaPoint { angle: number }
-export interface OBRChallengeGoal extends ArenaPoint { radius: number; holdSeconds: number; label: string; requiredHeading?: number }
+export interface OBRChallengeGoal extends ArenaPoint { radius: number; holdSeconds: number; label: string; requiredHeading?: number; stopRequired?: boolean }
 export interface OBRChallenge {
   number: number; title: string; objective: string; hint: string; successMessage: string;
-  requiredHazards: string[]; requireHazardOrder?: boolean; maxCollisions?: number; timeLimit: number; goal: OBRChallengeGoal;
+  requiredHazards: string[]; requireHazardOrder?: boolean; maxCollisions?: number; maxVictimTouches?: number; timeLimit: number; goal: OBRChallengeGoal;
   hardwareRequirement?: "dual-outward-colour";
 }
 export interface OBRLayout {
@@ -50,8 +50,8 @@ const rightGreen = (id: string, x: number, y: number): OBRGreenMarker => ({ id, 
 interface LayoutOptions {
   branches?: ArenaPoint[][]; gaps?: ArenaRect[]; floorMarkers?: OBRFloorMarker[]; greenMarkers?: OBRGreenMarker[];
   hazards?: OBRHazard[]; obstacles?: OBRArenaObstacle[]; start?: OBRStart; exitPath?: ArenaPoint[];
-  requiredHazards?: string[]; requireHazardOrder?: boolean; maxCollisions?: number; timeLimit?: number;
-  goal?: OBRChallengeGoal; successMessage?: string; hardwareRequirement?: "dual-outward-colour";
+  requiredHazards?: string[]; requireHazardOrder?: boolean; maxCollisions?: number; maxVictimTouches?: number; timeLimit?: number;
+  goal?: OBRChallengeGoal; successMessage?: string; hardwareRequirement?: "dual-outward-colour"; finishStripe?: ArenaRect;
 }
 
 function makeLayout(level: ArenaLevel, number: number, title: string, objective: string, hint: string, mainPath: ArenaPoint[], options: LayoutOptions = {}): OBRLayout {
@@ -61,12 +61,13 @@ function makeLayout(level: ArenaLevel, number: number, title: string, objective:
     challenge: {
       number, title, objective, hint, successMessage: options.successMessage ?? `${title} concluído!`,
       requiredHazards: options.requiredHazards ?? [], requireHazardOrder: options.requireHazardOrder,
-      maxCollisions: options.maxCollisions, timeLimit: options.timeLimit ?? 300, goal: options.goal ?? finishGoal(),
+      maxCollisions: options.maxCollisions, maxVictimTouches: options.maxVictimTouches, timeLimit: options.timeLimit ?? 300, goal: options.goal ?? finishGoal(),
       hardwareRequirement: options.hardwareRequirement,
     },
     mainPath, exitPath: options.exitPath ?? common.exitPath, branches: options.branches ?? [], gaps: options.gaps ?? [],
     floorMarkers: options.floorMarkers ?? [], greenMarkers: options.greenMarkers ?? [], hazards: options.hazards ?? [],
     obstacles: options.obstacles ?? [], start: options.start ?? { x: mainPath[0].x, y: mainPath[0].y, angle: 0 },
+    finishStripe: options.finishStripe ?? common.finishStripe,
   };
 }
 
@@ -89,12 +90,12 @@ const easyLayouts: OBRLayout[] = [
   makeLayout("easy", 6, "Portal fora da linha", "Siga a linha irregular até a faixa prateada; depois atravesse o piso branco e pare no portal vermelho que está fora do traçado.", "Mantenha os dois sensores de cor nas laterais olhando para fora. Após o fim da linha, use o giroscópio para chegar alinhado ao portal.",
     [{x:70,y:510},{x:180,y:510},{x:230,y:460},{x:180,y:410},{x:230,y:360},{x:330,y:360},{x:380,y:410},{x:330,y:460},{x:380,y:500},{x:420,y:500}],
     { floorMarkers:[m("e6-launch","SAIA","prata",420,500,40,34)], obstacles:[{x:545,y:420,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"},{x:545,y:530,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"}], hazards:[h("e6-launch-check","Fim da linha alcançado",420,500),sensorGate("e6-portal","Portal externo detectado pelos dois lados",570,500)], requiredHazards:["e6-launch-check","e6-portal"], requireHazardOrder:true, hardwareRequirement:"dual-outward-colour", goal:goal(570,500,"Saia da linha e pare no portal vermelho",2), maxCollisions:0, timeLimit:130 }),
-  makeLayout("easy", 7, "Partida ao contrário", "O robô começa olhando para trás: alinhe-se antes de seguir até o alvo amarelo.", "Use o giroscópio ou uma rotação controlada; avançar imediatamente leva à borda.",
-    [{x:70,y:510},{x:250,y:510},{x:320,y:440},{x:460,y:440},{x:540,y:360}],
-    { start:{x:70,y:510,angle:Math.PI}, floorMarkers:[m("e7-yellow","FIM","amarelo",540,360,32,36)], hazards:[h("e7-align","Alinhamento inicial concluído",150,510,5,0)], requiredHazards:["e7-align"], goal:goal(540,360,"Corrija a orientação e pare no amarelo"), maxCollisions:0, timeLimit:100 }),
-  makeLayout("easy", 8, "Oito completo", "Percorra os dois laços na ordem azul, amarelo e termine no vermelho.", "No cruzamento central, conte qual marcador já foi visto para escolher o próximo laço.",
-    [{x:70,y:500},{x:230,y:500},{x:330,y:400},{x:430,y:300},{x:530,y:400},{x:430,y:500},{x:330,y:400},{x:230,y:300},{x:130,y:400},{x:230,y:500},{x:590,y:500}],
-    { floorMarkers:[m("e8-blue","1","azul",430,300),m("e8-yellow","2","amarelo",230,300),m("e8-red","FIM","vermelho",590,500,32,36)], hazards:[h("e8-a","Primeiro laço concluído",430,300),h("e8-b","Segundo laço concluído",230,300)], requiredHazards:["e8-a","e8-b"], requireHazardOrder:true, goal:goal(590,500,"Complete os laços e pare no vermelho"), timeLimit:140 }),
+  makeLayout("easy", 7, "Partida ao contrário", "O robô começa olhando para trás: corrija a direção, siga a linha preta até ela terminar e pare exatamente sobre a faixa prateada da sala de resgate.", "Primeiro use o giroscópio para alinhar 180°. No fim, o sensor de cor deve reconhecer prata e o robô precisa avançar o suficiente para ficar sobre a faixa.",
+    [{x:70,y:510},{x:200,y:510},{x:260,y:450},{x:260,y:380},{x:380,y:380},{x:450,y:310},{x:560,y:310},{x:620,y:250},{x:650,y:220}],
+    { start:{x:70,y:510,angle:Math.PI}, exitPath:[], finishStripe:{x:0,y:0,width:0,height:0}, hazards:[h("e7-align","Orientação inicial corrigida",150,510,5,0)], requiredHazards:["e7-align"], goal:{...goal(650,220,"Pare 3 segundos sobre a faixa prateada",3),radius:18}, maxCollisions:0, timeLimit:150 }),
+  makeLayout("easy", 8, "Travessia da sala de resgate", "Entre na sala pelo portão prateado, não toque em nenhuma bolinha e saia pelo portão preto.", "A linha termina na entrada. Dentro da sala, use distância e giroscópio para contornar as três bolinhas e localizar a saída preta.",
+    [{x:70,y:510},{x:210,y:510},{x:270,y:450},{x:270,y:370},{x:430,y:370},{x:500,y:300},{x:570,y:300},{x:620,y:250},{x:650,y:220}],
+    { exitPath:[{x:815,y:340},{x:815,y:390}], finishStripe:{x:0,y:0,width:0,height:0}, hazards:[h("e8-silver","Entrada prateada atravessada",675,220,10,0),h("e8-black","Saída preta atravessada",815,370,20,Math.PI/2)], requiredHazards:["e8-silver","e8-black"], requireHazardOrder:true, maxVictimTouches:0, goal:{...goal(815,370,"Entre pela prata e saia pelo preto",0.12,Math.PI/2),stopRequired:false}, timeLimit:180, successMessage:"Sala atravessada sem tocar nas bolinhas!" }),
   makeLayout("easy", 9, "Sequência cromática", "Leia azul, amarelo e azul novamente, nessa ordem, antes de parar no vermelho.", "A mesma cor azul aparece duas vezes: use uma etapa ou contador para saber em qual delas está.",
     [{x:70,y:510},{x:200,y:510},{x:255,y:455},{x:360,y:455},{x:415,y:400},{x:510,y:400},{x:565,y:345},{x:625,y:345}],
     { floorMarkers:[m("e9-a","1","azul",200,510),m("e9-b","2","amarelo",360,455),m("e9-c","3","azul",510,400),m("e9-end","FIM","vermelho",625,345,32,36)], hazards:[h("e9-ha","Primeiro azul",200,510),h("e9-hb","Amarelo",360,455),h("e9-hc","Segundo azul",510,400)], requiredHazards:["e9-ha","e9-hb","e9-hc"], requireHazardOrder:true, goal:goal(625,345,"Respeite a sequência e pare no vermelho"), timeLimit:100 }),

@@ -159,6 +159,7 @@ export default function EuVouProgramar() {
     scoredTileCount: 1,
     scoredHazards: [] as string[],
     collisionCount: 0,
+    victimTouches: 0,
     layoutName: "Fácil 1 · Parada de precisão",
     lastEvent: "Ladrilho de partida: +5 pontos",
   });
@@ -358,6 +359,7 @@ export default function EuVouProgramar() {
           scoredTileCount: world.competition.scoredTiles.length,
           scoredHazards: [...world.competition.scoredHazards],
           collisionCount: world.competition.collisionCount,
+          victimTouches: world.competition.victimTouches,
           layoutName: world.layout.name,
           lastEvent: world.competition.lastEvent,
         });
@@ -591,6 +593,7 @@ export default function EuVouProgramar() {
             <div className={challengeStepsComplete ? "check-done" : ""}><span>{challengeStepsComplete ? "✓" : "2"}</span> {activeChallenge.requiredHazards.length ? `Etapas da pista: ${activeChallenge.requiredHazards.filter((id) => competitionView.scoredHazards.includes(id)).length}/${activeChallenge.requiredHazards.length}` : "Entre no percurso"}</div>
             <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Conclua a condição de vitória</div>
             {activeChallenge.maxCollisions !== undefined && <div className={competitionView.collisionCount <= activeChallenge.maxCollisions ? "check-done" : "check-failed"}><span>{competitionView.collisionCount <= activeChallenge.maxCollisions ? "✓" : "×"}</span> Colisões: {competitionView.collisionCount}/{activeChallenge.maxCollisions}</div>}
+            {activeChallenge.maxVictimTouches !== undefined && <div className={competitionView.victimTouches <= activeChallenge.maxVictimTouches ? "check-done" : "check-failed"}><span>{competitionView.victimTouches <= activeChallenge.maxVictimTouches ? "✓" : "×"}</span> Bolinhas tocadas: {competitionView.victimTouches}/{activeChallenge.maxVictimTouches}</div>}
           </div>
 
           <div className="obr-rule-event"><span>⚑</span><div><strong>Último evento da prova</strong><small>{competitionView.lastEvent}</small></div></div>

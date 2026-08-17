@@ -76,4 +76,33 @@ describe("catálogo de objetivos da arena", () => {
     advanceWorld(completeWorld, 0.1, () => undefined);
     expect(completeWorld.competition.scoredHazards).toContain("e5-portal");
   });
+
+  it("faz o desafio 7 terminar sobre o portão prateado", () => {
+    const layout = createOBRLayout(6, "easy");
+    expect(layout.start.angle).toBe(Math.PI);
+    expect(layout.challenge.goal.x).toBeGreaterThanOrEqual(layout.silverGate.x);
+    expect(layout.challenge.goal.x).toBeLessThanOrEqual(layout.silverGate.x + layout.silverGate.width);
+    expect(layout.challenge.goal.y).toBeGreaterThanOrEqual(layout.silverGate.y);
+    expect(layout.challenge.goal.y).toBeLessThanOrEqual(layout.silverGate.y + layout.silverGate.height);
+  });
+
+  it("registra toque nas bolinhas e permite concluir o desafio 8 em movimento pela saída preta", () => {
+    const touchedWorld = createWorld(DEFAULT_HARDWARE, 7, "easy");
+    touchedWorld.robot.x = touchedWorld.victims[0].x - 30;
+    touchedWorld.robot.y = touchedWorld.victims[0].y;
+    advanceWorld(touchedWorld, 0.1, () => undefined);
+    expect(touchedWorld.competition.victimTouches).toBe(1);
+    expect(touchedWorld.victims[0].touched).toBe(true);
+
+    const cleanWorld = createWorld(DEFAULT_HARDWARE, 7, "easy");
+    cleanWorld.competition.scoredHazards = ["e8-silver", "e8-black"];
+    cleanWorld.robot.x = 815;
+    cleanWorld.robot.y = 370;
+    cleanWorld.robot.angle = Math.PI / 2;
+    cleanWorld.robot.leftPower = 0.1;
+    cleanWorld.robot.rightPower = 0.1;
+    advanceWorld(cleanWorld, 0.2, () => undefined);
+    expect(cleanWorld.success).toBe(true);
+    expect(cleanWorld.competition.victimTouches).toBe(0);
+  });
 });
