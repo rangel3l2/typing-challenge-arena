@@ -35,7 +35,7 @@ const Index = () => {
   const [playerName, setPlayerName] = useState(() => readPlayerSession("playerName") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
-  const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
+  const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar" | "programar">("digitar");
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
   const [restoreInput, setRestoreInput] = useState("");
@@ -92,6 +92,11 @@ const Index = () => {
 
   const handleNameChange = (value: string) => {
     setPlayerName(value);
+  };
+
+  const handleSelectGame = (game: "digitar" | "acertar" | "programar") => {
+    setSelectedGame(game);
+    if (mode !== "name") setMode("idle");
   };
 
   const handleToggleRestore = () => {
@@ -158,6 +163,12 @@ const Index = () => {
     if (!playerName.trim() || !joinCode.trim()) return;
     writePlayerSession("playerName", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
+  };
+
+  const handleProgramar = () => {
+    if (!playerName.trim()) return;
+    writePlayerSession("playerName", playerName.trim());
+    window.location.assign("/eu-vou-programar/");
   };
 
   const savedCode = playerCode || readPlayerSession("playerCode");
@@ -268,7 +279,7 @@ const Index = () => {
               className="flex flex-wrap gap-[8px] sm:gap-[13px] justify-center"
             >
               <button
-                onClick={() => setSelectedGame("digitar")}
+                onClick={() => handleSelectGame("digitar")}
                 aria-pressed={selectedGame === "digitar"}
                 className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "digitar"
@@ -280,7 +291,7 @@ const Index = () => {
                 Digitar
               </button>
               <button
-                onClick={() => setSelectedGame("acertar")}
+                onClick={() => handleSelectGame("acertar")}
                 aria-pressed={selectedGame === "acertar"}
                 className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "acertar"
@@ -291,14 +302,18 @@ const Index = () => {
                 <MapPin className="w-5 h-5" />
                 Acertar 🎈
               </button>
-              <a
-                href="/eu-vou-programar/"
-                className="flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all glass-card text-muted-foreground hover:text-foreground hover:border-primary/60"
-                aria-label="Abrir Eu Vou Programar"
+              <button
+                onClick={() => handleSelectGame("programar")}
+                aria-pressed={selectedGame === "programar"}
+                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                  selectedGame === "programar"
+                    ? "bg-primary text-primary-foreground glow-primary shadow-lg scale-[1.05]"
+                    : "glass-card text-muted-foreground hover:text-foreground hover:border-primary/60"
+                }`}
               >
-                <Bot className="w-5 h-5 text-primary" />
+                <Bot className="w-5 h-5" />
                 Programar
-              </a>
+              </button>
             </motion.div>
 
             {/* PRIORIDADE 1 — Entrada de Nome (gateway obrigatório) */}
@@ -361,7 +376,25 @@ const Index = () => {
             </motion.div>
 
             {/* Action Buttons Row */}
-            {mode === "name" ? null : selectedGame === "acertar" ? (
+            {mode === "name" ? null : selectedGame === "programar" ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleProgramar}
+                  disabled={!playerName.trim()}
+                  className="w-full py-3 sm:py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-base sm:text-lg glow-primary hover:brightness-110 transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Bot className="w-5 h-5" />
+                  Entrar no Eu Vou Programar
+                  <ArrowRight className="w-5 h-5" />
+                </motion.button>
+              </motion.div>
+            ) : selectedGame === "acertar" ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
