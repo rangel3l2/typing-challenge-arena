@@ -551,7 +551,7 @@ export default function EuVouProgramar() {
               <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => { setEditorTab("code"); setProgramMode("code"); }}><span>🐍</span> robot.py</button>
               <button role="tab" aria-selected={editorTab === "console"} className={editorTab === "console" ? "active" : ""} onClick={() => setEditorTab("console")}><span>›_</span> Saída <i>{logs.length}</i></button>
             </div>
-            <div className="editor-header-actions"><button className="arena-toggle-button" onClick={() => setArenaHidden((current) => !current)} aria-label={arenaHidden ? "Mostrar arena" : "Ocultar arena"} aria-pressed={arenaHidden}>{arenaHidden ? "▣ Mostrar arena" : "▢ Ocultar arena"}</button><button className="assembly-mini-button" onClick={() => setBuilderOpen(true)}>⚙ Montagem</button><button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button></div>
+            <div className="editor-header-actions"><button className="assembly-mini-button" onClick={() => setBuilderOpen(true)}>⚙ Montagem</button><button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button></div>
           </div>
 
           {editorTab === "blocks" ? (
@@ -603,12 +603,25 @@ export default function EuVouProgramar() {
           </div>
         </section>
 
-        {!arenaHidden && <section className="arena-panel" aria-label="Arena do robô">
+        <div className={`arena-column ${arenaHidden ? "is-hidden" : ""}`}>
+          <button
+            className="arena-visibility-toggle"
+            type="button"
+            onClick={() => setArenaHidden((current) => !current)}
+            aria-label={arenaHidden ? "Mostrar arena" : "Ocultar arena"}
+            aria-expanded={!arenaHidden}
+            data-label={arenaHidden ? "Mostrar arena" : "Ocultar arena"}
+            title={arenaHidden ? "Mostrar arena" : "Ocultar arena"}
+          >
+            <span className="arena-toggle-icon arena-toggle-icon-desktop" aria-hidden="true">{arenaHidden ? "◀" : "▶"}</span>
+            <span className="arena-toggle-icon arena-toggle-icon-mobile" aria-hidden="true">{arenaHidden ? "▼" : "▲"}</span>
+          </button>
+
+          {!arenaHidden && <section className="arena-panel" aria-label="Arena do robô">
           <div className="arena-toolbar">
             <div><span className={`live-dot ${running ? "pulsing" : ""}`} /> Arena OBR <small>{competitionView.layoutName}</small></div>
             <div className="arena-toolbar-actions">
               <button className="expand-arena-button legend-arena-button" type="button" onClick={() => setLegendOpen(true)} aria-label="Abrir legenda da arena"><span>?</span> Legenda</button>
-              <button className="expand-arena-button hide-arena-button" type="button" onClick={() => setArenaHidden(true)} aria-label="Ocultar arena"><span>−</span> Ocultar</button>
               <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} aria-label="Abrir arena em tela cheia"><span>⛶</span> Tela cheia</button>
               <div className="speed-control" aria-label="Velocidade da simulação">
                 <button onClick={() => changeSpeed(-1)} disabled={speed === 0.5} aria-label="Diminuir velocidade">−</button>
@@ -687,7 +700,8 @@ export default function EuVouProgramar() {
               })}
             </div>
           </section>
-        </section>}
+          </section>}
+        </div>
       </section>
 
       {arenaExpanded && (
