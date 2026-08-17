@@ -1,9 +1,26 @@
+# Search and AI discovery crawlers with published controls
 User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Social previews and crawlers without a stable public token are covered below
 User-agent: Twitterbot
 Allow: /
 

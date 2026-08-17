@@ -1,0 +1,46 @@
+# Eu Vou Jogar — referência completa
+
+## Identidade
+
+Eu Vou Jogar é uma plataforma brasileira gratuita de jogos educacionais. O objetivo é apoiar estudantes e educadores com experiências interativas que funcionam diretamente no navegador. O conteúdo principal está em português do Brasil.
+
+Site oficial: https://euvoujogar.com.br/
+
+## Eu Vou Digitar
+
+URL: https://euvoujogar.com.br/game
+
+Jogo educacional para treinar velocidade e precisão de digitação. Possui partidas e classificação de jogadores. O resultado de digitação é tratado separadamente dos outros módulos no ranking.
+
+## Eu Vou Acertar
+
+URL: https://euvoujogar.com.br/acertar
+
+Jogo educacional de matemática em que o estudante resolve operações em seis fases de dificuldade crescente. A pontuação possui classificação própria.
+
+## Eu Vou Programar
+
+URL: https://euvoujogar.com.br/eu-vou-programar/
+
+Simulador de programação e robótica educacional para treinamento da Olimpíada Brasileira de Robótica (OBR). O estudante pode montar um robô virtual com quatro portas de motores, A a D, e quatro portas de sensores, 1 a 4. A montagem aceita motores servos médios ou grandes e sensores de cor, ultrassônico, toque e giroscópio.
+
+O editor usa blocos em português inspirados no EV3 Classroom. Os blocos controlam motores, movimento, visor e som, fluxo do programa, sensores e operadores. O programa gerado é executado no próprio navegador, sem backend obrigatório para a simulação.
+
+O simulador oferece 30 objetivos, divididos em dez desafios fáceis, dez médios e dez avançados. Entre os elementos treinados estão seguimento de linha, curvas, cores, gaps, obstáculos, sinais verdes, temporizador, giroscópio, portais laterais e sala de resgate.
+
+O módulo possui montagem livre e uma configuração pronta para quem deseja focar somente na programação. Motores e sensores têm funções independentes: somente os componentes usados pelo programa precisam estar instalados. O ranking do Eu Vou Programar registra pontuações e troféus separadamente.
+
+## Rotas canônicas
+
+- Página inicial: https://euvoujogar.com.br/
+- Digitação: https://euvoujogar.com.br/game
+- Matemática: https://euvoujogar.com.br/acertar
+- Programação e robótica: https://euvoujogar.com.br/eu-vou-programar/
+- Ranking: https://euvoujogar.com.br/ranking
+- Sobre: https://euvoujogar.com.br/sobre
+
+## Termos relacionados
+
+Jogos educacionais, jogos educativos gratuitos, digitação online, jogo de matemática infantil, programação em blocos, robótica educacional, EV3 Classroom, simulador OBR, Olimpíada Brasileira de Robótica, sensores EV3 e motores EV3.
+
+Última atualização desta referência: 2026-08-17.

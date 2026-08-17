@@ -11,11 +11,40 @@
           "value": "application/vnd.android.package-archive"
         }
       ]
+    },
+    {
+      "source": "/(robots.txt|sitemap.xml|llms.txt|llms-full.txt)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=3600"
+        }
+      ]
     }
   ],
   "routes": [
     {
       "handle": "filesystem"
+    },
+    {
+      "src": "/game/?",
+      "dest": "/game/index.html"
+    },
+    {
+      "src": "/acertar/?",
+      "dest": "/acertar/index.html"
+    },
+    {
+      "src": "/eu-vou-programar/?",
+      "dest": "/eu-vou-programar/index.html"
+    },
+    {
+      "src": "/ranking/?",
+      "dest": "/ranking/index.html"
+    },
+    {
+      "src": "/sobre/?",
+      "dest": "/sobre/index.html"
     },
     {
       "src": "/.*",

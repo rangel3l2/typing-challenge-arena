@@ -17,7 +17,11 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
+        acertar: path.resolve(__dirname, "acertar/index.html"),
+        game: path.resolve(__dirname, "game/index.html"),
         programar: path.resolve(__dirname, "eu-vou-programar/index.html"),
+        ranking: path.resolve(__dirname, "ranking/index.html"),
+        sobre: path.resolve(__dirname, "sobre/index.html"),
       },
     },
   },

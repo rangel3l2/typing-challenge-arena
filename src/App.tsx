@@ -10,6 +10,7 @@ import Acertar from "./pages/Acertar";
 import Sobre from "./pages/Sobre";
 import Provisionamento from "./pages/Provisionamento";
 import NotFound from "./pages/NotFound";
+import RouteMetadata from "./components/RouteMetadata";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <RouteMetadata />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/game" element={<Game />} />

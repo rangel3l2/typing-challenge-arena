@@ -248,22 +248,6 @@ const Index = () => {
     <div className="min-h-[100dvh] relative overflow-x-hidden flex flex-col">
       <Suspense fallback={null}><ParticleBackground /></Suspense>
 
-      {/* SEO hidden content */}
-      <header className="sr-only">
-        <nav aria-label="Navegação principal">
-          <ul>
-            <li><a href="/">Início - Eu Vou Jogar</a></li>
-            <li><a href="/acertar">Eu Vou Acertar - Jogo de Matemática</a></li>
-            <li><a href="/ranking">Ranking Global - Jogos Educacionais</a></li>
-            <li><a href="/eu-vou-programar/">Eu Vou Programar - Robótica e OBR</a></li>
-          </ul>
-        </nav>
-      </header>
-      <section className="sr-only" aria-label="Sobre o Eu Vou Jogar">
-        <h2>Jogos Educacionais e Infantis Online Grátis</h2>
-        <p>Eu Vou Jogar é a melhor plataforma de jogos educacionais, jogos educativos e jogos infantis online grátis do Brasil.</p>
-      </section>
-
       {/* ─── NAVBAR ─── */}
       <nav className="relative z-20 flex items-center justify-between px-3 sm:px-4 md:px-8 py-2 sm:py-3">
         <motion.div
