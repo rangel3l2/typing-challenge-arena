@@ -5,6 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import BlockEditor from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
 import { createEmptyBlocks, createExampleBlocks } from "./blocks";
+import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel } from "./obrArena";
 import {
   cloneHardware,
@@ -36,6 +37,7 @@ const BLOCKS_STORAGE_KEY = "eu-vou-programar:ev3-blocks-v2.xml";
 const HARDWARE_STORAGE_KEY = "eu-vou-programar:ev3-hardware";
 const MODE_STORAGE_KEY = "eu-vou-programar:editor-mode-v2";
 const ARENA_STORAGE_KEY = "eu-vou-programar:arena-level";
+const CHALLENGE_STORAGE_KEY = "eu-vou-programar:arena-challenge";
 const DRAFT_UPDATED_STORAGE_KEY = "eu-vou-programar:draft-updated-at";
 const EMPTY_BLOCK_CODE = "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
 
@@ -140,13 +142,16 @@ export default function EuVouProgramar() {
   const [arenaExpanded, setArenaExpanded] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
+  const [challengeIndex, setChallengeIndex] = useState(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [competitionView, setCompetitionView] = useState({
-    remaining: 300,
+    remaining: 90,
     tilePoints: 5,
     challengePoints: 0,
     scoredTileCount: 1,
-    layoutName: "Fácil - Curvas variadas",
+    scoredHazards: [] as string[],
+    collisionCount: 0,
+    layoutName: "Fácil 1 · Parada de precisão",
     lastEvent: "Ladrilho de partida: +5 pontos",
   });
 
@@ -184,6 +189,7 @@ export default function EuVouProgramar() {
       const savedMode = window.localStorage.getItem(MODE_STORAGE_KEY);
       const savedHardware = window.localStorage.getItem(HARDWARE_STORAGE_KEY);
       const savedArena = window.localStorage.getItem(ARENA_STORAGE_KEY);
+      const savedChallenge = Number.parseInt(window.localStorage.getItem(CHALLENGE_STORAGE_KEY) || "0", 10);
       const localUpdatedAt = Date.parse(window.localStorage.getItem(DRAFT_UPDATED_STORAGE_KEY) || "") || 0;
 
       let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
@@ -191,6 +197,7 @@ export default function EuVouProgramar() {
       let nextMode: ProgramMode = isProgramMode(savedMode) ? savedMode : "blocks";
       let nextHardware = cloneHardware(DEFAULT_HARDWARE);
       let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "easy";
+      const nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
 
       if (savedHardware) {
         try {
@@ -223,7 +230,8 @@ export default function EuVouProgramar() {
       setProgramMode(nextMode);
       setEditorTab(nextMode === "code" ? "code" : "blocks");
       setArenaLevel(nextArena);
-      worldRef.current = createWorld(nextHardware, undefined, nextArena);
+      setChallengeIndex(nextChallenge);
+      worldRef.current = createWorld(nextHardware, nextChallenge, nextArena);
       setStorageReady(true);
       setSyncStatus(error ? "offline" : data ? "saved" : "local");
     };
@@ -243,6 +251,7 @@ export default function EuVouProgramar() {
     window.localStorage.setItem(HARDWARE_STORAGE_KEY, JSON.stringify(hardware));
     window.localStorage.setItem(MODE_STORAGE_KEY, programMode);
     window.localStorage.setItem(ARENA_STORAGE_KEY, arenaLevel);
+    window.localStorage.setItem(CHALLENGE_STORAGE_KEY, String(challengeIndex));
     window.localStorage.setItem(DRAFT_UPDATED_STORAGE_KEY, updatedAt);
     setSyncStatus("saving");
 
@@ -269,7 +278,7 @@ export default function EuVouProgramar() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [arenaLevel, code, hardware, programMode, programXml, sessionId, status, storageReady]);
+  }, [arenaLevel, challengeIndex, code, hardware, programMode, programXml, sessionId, status, storageReady]);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -300,7 +309,7 @@ export default function EuVouProgramar() {
             setRunning(false);
             setStatus("success");
             setCelebrating(true);
-            addLog("Rodada concluída: o robô parou por 5 segundos na faixa vermelha.", "success");
+            addLog(world.layout.challenge.successMessage, "success");
           } else if (world.competition.roundOver) {
             runningRef.current = false;
             setRunning(false);
@@ -312,7 +321,7 @@ export default function EuVouProgramar() {
             runningRef.current = false;
             setRunning(false);
             setStatus(world.success ? "success" : "complete");
-            addLog("Programa finalizado com segurança.", "success");
+            addLog(world.success ? world.layout.challenge.successMessage : "O programa terminou antes de concluir o objetivo.", world.success ? "success" : "warning");
           }
         } catch (error) {
           world.robot.leftPower = 0;
@@ -339,6 +348,8 @@ export default function EuVouProgramar() {
           tilePoints: world.competition.tilePoints,
           challengePoints: world.competition.challengePoints,
           scoredTileCount: world.competition.scoredTiles.length,
+          scoredHazards: [...world.competition.scoredHazards],
+          collisionCount: world.competition.collisionCount,
           layoutName: world.layout.name,
           lastEvent: world.competition.lastEvent,
         });
@@ -354,29 +365,46 @@ export default function EuVouProgramar() {
     runningRef.current = false;
     setRunning(false);
     runnerRef.current = null;
-    worldRef.current = createWorld(hardwareRef.current, undefined, arenaLevel);
+    worldRef.current = createWorld(hardwareRef.current, challengeIndex, arenaLevel);
     successHandledRef.current = false;
     setCelebrating(false);
     setStatus("ready");
     if (showLog) {
       setLogs([]);
-      addLog("Nova arena OBR gerada. O percurso mudou e o robô está na partida.");
+      addLog("Desafio reiniciado. O robô voltou à posição de partida.");
     }
-  }, [addLog, arenaLevel]);
+  }, [addLog, arenaLevel, challengeIndex]);
 
   const changeArenaLevel = useCallback((nextLevel: ArenaLevel) => {
     if (nextLevel === arenaLevel) return;
     runningRef.current = false;
     setRunning(false);
     runnerRef.current = null;
-    worldRef.current = createWorld(hardwareRef.current, undefined, nextLevel);
+    worldRef.current = createWorld(hardwareRef.current, 0, nextLevel);
     successHandledRef.current = false;
     setCelebrating(false);
     setStatus("ready");
     setArenaLevel(nextLevel);
+    setChallengeIndex(0);
     setLogs([]);
     addLog(`${ARENA_LEVELS[nextLevel].name}: ${ARENA_LEVELS[nextLevel].description}.`);
   }, [addLog, arenaLevel]);
+
+  const changeArenaChallenge = useCallback((nextIndex: number) => {
+    const normalized = Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, Math.trunc(nextIndex)));
+    if (normalized === challengeIndex) return;
+    runningRef.current = false;
+    setRunning(false);
+    runnerRef.current = null;
+    worldRef.current = createWorld(hardwareRef.current, normalized, arenaLevel);
+    successHandledRef.current = false;
+    setCelebrating(false);
+    setStatus("ready");
+    setChallengeIndex(normalized);
+    setLogs([]);
+    const nextChallenge = getArenaChallenges(arenaLevel)[normalized];
+    addLog(`Desafio ${normalized + 1}: ${nextChallenge.title}. ${nextChallenge.objective}`);
+  }, [addLog, arenaLevel, challengeIndex]);
 
   const runProgram = useCallback(() => {
     if (status === "paused" && runnerRef.current) {
@@ -482,6 +510,11 @@ export default function EuVouProgramar() {
 
   const telemetryUltrasonicPort = SENSOR_PORTS.find((port) => hardware.sensors[port] === "ultrasonic");
   const telemetryUltrasonicMount = telemetryUltrasonicPort ? hardware.sensorMounts[telemetryUltrasonicPort] : null;
+  const challengeOptions = getArenaChallenges(arenaLevel);
+  const activeChallenge = challengeOptions[challengeIndex] ?? challengeOptions[0];
+  const challengeStepsComplete = activeChallenge.requiredHazards.length
+    ? activeChallenge.requiredHazards.every((id) => competitionView.scoredHazards.includes(id))
+    : competitionView.scoredTileCount > 1;
   const profileName = playerName || "Explorador";
   const syncLabels: Record<SyncStatus, string> = {
     loading: "Carregando seu progresso",
@@ -500,9 +533,9 @@ export default function EuVouProgramar() {
         </a>
 
         <div className="lesson-progress" aria-label="Progresso da missão">
-          <span>Treino OBR</span>
-          <div className="progress-track"><i className={status === "success" ? "done" : ""} /></div>
-          <strong>{status === "success" ? "Rodada concluída!" : ARENA_LEVELS[arenaLevel].name}</strong>
+          <span>Desafio {challengeIndex + 1} de {ARENA_CHALLENGE_COUNT}</span>
+          <div className="progress-track"><i className={status === "success" ? "done" : ""} style={{ width: `${status === "success" ? 100 : (challengeIndex + 1) * 10}%` }} /></div>
+          <strong>{status === "success" ? "Objetivo concluído!" : activeChallenge.title}</strong>
         </div>
 
         <nav className="top-actions" aria-label="Ações principais">
@@ -519,24 +552,25 @@ export default function EuVouProgramar() {
 
       <section className={`workspace ${arenaHidden ? "arena-is-hidden" : ""}`}>
         <aside className="mission-card">
-          <span className="eyebrow">Robótica de Resgate 2026</span>
-          <h1>Treine para a <em>OBR!</em></h1>
-          <p>Siga uma linha desconhecida, reconheça os perigos e chegue à sala de resgate de forma autônoma.</p>
+          <span className="eyebrow">{ARENA_LEVELS[arenaLevel].name} · desafio {challengeIndex + 1}/{ARENA_CHALLENGE_COUNT}</span>
+          <h1>{activeChallenge.title}</h1>
+          <p>{activeChallenge.objective}</p>
 
           <div className={`goal-card ${status === "success" ? "is-complete" : ""}`}>
             <span className="goal-icon">★</span>
-            <div><strong>Seu objetivo</strong><small>{status === "success" ? "Rodada concluída!" : "Pare 5 segundos na faixa vermelha"}</small></div>
+            <div><strong>{status === "success" ? "Objetivo concluído" : "Condição de vitória"}</strong><small>{status === "success" ? activeChallenge.successMessage : activeChallenge.goal.label}</small></div>
           </div>
 
           <div className="tip-card">
             <span>💡</span>
-            <p><strong>Dica:</strong> use dois sensores de cor apontados para o chão para corrigir os lados da linha.</p>
+            <p><strong>Dica:</strong> {activeChallenge.hint}</p>
           </div>
 
           <div className="mission-checks">
             <button className={isRobotReady(hardware) ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{isRobotReady(hardware) ? "✓" : "!"}</span> {isRobotReady(hardware) ? "Robô já está montado" : "Complete a montagem"}</button>
-            <div className={competitionView.scoredTileCount > 1 ? "check-done" : ""}><span>{competitionView.scoredTileCount > 1 ? "✓" : "2"}</span> Percorra um novo ladrilho</div>
-            <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Finalize na faixa vermelha</div>
+            <div className={challengeStepsComplete ? "check-done" : ""}><span>{challengeStepsComplete ? "✓" : "2"}</span> {activeChallenge.requiredHazards.length ? `Etapas da pista: ${activeChallenge.requiredHazards.filter((id) => competitionView.scoredHazards.includes(id)).length}/${activeChallenge.requiredHazards.length}` : "Entre no percurso"}</div>
+            <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Conclua a condição de vitória</div>
+            {activeChallenge.maxCollisions !== undefined && <div className={competitionView.collisionCount <= activeChallenge.maxCollisions ? "check-done" : "check-failed"}><span>{competitionView.collisionCount <= activeChallenge.maxCollisions ? "✓" : "×"}</span> Colisões: {competitionView.collisionCount}/{activeChallenge.maxCollisions}</div>}
           </div>
 
           <div className="obr-rule-event"><span>⚑</span><div><strong>Último evento da prova</strong><small>{competitionView.lastEvent}</small></div></div>
@@ -594,7 +628,7 @@ export default function EuVouProgramar() {
 
           <div className="run-bar">
             <span className={`saved-state sync-${syncStatus}`} title={programMode === "blocks" && !blockProgramReady ? "Comece com um bloco de evento e encaixe comandos abaixo dele." : undefined}><i /> {syncLabels[syncStatus]}</span>
-            <button className="reset-button" onClick={() => resetSimulation()}>↻ Nova arena</button>
+            <button className="reset-button" onClick={() => resetSimulation()}>↻ Reiniciar desafio</button>
             {running ? (
               <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
             ) : (
@@ -641,6 +675,17 @@ export default function EuVouProgramar() {
             ))}
           </div>
 
+          <div className="arena-challenge-picker" aria-label="Escolha o objetivo da arena">
+            <button type="button" onClick={() => changeArenaChallenge(challengeIndex - 1)} disabled={challengeIndex === 0} aria-label="Objetivo anterior">‹</button>
+            <label>
+              <span>Objetivo {challengeIndex + 1} de {ARENA_CHALLENGE_COUNT}</span>
+              <select value={challengeIndex} onChange={(event) => changeArenaChallenge(Number(event.target.value))} aria-label={`Objetivo do nível ${ARENA_LEVELS[arenaLevel].short}`}>
+                {challengeOptions.map((challenge, index) => <option key={challenge.title} value={index}>{index + 1}. {challenge.title}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={() => changeArenaChallenge(challengeIndex + 1)} disabled={challengeIndex === ARENA_CHALLENGE_COUNT - 1} aria-label="Próximo objetivo">›</button>
+          </div>
+
           <div className="obr-scoreboard" aria-label="Placar da rodada OBR">
             <div><small>Tempo</small><strong>{Math.floor(competitionView.remaining / 60)}:{String(Math.ceil(competitionView.remaining % 60)).padStart(2, "0")}</strong></div>
             <div><small>Ladrilhos</small><strong>{competitionView.tilePoints} pts</strong></div>
@@ -653,8 +698,8 @@ export default function EuVouProgramar() {
             {celebrating && (
               <div className="success-pop" role="status">
                 <div className="success-stars">★ <span>★</span> ★</div>
-                <strong>Você conseguiu!</strong>
-                <p>O robô completou a chegada conforme a regra da OBR.</p>
+                <strong>{activeChallenge.title} concluído!</strong>
+                <p>{activeChallenge.successMessage}</p>
                 <button onClick={() => { setCelebrating(false); setEditorTab("blocks"); setProgramMode("blocks"); }}>Continuar aprendendo</button>
               </div>
             )}
@@ -708,7 +753,7 @@ export default function EuVouProgramar() {
         <div className="arena-expanded-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setArenaExpanded(false); }}>
           <section className="arena-expanded-dialog" role="dialog" aria-modal="true" aria-labelledby="expanded-arena-title">
             <header>
-              <div><span className={`live-dot ${running ? "pulsing" : ""}`} /><span><strong id="expanded-arena-title">Arena OBR em tela cheia</strong><small>{competitionView.layoutName} · proporção original 960 × 600</small></span></div>
+              <div><span className={`live-dot ${running ? "pulsing" : ""}`} /><span><strong id="expanded-arena-title">{activeChallenge.title}</strong><small>Objetivo {challengeIndex + 1}/{ARENA_CHALLENGE_COUNT} · proporção original 960 × 600</small></span></div>
               <div><b>{competitionView.tilePoints + competitionView.challengePoints} pts</b><button type="button" onClick={() => setArenaExpanded(false)} aria-label="Fechar arena ampliada">×</button></div>
             </header>
             <div className="arena-expanded-stage">
@@ -717,7 +762,7 @@ export default function EuVouProgramar() {
             <footer>
               <span>A arena mantém a mesma proporção em celular, tablet e computador. Pressione Esc para fechar.</span>
               <div className="arena-expanded-controls">
-                <button className="reset-button" onClick={() => resetSimulation()}>↻ Nova arena</button>
+                <button className="reset-button" onClick={() => resetSimulation()}>↻ Reiniciar</button>
                 {running ? (
                   <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
                 ) : (
@@ -733,7 +778,7 @@ export default function EuVouProgramar() {
       {legendOpen && (
         <div className="legend-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLegendOpen(false); }}>
           <section className="legend-dialog" role="dialog" aria-modal="true" aria-labelledby="arena-legend-title">
-            <header><div><span>?</span><div><strong id="arena-legend-title">Legenda do nível {ARENA_LEVELS[arenaLevel].short.toLowerCase()}</strong><small>{ARENA_LEVELS[arenaLevel].description}</small></div></div><button type="button" onClick={() => setLegendOpen(false)} aria-label="Fechar legenda">×</button></header>
+            <header><div><span>?</span><div><strong id="arena-legend-title">Objetivo {challengeIndex + 1}: {activeChallenge.title}</strong><small>{activeChallenge.objective}</small></div></div><button type="button" onClick={() => setLegendOpen(false)} aria-label="Fechar legenda">×</button></header>
             <div className="arena-legend" aria-label="Elementos da arena">
               <div><i className="legend-tile" /><span><b>Ladrilho percorrido</b><small>+5 pontos</small></span></div>
               {arenaLevel === "easy" && <div><i className="legend-curve" /><span><b>Curvas seguidas</b><small>Siga a linha preta</small></span></div>}

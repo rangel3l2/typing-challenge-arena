@@ -62,6 +62,7 @@ export interface CompetitionState {
   challengePoints: number;
   scoredTiles: string[];
   scoredHazards: string[];
+  collisionCount: number;
   lastEvent: string;
   finishStopped: number;
   roundOver: boolean;
@@ -140,9 +141,16 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
       motorPowers: { A: 0, B: 0, C: 0, D: 0 },
       led: "#df9920",
     },
-    obstacles: layout.obstacle ? [{ ...layout.obstacle, color: "#e56d43", sensorColor: "vermelho" }] : [],
+    obstacles: layout.obstacles.map((obstacle) => ({
+      x: obstacle.x,
+      y: obstacle.y,
+      width: obstacle.width,
+      height: obstacle.height,
+      color: obstacle.colour ?? "#e56d43",
+      sensorColor: obstacle.sensorColour ?? "vermelho",
+    })),
     floorZones: [],
-    goal: { x: layout.finishStripe.x + layout.finishStripe.width / 2, y: layout.finishStripe.y + layout.finishStripe.height / 2, radius: 25 },
+    goal: { x: layout.challenge.goal.x, y: layout.challenge.goal.y, radius: layout.challenge.goal.radius },
     bumped: false,
     success: false,
     collisionReported: false,
@@ -156,11 +164,12 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
     competition: {
       level,
       elapsed: 0,
-      remaining: 300,
+      remaining: layout.challenge.timeLimit,
       tilePoints: 5,
       challengePoints: 0,
       scoredTiles: [startTile],
       scoredHazards: [],
+      collisionCount: 0,
       lastEvent: "Ladrilho de partida: +5 pontos",
       finishStopped: 0,
       roundOver: false,
@@ -637,6 +646,8 @@ export function arenaColorAt(world: WorldState, x: number, y: number) {
   if (pointInsideRect(x, y, world.layout.finishStripe)) return "vermelho";
   if (pointInsideRect(x, y, world.layout.silverGate)) return "prata";
   if (pointInsideRect(x, y, world.layout.blackGate)) return "preto";
+  const floorMarker = world.layout.floorMarkers.find((marker) => pointInsideRect(x, y, marker));
+  if (floorMarker) return floorMarker.colour;
   if (world.layout.greenMarkers.some((marker) => pointInsideRect(x, y, marker))) return "verde";
   const rescueColor = rescueAreaColor(world, x, y);
   if (rescueColor) return rescueColor;
@@ -743,8 +754,9 @@ function headingMatches(current: number, required?: number) {
 function updateCompetition(world: WorldState, delta: number) {
   const competition = world.competition;
   if (competition.roundOver) return;
-  competition.elapsed = Math.min(300, competition.elapsed + delta);
-  competition.remaining = Math.max(0, 300 - competition.elapsed);
+  const challenge = world.layout.challenge;
+  competition.elapsed = Math.min(challenge.timeLimit, competition.elapsed + delta);
+  competition.remaining = Math.max(0, challenge.timeLimit - competition.elapsed);
 
   const paths = [world.layout.mainPath, world.layout.exitPath, ...world.layout.branches];
   const distanceFromLine = Math.min(...paths.map((path) => distanceToPath(world.robot, path)));
@@ -758,17 +770,33 @@ function updateCompetition(world: WorldState, delta: number) {
   for (const hazard of world.layout.hazards) {
     if (competition.scoredHazards.includes(hazard.id)) continue;
     if (Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius && headingMatches(world.robot.angle, hazard.requiredHeading)) {
+      if (challenge.requireHazardOrder && challenge.requiredHazards.includes(hazard.id)) {
+        const nextRequired = challenge.requiredHazards.find((id) => !competition.scoredHazards.includes(id));
+        if (nextRequired !== hazard.id) continue;
+      }
       competition.scoredHazards.push(hazard.id);
       competition.challengePoints += hazard.points;
       competition.lastEvent = hazard.points ? `${hazard.label}: +${hazard.points} pontos` : hazard.label;
     }
   }
 
-  const onFinish = circleHitsArenaRect(world.robot.x, world.robot.y, ROBOT_RADIUS * 0.45, world.layout.finishStripe);
+  const challengeGoal = challenge.goal;
+  const onFinish = Math.hypot(world.robot.x - challengeGoal.x, world.robot.y - challengeGoal.y) <= challengeGoal.radius;
   const stopped = Math.abs(world.robot.leftPower) < 0.02 && Math.abs(world.robot.rightPower) < 0.02;
-  competition.finishStopped = onFinish && stopped ? competition.finishStopped + delta : 0;
-  if (competition.finishStopped >= 5 && !world.success) {
-    competition.lastEvent = "Chegada concluída: robô parado por 5 segundos";
+  const headingReady = headingMatches(world.robot.angle, challengeGoal.requiredHeading);
+  const hazardsReady = challenge.requiredHazards.every((id) => competition.scoredHazards.includes(id));
+  const collisionsReady = challenge.maxCollisions === undefined || competition.collisionCount <= challenge.maxCollisions;
+  competition.finishStopped = onFinish && stopped && headingReady && hazardsReady && collisionsReady ? competition.finishStopped + delta : 0;
+  if (onFinish && stopped && !hazardsReady) {
+    const missing = challenge.requiredHazards.filter((id) => !competition.scoredHazards.includes(id)).length;
+    competition.lastEvent = `Objetivo encontrado, mas ainda faltam ${missing} etapa${missing === 1 ? "" : "s"}`;
+  } else if (onFinish && stopped && !headingReady) {
+    competition.lastEvent = "Posição correta, mas a orientação do robô ainda não confere";
+  } else if (onFinish && stopped && !collisionsReady) {
+    competition.lastEvent = "Este desafio exige reiniciar e completar sem colisões";
+  }
+  if (competition.finishStopped >= challengeGoal.holdSeconds && !world.success) {
+    competition.lastEvent = challenge.successMessage;
     competition.roundOver = true;
     world.success = true;
   }
@@ -797,11 +825,12 @@ export function restartRound(world: WorldState) {
   world.competition = {
     level: world.competition.level,
     elapsed: 0,
-    remaining: 300,
+    remaining: world.layout.challenge.timeLimit,
     tilePoints: 5,
     challengePoints: 0,
     scoredTiles: [tileKeyAt(start.x, start.y)],
     scoredHazards: [],
+    collisionCount: 0,
     lastEvent: "Ladrilho de partida: +5 pontos",
     finishStopped: 0,
     roundOver: false,
@@ -826,6 +855,7 @@ export function advanceWorld(world: WorldState, delta: number, emit: (message: s
     world.collisionAngle = linearVelocity < 0 ? nextAngle + Math.PI : nextAngle;
     if (!world.collisionReported) {
       world.collisionReported = true;
+      world.competition.collisionCount += 1;
       emit("O robô encostou em um obstáculo.", "warning");
     }
   } else {
@@ -927,6 +957,24 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
     context.setLineDash([]);
   }
 
+  const markerColours: Record<string, string> = {
+    azul: "#2587d8", amarelo: "#f0be2f", vermelho: "#e23f3f", verde: "#2ea552", prata: "#c7cbd0", preto: "#171a1d",
+  };
+  for (const marker of world.layout.floorMarkers) {
+    context.save();
+    context.fillStyle = markerColours[marker.colour] ?? "#5d6870";
+    context.fillRect(marker.x, marker.y, marker.width, marker.height);
+    context.strokeStyle = "rgba(255,255,255,.75)";
+    context.lineWidth = 1.5;
+    context.strokeRect(marker.x + 2, marker.y + 2, marker.width - 4, marker.height - 4);
+    context.fillStyle = marker.colour === "amarelo" || marker.colour === "prata" ? "#3c4247" : "#fff";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = "900 7px Nunito, sans-serif";
+    context.fillText(marker.label, marker.x + marker.width / 2, marker.y + marker.height / 2);
+    context.restore();
+  }
+
   context.fillStyle = "#1f9a4a";
   for (const marker of world.layout.greenMarkers) context.fillRect(marker.x, marker.y, marker.width, marker.height);
   context.fillStyle = "#c7cbd0";
@@ -1008,6 +1056,22 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   context.strokeStyle = "#69757d";
   context.lineWidth = 2;
   for (const wall of rescueWallRectangles(world.layout)) context.strokeRect(wall.x, wall.y, wall.width, wall.height);
+
+  context.save();
+  context.strokeStyle = "#df9920";
+  context.fillStyle = "rgba(255,241,181,.22)";
+  context.lineWidth = 3;
+  context.setLineDash([7, 5]);
+  context.beginPath();
+  context.arc(world.goal.x, world.goal.y, world.goal.radius + 7, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.setLineDash([]);
+  context.fillStyle = "#9b6511";
+  context.textAlign = "center";
+  context.font = "900 9px Nunito, sans-serif";
+  context.fillText("★ OBJETIVO", world.goal.x, world.goal.y - world.goal.radius - 13);
+  context.restore();
 
   for (const port of SENSOR_PORTS) {
     const kind = world.hardware.sensors[port];
