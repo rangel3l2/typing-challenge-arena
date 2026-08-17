@@ -136,6 +136,7 @@ export default function EuVouProgramar() {
   const [telemetry, setTelemetry] = useState({ left: 0, right: 0, ultrasound: 0, bumped: false });
   const [hardware, setHardware] = useState<HardwareConfig>(() => cloneHardware(DEFAULT_HARDWARE));
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [arenaHidden, setArenaHidden] = useState(false);
   const [arenaExpanded, setArenaExpanded] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
@@ -516,7 +517,7 @@ export default function EuVouProgramar() {
         </nav>
       </header>
 
-      <section className="workspace">
+      <section className={`workspace ${arenaHidden ? "arena-is-hidden" : ""}`}>
         <aside className="mission-card">
           <span className="eyebrow">Robótica de Resgate 2026</span>
           <h1>Treine para a <em>OBR!</em></h1>
@@ -550,7 +551,7 @@ export default function EuVouProgramar() {
               <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => { setEditorTab("code"); setProgramMode("code"); }}><span>🐍</span> robot.py</button>
               <button role="tab" aria-selected={editorTab === "console"} className={editorTab === "console" ? "active" : ""} onClick={() => setEditorTab("console")}><span>›_</span> Saída <i>{logs.length}</i></button>
             </div>
-            <div className="editor-header-actions"><button className="assembly-mini-button" onClick={() => setBuilderOpen(true)}>⚙ Montagem</button><button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button></div>
+            <div className="editor-header-actions"><button className="arena-toggle-button" onClick={() => setArenaHidden((current) => !current)} aria-label={arenaHidden ? "Mostrar arena" : "Ocultar arena"} aria-pressed={arenaHidden}>{arenaHidden ? "▣ Mostrar arena" : "▢ Ocultar arena"}</button><button className="assembly-mini-button" onClick={() => setBuilderOpen(true)}>⚙ Montagem</button><button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button></div>
           </div>
 
           {editorTab === "blocks" ? (
@@ -602,12 +603,13 @@ export default function EuVouProgramar() {
           </div>
         </section>
 
-        <section className="arena-panel" aria-label="Arena do robô">
+        {!arenaHidden && <section className="arena-panel" aria-label="Arena do robô">
           <div className="arena-toolbar">
             <div><span className={`live-dot ${running ? "pulsing" : ""}`} /> Arena OBR <small>{competitionView.layoutName}</small></div>
             <div className="arena-toolbar-actions">
               <button className="expand-arena-button legend-arena-button" type="button" onClick={() => setLegendOpen(true)} aria-label="Abrir legenda da arena"><span>?</span> Legenda</button>
-              <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} aria-label="Abrir arena ampliada"><span>⛶</span> Ampliar</button>
+              <button className="expand-arena-button hide-arena-button" type="button" onClick={() => setArenaHidden(true)} aria-label="Ocultar arena"><span>−</span> Ocultar</button>
+              <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} aria-label="Abrir arena em tela cheia"><span>⛶</span> Tela cheia</button>
               <div className="speed-control" aria-label="Velocidade da simulação">
                 <button onClick={() => changeSpeed(-1)} disabled={speed === 0.5} aria-label="Diminuir velocidade">−</button>
                 <strong>{speed}×</strong>
@@ -685,20 +687,31 @@ export default function EuVouProgramar() {
               })}
             </div>
           </section>
-        </section>
+        </section>}
       </section>
 
       {arenaExpanded && (
         <div className="arena-expanded-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setArenaExpanded(false); }}>
           <section className="arena-expanded-dialog" role="dialog" aria-modal="true" aria-labelledby="expanded-arena-title">
             <header>
-              <div><span className={`live-dot ${running ? "pulsing" : ""}`} /><span><strong id="expanded-arena-title">Arena OBR ampliada</strong><small>{competitionView.layoutName} · proporção original 960 × 600</small></span></div>
+              <div><span className={`live-dot ${running ? "pulsing" : ""}`} /><span><strong id="expanded-arena-title">Arena OBR em tela cheia</strong><small>{competitionView.layoutName} · proporção original 960 × 600</small></span></div>
               <div><b>{competitionView.tilePoints + competitionView.challengePoints} pts</b><button type="button" onClick={() => setArenaExpanded(false)} aria-label="Fechar arena ampliada">×</button></div>
             </header>
             <div className="arena-expanded-stage">
-              <canvas ref={expandedCanvasRef} aria-label="Arena OBR ampliada sem deformação" />
+              <canvas ref={expandedCanvasRef} aria-label="Arena OBR em tela cheia sem deformação" />
             </div>
-            <footer>A arena mantém a mesma proporção em celular, tablet e computador. Pressione Esc para fechar.</footer>
+            <footer>
+              <span>A arena mantém a mesma proporção em celular, tablet e computador. Pressione Esc para fechar.</span>
+              <div className="arena-expanded-controls">
+                <button className="reset-button" onClick={() => resetSimulation()}>↻ Nova arena</button>
+                {running ? (
+                  <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
+                ) : (
+                  <button className="run-button" onClick={runProgram} disabled={programMode === "blocks" && !blockProgramReady}><span>▶</span> {status === "paused" ? "Continuar" : programMode === "blocks" && !blockProgramReady ? "Monte uma pilha" : "Executar código"}</button>
+                )}
+                <button className="hide-expanded-arena-button" type="button" onClick={() => { setArenaExpanded(false); setArenaHidden(true); }}>Ocultar arena</button>
+              </div>
+            </footer>
           </section>
         </div>
       )}

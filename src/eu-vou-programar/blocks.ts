@@ -34,10 +34,14 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
   if (BlocklyModule.Blocks.ev3_start) return;
 
   const motorPorts = ["A", "B", "C", "D"];
-  const movementPorts = ["C + B", "B + C", "A + D", "D + A"];
   const colours = ["vermelho", "verde", "azul", "amarelo", "preto", "branco", "prata", "marrom", "sem cor"];
   const buttons = ["central", "esquerdo", "direito", "para cima", "para baixo", "voltar"];
   const sensorPorts = ["1", "2", "3", "4"];
+
+  BlocklyModule.Extensions.register("ev3_movement_motor_defaults", function (this: Blockly.Block) {
+    this.setFieldValue("B", "LEFT_PORT");
+    this.setFieldValue("C", "RIGHT_PORT");
+  });
 
   const definitions: JsonBlock[] = [
     { type: "ev3_start", message0: "▶ quando o programa iniciar", nextStatement: null, style: "event_blocks", hat: "cap" },
@@ -59,7 +63,13 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
     stack("ev3_move_start", "⚙ iniciar movimento %1", [numberField("STEERING", 0, -100, 100)], "movement_blocks"),
     stack("ev3_move_stop", "⚙ parar de mover", [], "movement_blocks"),
     stack("ev3_move_set_speed", "⚙ definir velocidade de movimento para %1 %%", [numberField("SPEED", 50, -100, 100)], "movement_blocks"),
-    stack("ev3_move_set_motors", "⚙ definir motores de movimento para %1", [dropdown("PORTS", movementPorts)], "movement_blocks"),
+    stack(
+      "ev3_move_set_motors",
+      "⚙ definir motores de movimento para %1 e %2",
+      [dropdown("LEFT_PORT", motorPorts), dropdown("RIGHT_PORT", motorPorts)],
+      "movement_blocks",
+      { extensions: ["ev3_movement_motor_defaults"] },
+    ),
     stack("ev3_move_set_brake", "⚙ definir motores de movimento para %1 ao parar", [dropdown("BRAKE", ["manter a posição", "movimento livre"])], "movement_blocks"),
     stack("ev3_move_steer_speed", "⚙ mover %1 por %2 rotações com velocidade de %3 %%", [numberField("STEERING", 0, -100, 100), numberField("ROTATIONS", 1, 0, 100), numberField("SPEED", 50, -100, 100)], "movement_blocks"),
     stack("ev3_move_tank", "⚙ mover por %1 rotações com velocidade de %2 %3 %%", [numberField("ROTATIONS", 1, 0, 100), numberField("LEFT", 50, -100, 100), numberField("RIGHT", 50, -100, 100)], "movement_blocks"),
@@ -172,7 +182,7 @@ export function createExampleBlocks(example: EV3Example = "avancar") {
     const conditional = `<block type="ev3_if">${condition}<statement name="DO">${movement}</statement>${next(block("ev3_display_write_line", `${field("TEXT", "Sensor conferido!")}${field("LINE", 1)}`))}</block>`;
     return xml(`<block type="ev3_start" x="34" y="32">${next(conditional)}</block>`);
   }
-  const chain = block("ev3_status_light", field("COLOR", "laranja"), block("ev3_move_set_motors", field("PORTS", "C + B"), block("ev3_move_set_speed", field("SPEED", 60), block("ev3_move_direction", `${field("DIRECTION", "a frente")}${field("ROTATIONS", 3)}`, block("ev3_move_stop", "", block("ev3_display_write_line", `${field("TEXT", "Cheguei na estrela!")}${field("LINE", 1)}`))))));
+  const chain = block("ev3_status_light", field("COLOR", "laranja"), block("ev3_move_set_motors", `${field("LEFT_PORT", "B")}${field("RIGHT_PORT", "C")}`, block("ev3_move_set_speed", field("SPEED", 60), block("ev3_move_direction", `${field("DIRECTION", "a frente")}${field("ROTATIONS", 3)}`, block("ev3_move_stop", "", block("ev3_display_write_line", `${field("TEXT", "Cheguei na estrela!")}${field("LINE", 1)}`))))));
   return xml(`<block type="ev3_start" x="34" y="32">${next(chain)}</block>`);
 }
 
@@ -253,8 +263,8 @@ function blockSequence(first: Blockly.Block | null, depth: number): string[] {
 }
 
 function movementLines(left: number, right: number, seconds?: number) {
-  const lines = [`motors.set_power(1, ${left})`, `motors.set_power(2, ${right})`];
-  if (seconds !== undefined) lines.push(`utils.sleep(${seconds})`, "motors.set_power(1, 0)", "motors.set_power(2, 0)");
+  const lines = [`motors.set_power(motor_movimento_esquerdo, ${left})`, `motors.set_power(motor_movimento_direito, ${right})`];
+  if (seconds !== undefined) lines.push(`utils.sleep(${seconds})`, "motors.set_power(motor_movimento_esquerdo, 0)", "motors.set_power(motor_movimento_direito, 0)");
   return lines;
 }
 
@@ -283,7 +293,15 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
   }
   if (["ev3_motor_set_brake", "ev3_motor_reset_degrees"].includes(block.type)) return at([block.type === "ev3_motor_reset_degrees" ? "graus_motor = 0" : `print(${JSON.stringify(`Motor ${f("PORT", "A")}: ${f("BRAKE")}`)})`]);
   if (block.type === "ev3_move_set_speed") return at([`velocidade_movimento = ${n("SPEED", 50)}`]);
-  if (block.type === "ev3_move_set_motors") return at([`print(${JSON.stringify(`Motores de movimento: ${f("PORTS")}`)})`]);
+  if (block.type === "ev3_move_set_motors") {
+    const leftPort = f("LEFT_PORT", "B");
+    const rightPort = f("RIGHT_PORT", "C");
+    return at([
+      `motor_movimento_esquerdo = ${portChannel(leftPort)}`,
+      `motor_movimento_direito = ${portChannel(rightPort)}`,
+      `print(${JSON.stringify(`Motores de movimento: ${leftPort} e ${rightPort}`)})`,
+    ]);
+  }
   if (block.type === "ev3_move_set_brake") return at([`print(${JSON.stringify(`Ao parar: ${f("BRAKE")}`)})`]);
   if (block.type === "ev3_move_stop") return at(movementLines(0, 0));
   if (block.type === "ev3_move_start") {
@@ -330,7 +348,7 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
     const condition = expressionFromBlock(block.getInputTargetBlock("CONDITION"));
     return [...at([`for espera_${depth} in range(100):`]), ...indent(condition.prelude, depth + 1), ...indent([`if not ${condition.expression}:`, "    utils.sleep(0.1)"], depth + 1)];
   }
-  if (block.type === "ev3_stop_stack" || block.type === "ev3_stop_program") return at(["motors.set_power(1, 0)", "motors.set_power(2, 0)", `print(${JSON.stringify(block.type === "ev3_stop_program" ? "Programa encerrado" : "Pilha encerrada")})`]);
+  if (block.type === "ev3_stop_stack" || block.type === "ev3_stop_program") return at(["motors.set_power(motor_movimento_esquerdo, 0)", "motors.set_power(motor_movimento_direito, 0)", `print(${JSON.stringify(block.type === "ev3_stop_program" ? "Programa encerrado" : "Pilha encerrada")})`]);
   if (["ev3_display_image_time", "ev3_display_image", "ev3_display_write_line", "ev3_display_write_position", "ev3_display_clear"].includes(block.type)) {
     const text = block.type.startsWith("ev3_display_image") ? `Imagem: ${f("IMAGE")}` : block.type === "ev3_display_clear" ? "Monitor limpo" : f("TEXT", "EV3");
     const lines = [`print(${JSON.stringify(`▣ ${text}`)})`];
@@ -360,7 +378,8 @@ export function generatePython(workspace: Blockly.Workspace) {
   if (!topBlocks.length) return "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
   const code: string[] = [
     "from sbot import arduino, leds, motors, utils, ev3", "", "# Gerado pelos blocos EV3 em português",
-    "velocidade_motor_A = 75", "velocidade_motor_B = 75", "velocidade_motor_C = 75", "velocidade_motor_D = 75", "velocidade_movimento = 50", "",
+    "velocidade_motor_A = 75", "velocidade_motor_B = 75", "velocidade_motor_C = 75", "velocidade_motor_D = 75", "velocidade_movimento = 50",
+    "motor_movimento_esquerdo = 1", "motor_movimento_direito = 2", "",
   ];
   for (const top of topBlocks) {
     if (top.type === "ev3_event_distance") {

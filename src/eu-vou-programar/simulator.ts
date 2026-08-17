@@ -502,8 +502,13 @@ export function stepRunner(
       if (!world.hardware.motors[port]) emit(`Não há servomotor encaixado na saída ${port}.`, "warning");
       else {
         world.robot.motorPowers[port] = power;
-        if (port === "B") world.robot.leftPower = power;
-        if (port === "C") world.robot.rightPower = power;
+        const movementChannel = node.channel.trim();
+        if (movementChannel === "motor_movimento_esquerdo") world.robot.leftPower = power;
+        else if (movementChannel === "motor_movimento_direito") world.robot.rightPower = power;
+        else {
+          if (port === "B") world.robot.leftPower = power;
+          if (port === "C") world.robot.rightPower = power;
+        }
       }
     } else if (node.kind === "sleep") {
       runner.wait = Math.max(0, Math.min(30, numeric(evaluateExpression(node.seconds, runner.variables))));
