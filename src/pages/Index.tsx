@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin, MessageCircle, User } from "lucide-react";
+import { Users, Zap, Trophy, ArrowRight, Plus, Calculator, Shield, Gift, Globe, Keyboard, MapPin, MessageCircle, User, Bot } from "lucide-react";
 import logoImg from "@/assets/logo.jpeg";
 import heroCharImg from "@/assets/hero-character.webp";
 import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
@@ -172,6 +172,7 @@ const Index = () => {
             <li><a href="/">Início - Eu Vou Jogar</a></li>
             <li><a href="/acertar">Eu Vou Acertar - Jogo de Matemática</a></li>
             <li><a href="/ranking">Ranking Global - Jogos Educacionais</a></li>
+            <li><a href="/eu-vou-programar/">Eu Vou Programar - Robótica e OBR</a></li>
           </ul>
         </nav>
       </header>
@@ -263,7 +264,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="flex gap-[8px] sm:gap-[13px] justify-center"
+              className="flex flex-wrap gap-[8px] sm:gap-[13px] justify-center"
             >
               <button
                 onClick={() => setSelectedGame("digitar")}
@@ -289,6 +290,14 @@ const Index = () => {
                 <MapPin className="w-5 h-5" />
                 Acertar 🎈
               </button>
+              <a
+                href="/eu-vou-programar/"
+                className="flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all glass-card text-muted-foreground hover:text-foreground hover:border-primary/60"
+                aria-label="Abrir Eu Vou Programar"
+              >
+                <Bot className="w-5 h-5 text-primary" />
+                Programar
+              </a>
             </motion.div>
 
             {/* PRIORIDADE 1 — Entrada de Nome (gateway obrigatório) */}
