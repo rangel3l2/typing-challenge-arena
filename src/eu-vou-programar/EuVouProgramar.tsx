@@ -923,7 +923,7 @@ export default function EuVouProgramar() {
               <div><b>{competitionView.tilePoints + competitionView.challengePoints} pts</b><button type="button" onClick={() => setArenaExpanded(false)} aria-label="Fechar arena ampliada">×</button></div>
             </header>
             <div className="arena-expanded-stage">
-              <canvas ref={expandedCanvasRef} aria-label="Arena OBR em tela cheia sem deformação" />
+              <canvas ref={expandedCanvasRef} data-arena-fit="safe" aria-label="Arena OBR completa em tela cheia sem cortes nem deformação" />
             </div>
             <footer>
               <span>A arena mantém a mesma proporção em celular, tablet e computador. Pressione Esc para fechar.</span>

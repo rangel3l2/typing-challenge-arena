@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ARENA_CHALLENGE_COUNT, createOBRLayout, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel } from "./obrArena";
 import { cloneHardware, DEFAULT_HARDWARE } from "./hardware";
-import { advanceWorld, createWorld } from "./simulator";
+import { advanceWorld, createWorld, fitWorldToViewport, WORLD_HEIGHT, WORLD_WIDTH } from "./simulator";
 
 const levels: ArenaLevel[] = ["easy", "medium", "hard"];
 
@@ -19,6 +19,16 @@ function pathLength(path: { x: number; y: number }[]) {
 }
 
 describe("catálogo de objetivos da arena", () => {
+  it.each([[1440, 760], [760, 1024], [360, 560]])("mantém toda a arena visível em uma tela de %d × %d", (width, height) => {
+    const inset = 12;
+    const viewport = fitWorldToViewport(width, height, inset);
+
+    expect(viewport.offsetX).toBeGreaterThanOrEqual(inset - 0.001);
+    expect(viewport.offsetY).toBeGreaterThanOrEqual(inset - 0.001);
+    expect(viewport.offsetX + WORLD_WIDTH * viewport.scale).toBeLessThanOrEqual(width - inset + 0.001);
+    expect(viewport.offsetY + WORLD_HEIGHT * viewport.scale).toBeLessThanOrEqual(height - inset + 0.001);
+  });
+
   it.each(levels)("oferece dez objetivos coerentes no nível %s", (level) => {
     const challenges = getArenaChallenges(level);
     expect(challenges).toHaveLength(ARENA_CHALLENGE_COUNT);

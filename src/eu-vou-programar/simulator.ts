@@ -972,6 +972,18 @@ function drawPath(context: CanvasRenderingContext2D, path: ArenaPoint[]) {
   context.stroke();
 }
 
+export function fitWorldToViewport(viewportWidth: number, viewportHeight: number, requestedInset = 0) {
+  const inset = Math.max(0, Math.min(requestedInset, viewportWidth / 4, viewportHeight / 4));
+  const availableWidth = Math.max(1, viewportWidth - inset * 2);
+  const availableHeight = Math.max(1, viewportHeight - inset * 2);
+  const scale = Math.min(availableWidth / WORLD_WIDTH, availableHeight / WORLD_HEIGHT);
+  return {
+    scale,
+    offsetX: (viewportWidth - WORLD_WIDTH * scale) / 2,
+    offsetY: (viewportHeight - WORLD_HEIGHT * scale) / 2,
+  };
+}
+
 export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -984,9 +996,8 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   }
   const context = canvas.getContext("2d");
   if (!context) return;
-  const scale = Math.min(rect.width / WORLD_WIDTH, rect.height / WORLD_HEIGHT);
-  const offsetX = (rect.width - WORLD_WIDTH * scale) / 2;
-  const offsetY = (rect.height - WORLD_HEIGHT * scale) / 2;
+  const safeInset = canvas.dataset.arenaFit === "safe" ? Math.max(8, Math.min(rect.width, rect.height) * 0.018) : 0;
+  const { scale, offsetX, offsetY } = fitWorldToViewport(rect.width, rect.height, safeInset);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#b9c2c7";
