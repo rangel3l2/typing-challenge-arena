@@ -800,14 +800,27 @@ function updateCompetition(world: WorldState, delta: number) {
     if (challenge.requireHazardOrder && challenge.requiredHazards.includes(hazard.id)) {
       const nextRequired = challenge.requiredHazards.find((id) => !competition.scoredHazards.includes(id));
       if (nextRequired !== hazard.id) {
-        if (hazard.kind === "timed-stop") competition.hazardHoldTimes[hazard.id] = 0;
+        if (hazard.kind === "timed-stop" || hazard.requiredSeconds) competition.hazardHoldTimes[hazard.id] = 0;
         continue;
       }
     }
 
     let reached = false;
     if (hazard.kind === "sensor-gate") {
-      reached = sensorGateDetected(world, hazard.requiredColour ?? "vermelho");
+      const atGate = Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius
+        && sensorGateDetected(world, hazard.requiredColour ?? "vermelho");
+      if (hazard.requiredSeconds) {
+        if (atGate && stopped) {
+          competition.hazardHoldTimes[hazard.id] = (competition.hazardHoldTimes[hazard.id] ?? 0) + delta;
+          const heldSeconds = Math.min(hazard.requiredSeconds, competition.hazardHoldTimes[hazard.id]);
+          competition.lastEvent = `${hazard.label}: ${heldSeconds.toFixed(1)} de ${hazard.requiredSeconds} s`;
+          reached = competition.hazardHoldTimes[hazard.id] >= hazard.requiredSeconds;
+        } else {
+          competition.hazardHoldTimes[hazard.id] = 0;
+        }
+      } else {
+        reached = atGate;
+      }
     } else if (hazard.kind === "timed-stop") {
       const onStation = Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius
         && headingMatches(world.robot.angle, hazard.requiredHeading)

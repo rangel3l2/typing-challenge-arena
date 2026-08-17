@@ -14,6 +14,10 @@ function distanceToSegment(point: { x: number; y: number }, start: { x: number; 
   return Math.hypot(point.x - (start.x + amount * dx), point.y - (start.y + amount * dy));
 }
 
+function pathLength(path: { x: number; y: number }[]) {
+  return path.slice(1).reduce((total, point, index) => total + Math.hypot(point.x - path[index].x, point.y - path[index].y), 0);
+}
+
 describe("catálogo de objetivos da arena", () => {
   it.each(levels)("oferece dez objetivos coerentes no nível %s", (level) => {
     const challenges = getArenaChallenges(level);
@@ -144,5 +148,43 @@ describe("catálogo de objetivos da arena", () => {
     expect(world.success).toBe(false);
     advanceWorld(world, 0.2, () => undefined);
     expect(world.success).toBe(true);
+  });
+
+  it("reúne as dificuldades anteriores em um percurso final fácil mais longo", () => {
+    const layout = createOBRLayout(9, "easy");
+    const totalPathLength = pathLength(layout.mainPath) + pathLength(layout.exitPath);
+
+    expect(totalPathLength).toBeGreaterThan(1150);
+    expect(layout.start.angle).toBe(Math.PI);
+    expect(layout.gaps.length).toBeGreaterThan(0);
+    expect(layout.obstacles.length).toBeGreaterThanOrEqual(6);
+    expect(layout.hazards.filter((hazard) => hazard.kind === "timed-stop")).toHaveLength(4);
+    expect(layout.hazards.filter((hazard) => hazard.kind === "sensor-gate")).toHaveLength(2);
+    expect(layout.challenge.requiredHazards).toHaveLength(12);
+    expect(layout.challenge.requireHazardOrder).toBe(true);
+    expect(layout.challenge.maxCollisions).toBe(0);
+    expect(layout.challenge.maxVictimTouches).toBe(0);
+    expect(layout.challenge.goal.requiredColour).toBe("vermelho");
+    expect(layout.challenge.goal.holdSeconds).toBe(4);
+  });
+
+  it("só valida cada portal da missão final quando o robô está no portal correspondente", () => {
+    const portalHardware = cloneHardware(DEFAULT_HARDWARE);
+    portalHardware.sensors["1"] = "color";
+    portalHardware.sensorMounts["1"] = { position: "left", aim: "outward" };
+    portalHardware.sensors["2"] = "color";
+    portalHardware.sensorMounts["2"] = { position: "right", aim: "outward" };
+    const world = createWorld(portalHardware, 9, "easy");
+    world.competition.scoredHazards = ["e10-align", "e10-blue-stop", "e10-decision", "e10-gap", "e10-parking-stop", "e10-line-portal", "e10-line-end-check"];
+
+    world.robot.x = 480;
+    world.robot.y = 330;
+    advanceWorld(world, 1.1, () => undefined);
+    expect(world.competition.scoredHazards).not.toContain("e10-offline-portal");
+
+    world.robot.x = 570;
+    world.robot.y = 260;
+    advanceWorld(world, 1.1, () => undefined);
+    expect(world.competition.scoredHazards).toContain("e10-offline-portal");
   });
 });
