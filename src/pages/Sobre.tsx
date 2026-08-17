@@ -379,11 +379,11 @@ const Sobre = () => {
           </p>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Dados armazenados localmente</h3>
+            <h3 className="text-lg font-semibold text-foreground">Dados e armazenamento funcional</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Este site <strong>não utiliza cookies de rastreamento, analytics de terceiros nem publicidade</strong>. 
-              Os únicos dados armazenados ficam no <strong>armazenamento local do seu navegador (localStorage)</strong>, 
-              exclusivamente no seu dispositivo, e são estritamente necessários para o funcionamento dos jogos:
+              Este site <strong>não utiliza cookies de rastreamento, analytics de terceiros nem publicidade</strong>.
+              Para manter o mesmo perfil nos jogos, usamos o armazenamento local do navegador e cookies temporários de sessão.
+              A identidade, as pontuações e o progresso sincronizado também ficam no banco de dados do próprio sistema:
             </p>
             <ul className="space-y-3 text-muted-foreground">
               <li className="flex items-start gap-2">
@@ -398,21 +398,26 @@ const Sobre = () => {
                 <span className="text-primary font-bold mt-0.5">•</span>
                 <span><strong>Nome do jogador</strong> — o apelido que você escolhe ao jogar, exibido nos rankings e salas multiplayer.</span>
               </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span><strong>Progresso de programação</strong> — blocos, código Python, montagem do robô, arena selecionada e pontuação do simulador.</span>
+              </li>
             </ul>
           </div>
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Seus direitos</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Você pode apagar todos os seus dados a qualquer momento limpando os dados do site nas configurações do seu navegador. 
-              Como os dados ficam armazenados localmente no seu dispositivo, <strong>você tem total controle sobre eles</strong>.
+              Você pode remover o rascunho local e os cookies temporários limpando os dados do site nas configurações do navegador.
+              Os registros sincronizados podem ser recuperados com o código do jogador; para solicitar a exclusão desses registros,
+              entre em contato pelo e-mail informado abaixo.
             </p>
           </div>
 
           <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              <strong>Resumo:</strong> Não coletamos dados pessoais sensíveis, não compartilhamos informações com terceiros 
-              e não utilizamos tecnologias de rastreamento. Os dados armazenados são funcionais e essenciais para a experiência do jogo.
+              <strong>Resumo:</strong> Não coletamos dados pessoais sensíveis e não utilizamos tecnologias de rastreamento.
+              O armazenamento utilizado é funcional e serve para identificar o jogador, recuperar o progresso e manter a experiência dos jogos.
             </p>
           </div>
         </motion.section>

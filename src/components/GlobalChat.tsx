@@ -8,6 +8,7 @@ import { Send, Smile, Image, Mic, Square, X, Globe, Flag, Share2, Users } from "
 import { EmojiPicker, StickerPicker, AudioPlayer, type Sticker } from "@/components/ChatPickers";
 import { filterProfanity, containsProfanity, tokenizeMessage, getReportedIds, reportMessage } from "@/lib/chatModeration";
 import { toast } from "sonner";
+import { writePlayerSession } from "@/lib/playerSession";
 
 interface GlobalMessage {
   id: string;
@@ -223,7 +224,7 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
         toast.error("Digite seu nome primeiro");
         return;
       }
-      localStorage.setItem("typerace_player_name", playerName.trim());
+      writePlayerSession("playerName", playerName.trim());
       toast.info("Crie sua sala — depois é só voltar e compartilhar! 🎮");
       navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
       return;
@@ -248,7 +249,7 @@ const GlobalChat = ({ sessionId, playerName, playerCode, playerColor, compact = 
       return;
     }
     const name = playerName.trim();
-    localStorage.setItem("typerace_player_name", name);
+    writePlayerSession("playerName", name);
     navigate(`/game`, { state: { playerName: name, roomCode: code.toUpperCase(), action: "join" } });
   };
 

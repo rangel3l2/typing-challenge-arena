@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import SkyBackground from "@/components/SkyBackground";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
+import { readPlayerSession, writePlayerSession } from "@/lib/playerSession";
 import {
   generatePhaseBalloons,
   generateAnswerBalloons,
@@ -74,7 +75,7 @@ const Acertar = () => {
   const [escapedAnswers, setEscapedAnswers] = useState<Set<number>>(new Set());
   
   // Player identity
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
+  const [playerName, setPlayerName] = useState(() => readPlayerSession("playerName") || "");
   const [currentPlayerCode, setCurrentPlayerCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -160,7 +161,7 @@ const Acertar = () => {
       const restored = await restoreFromTag(value);
       if (restored) {
         setPlayerName(restored.name);
-        localStorage.setItem("typerace_player_name", restored.name);
+        writePlayerSession("playerName", restored.name);
       }
     }
   };
@@ -170,7 +171,7 @@ const Acertar = () => {
     setScoreSaved(true);
 
     const name = playerName.trim();
-    localStorage.setItem("typerace_player_name", name);
+    writePlayerSession("playerName", name);
     const code = await registerIdentity(name);
     setCurrentPlayerCode(code);
 
@@ -201,7 +202,7 @@ const Acertar = () => {
 
   const startGame = async () => {
     if (!playerName.trim()) return;
-    localStorage.setItem("typerace_player_name", playerName.trim());
+    writePlayerSession("playerName", playerName.trim());
     const code = await registerIdentity(playerName.trim());
     setCurrentPlayerCode(code);
 

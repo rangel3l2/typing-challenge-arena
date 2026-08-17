@@ -8,6 +8,7 @@ import heroPlaceholder from "@/assets/hero-character-placeholder.webp";
 import { useSession } from "@/hooks/useSession";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import GlobalChat from "@/components/GlobalChat";
+import { readPlayerSession, writePlayerSession } from "@/lib/playerSession";
 const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,7 +32,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { sessionId, playerCode, registerIdentity, restoreFromTag } = useSession();
   const [rightTab, setRightTab] = useState<"hero" | "chat">("hero");
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem("typerace_player_name") || "");
+  const [playerName, setPlayerName] = useState(() => readPlayerSession("playerName") || "");
   const [joinCode, setJoinCode] = useState("");
   const [mode, setMode] = useState<"name" | "idle" | "choose" | "create" | "join">("name");
   const [selectedGame, setSelectedGame] = useState<"digitar" | "acertar">("digitar");
@@ -43,8 +44,8 @@ const Index = () => {
 
   // Real-time online + fallback to monthly unique players
   useEffect(() => {
-    const sessionId = localStorage.getItem("typerace_session_id") || crypto.randomUUID();
-    localStorage.setItem("typerace_session_id", sessionId);
+    const sessionId = readPlayerSession("sessionId") || crypto.randomUUID();
+    writePlayerSession("sessionId", sessionId);
 
     let monthlyCount = 0;
 
@@ -120,9 +121,9 @@ const Index = () => {
           .eq("player_code", match[1])
           .maybeSingle();
         if (data) {
-          localStorage.setItem("typerace_session_id", data.session_id);
-          localStorage.setItem("typerace_player_code", data.player_code);
-          localStorage.setItem("typerace_player_name", data.name);
+          writePlayerSession("sessionId", data.session_id);
+          writePlayerSession("playerCode", data.player_code);
+          writePlayerSession("playerName", data.name);
           setPlayerName(data.name);
           setRestoreMode(false);
           setRestoreInput("");
@@ -133,7 +134,7 @@ const Index = () => {
     } else {
       // Normal name confirm
       if (playerName.trim()) {
-        localStorage.setItem("typerace_player_name", playerName.trim());
+        writePlayerSession("playerName", playerName.trim());
         // Register identity so the player has a code for the global chat
         if (!playerCode) registerIdentity(playerName.trim()).catch(() => {});
         setMode(mode === "name" ? "idle" : "name");
@@ -143,23 +144,23 @@ const Index = () => {
 
   const handleSolo = () => {
     if (!playerName.trim()) return;
-    localStorage.setItem("typerace_player_name", playerName.trim());
+    writePlayerSession("playerName", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), action: "solo" } });
   };
 
   const handleCreate = () => {
     if (!playerName.trim()) return;
-    localStorage.setItem("typerace_player_name", playerName.trim());
+    writePlayerSession("playerName", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), action: "create" } });
   };
 
   const handleJoin = () => {
     if (!playerName.trim() || !joinCode.trim()) return;
-    localStorage.setItem("typerace_player_name", playerName.trim());
+    writePlayerSession("playerName", playerName.trim());
     navigate("/game", { state: { playerName: playerName.trim(), roomCode: joinCode.trim().toUpperCase(), action: "join" } });
   };
 
-  const savedCode = localStorage.getItem("typerace_player_code");
+  const savedCode = playerCode || readPlayerSession("playerCode");
 
   return (
     <div className="min-h-[100dvh] relative overflow-x-hidden flex flex-col">

@@ -104,6 +104,45 @@ export type Database = {
         }
         Relationships: []
       }
+      programming_progress: {
+        Row: {
+          arena_level: string
+          challenge_points: number
+          hardware_config: Json
+          program_mode: string
+          program_xml: string
+          python_code: string
+          session_id: string
+          tile_points: number
+          total_points: number
+          updated_at: string
+        }
+        Insert: {
+          arena_level?: string
+          challenge_points?: number
+          hardware_config?: Json
+          program_mode?: string
+          program_xml?: string
+          python_code?: string
+          session_id: string
+          tile_points?: number
+          total_points?: number
+          updated_at?: string
+        }
+        Update: {
+          arena_level?: string
+          challenge_points?: number
+          hardware_config?: Json
+          program_mode?: string
+          program_xml?: string
+          python_code?: string
+          session_id?: string
+          tile_points?: number
+          total_points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       room_messages: {
         Row: {
           audio_url: string | null

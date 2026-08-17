@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "@/hooks/useSession";
+import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import BlockEditor from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
 import { createEmptyBlocks, createExampleBlocks } from "./blocks";
@@ -32,6 +35,8 @@ const STORAGE_KEY = "eu-vou-programar:robot-v2.py";
 const BLOCKS_STORAGE_KEY = "eu-vou-programar:ev3-blocks-v2.xml";
 const HARDWARE_STORAGE_KEY = "eu-vou-programar:ev3-hardware";
 const MODE_STORAGE_KEY = "eu-vou-programar:editor-mode-v2";
+const ARENA_STORAGE_KEY = "eu-vou-programar:arena-level";
+const DRAFT_UPDATED_STORAGE_KEY = "eu-vou-programar:draft-updated-at";
 const EMPTY_BLOCK_CODE = "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
 
 const examples = {
@@ -79,6 +84,7 @@ motors.set_power(2, 0)`,
 type Status = "ready" | "running" | "paused" | "complete" | "success" | "error";
 type EditorTab = "blocks" | "code" | "console";
 type ProgramMode = "blocks" | "code";
+type SyncStatus = "loading" | "local" | "saving" | "saved" | "offline";
 
 const ARENA_LEVELS: Record<ArenaLevel, { name: string; short: string; description: string }> = {
   easy: { name: "Nível fácil", short: "Fácil", description: "Linha preta com muitas curvas" },
@@ -95,7 +101,16 @@ const statusLabels: Record<Status, string> = {
   error: "Revise o código",
 };
 
+function isArenaLevel(value: unknown): value is ArenaLevel {
+  return value === "easy" || value === "medium" || value === "hard";
+}
+
+function isProgramMode(value: unknown): value is ProgramMode {
+  return value === "blocks" || value === "code";
+}
+
 export default function EuVouProgramar() {
+  const { sessionId, playerCode, playerName } = useSession();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const expandedCanvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<WorldState>(createWorld());
@@ -124,6 +139,7 @@ export default function EuVouProgramar() {
   const [arenaExpanded, setArenaExpanded] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [competitionView, setCompetitionView] = useState({
     remaining: 300,
     tilePoints: 5,
@@ -156,57 +172,103 @@ export default function EuVouProgramar() {
   }, [arenaExpanded, legendOpen]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+
+    const hydrateProgress = async () => {
+      setStorageReady(false);
+      setSyncStatus("loading");
+
       const savedBlocks = window.localStorage.getItem(BLOCKS_STORAGE_KEY);
-      const saved = window.localStorage.getItem(STORAGE_KEY);
+      const savedCode = window.localStorage.getItem(STORAGE_KEY);
       const savedMode = window.localStorage.getItem(MODE_STORAGE_KEY);
       const savedHardware = window.localStorage.getItem(HARDWARE_STORAGE_KEY);
+      const savedArena = window.localStorage.getItem(ARENA_STORAGE_KEY);
+      const localUpdatedAt = Date.parse(window.localStorage.getItem(DRAFT_UPDATED_STORAGE_KEY) || "") || 0;
+
+      let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
+      let nextCode = savedCode || EMPTY_BLOCK_CODE;
+      let nextMode: ProgramMode = isProgramMode(savedMode) ? savedMode : "blocks";
+      let nextHardware = cloneHardware(DEFAULT_HARDWARE);
+      let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "easy";
+
       if (savedHardware) {
         try {
-          const nextHardware = normalizeHardware(JSON.parse(savedHardware));
-          hardwareRef.current = nextHardware;
-          setHardware(nextHardware);
-          worldRef.current = createWorld(nextHardware);
+          nextHardware = normalizeHardware(JSON.parse(savedHardware));
         } catch {
           window.localStorage.removeItem(HARDWARE_STORAGE_KEY);
         }
       }
-      if (savedBlocks?.startsWith("<xml")) {
-        setProgramXml(savedBlocks);
+
+      const { data, error } = await supabase
+        .from("programming_progress")
+        .select("program_xml, python_code, hardware_config, arena_level, program_mode, updated_at")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (data && Date.parse(data.updated_at) > localUpdatedAt) {
+        if (data.program_xml.startsWith("<xml")) nextBlocks = data.program_xml;
+        nextCode = data.python_code || EMPTY_BLOCK_CODE;
+        nextHardware = normalizeHardware(data.hardware_config as unknown as HardwareConfig);
+        if (isArenaLevel(data.arena_level)) nextArena = data.arena_level;
+        if (isProgramMode(data.program_mode)) nextMode = data.program_mode;
       }
-      if (saved) setCode(saved);
-      if (savedMode === "code" && saved) {
-        setCode(saved);
-        setEditorTab("code");
-        setProgramMode("code");
-      }
+
+      hardwareRef.current = nextHardware;
+      setHardware(nextHardware);
+      setProgramXml(nextBlocks);
+      setCode(nextCode);
+      setProgramMode(nextMode);
+      setEditorTab(nextMode === "code" ? "code" : "blocks");
+      setArenaLevel(nextArena);
+      worldRef.current = createWorld(nextHardware, undefined, nextArena);
       setStorageReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+      setSyncStatus(error ? "offline" : data ? "saved" : "local");
+    };
+
+    void hydrateProgress();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!storageReady) return;
-    const timer = window.setTimeout(() => window.localStorage.setItem(STORAGE_KEY, code), 250);
-    return () => window.clearTimeout(timer);
-  }, [code, storageReady]);
 
-  useEffect(() => {
-    if (!storageReady) return;
-    const timer = window.setTimeout(() => window.localStorage.setItem(BLOCKS_STORAGE_KEY, programXml), 250);
-    return () => window.clearTimeout(timer);
-  }, [programXml, storageReady]);
-
-  useEffect(() => {
-    if (!storageReady) return;
-    const timer = window.setTimeout(() => window.localStorage.setItem(HARDWARE_STORAGE_KEY, JSON.stringify(hardware)), 250);
-    return () => window.clearTimeout(timer);
-  }, [hardware, storageReady]);
-
-  useEffect(() => {
-    if (!storageReady) return;
+    const updatedAt = new Date().toISOString();
+    window.localStorage.setItem(STORAGE_KEY, code);
+    window.localStorage.setItem(BLOCKS_STORAGE_KEY, programXml);
+    window.localStorage.setItem(HARDWARE_STORAGE_KEY, JSON.stringify(hardware));
     window.localStorage.setItem(MODE_STORAGE_KEY, programMode);
-  }, [programMode, storageReady]);
+    window.localStorage.setItem(ARENA_STORAGE_KEY, arenaLevel);
+    window.localStorage.setItem(DRAFT_UPDATED_STORAGE_KEY, updatedAt);
+    setSyncStatus("saving");
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const competition = worldRef.current.competition;
+      const { error } = await supabase.from("programming_progress").upsert({
+        session_id: sessionId,
+        program_xml: programXml,
+        python_code: code,
+        hardware_config: hardware as unknown as Json,
+        arena_level: arenaLevel,
+        program_mode: programMode,
+        tile_points: competition.tilePoints,
+        challenge_points: competition.challengePoints,
+        total_points: competition.tilePoints + competition.challengePoints,
+        updated_at: updatedAt,
+      });
+
+      if (!cancelled) setSyncStatus(error ? "offline" : "saved");
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [arenaLevel, code, hardware, programMode, programXml, sessionId, status, storageReady]);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -419,6 +481,14 @@ export default function EuVouProgramar() {
 
   const telemetryUltrasonicPort = SENSOR_PORTS.find((port) => hardware.sensors[port] === "ultrasonic");
   const telemetryUltrasonicMount = telemetryUltrasonicPort ? hardware.sensorMounts[telemetryUltrasonicPort] : null;
+  const profileName = playerName || "Explorador";
+  const syncLabels: Record<SyncStatus, string> = {
+    loading: "Carregando seu progresso",
+    local: "Rascunho temporário pronto",
+    saving: "Salvando progresso…",
+    saved: "Progresso salvo na nuvem",
+    offline: "Rascunho salvo neste navegador",
+  };
 
   return (
     <main className={`app-shell ${builderOpen ? "builder-is-open" : ""}`}>
@@ -437,7 +507,9 @@ export default function EuVouProgramar() {
         <nav className="top-actions" aria-label="Ações principais">
           <button className="assembly-top-button" onClick={() => setBuilderOpen(true)}><span>⚙</span> Montar robô</button>
           <button className="icon-button" onClick={() => setCommandsOpen(true)} aria-label="Abrir ajuda">?</button>
-          <button className="profile-button" aria-label="Perfil Explorador"><span>★</span> Explorador</button>
+          <a className="profile-button" href="/" aria-label={`Perfil ${profileName}`} title="Usa o mesmo perfil dos outros jogos">
+            <span>★</span> {profileName}{playerCode && <small>#{playerCode}</small>}
+          </a>
         </nav>
       </header>
 
@@ -517,7 +589,7 @@ export default function EuVouProgramar() {
           )}
 
           <div className="run-bar">
-            <span className={`saved-state ${programMode === "blocks" && !blockProgramReady ? "needs-blocks" : ""}`}><i /> {programMode === "blocks" ? (blockProgramReady ? "Blocos conectados ao Python" : "Comece com um bloco de evento") : "Executando o código Python"}</span>
+            <span className={`saved-state sync-${syncStatus}`} title={programMode === "blocks" && !blockProgramReady ? "Comece com um bloco de evento e encaixe comandos abaixo dele." : undefined}><i /> {syncLabels[syncStatus]}</span>
             <button className="reset-button" onClick={() => resetSimulation()}>↻ Nova arena</button>
             {running ? (
               <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
