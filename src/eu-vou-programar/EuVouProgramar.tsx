@@ -505,6 +505,9 @@ export default function EuVouProgramar() {
         </div>
 
         <nav className="top-actions" aria-label="Ações principais">
+          <a className="back-home-button" href="/" aria-label="Voltar ao módulo Eu Vou Jogar">
+            <span aria-hidden="true">←</span><b>Eu Vou Jogar</b>
+          </a>
           <button className="assembly-top-button" onClick={() => setBuilderOpen(true)}><span>⚙</span> Montar robô</button>
           <button className="icon-button" onClick={() => setCommandsOpen(true)} aria-label="Abrir ajuda">?</button>
           <a className="profile-button" href="/" aria-label={`Perfil ${profileName}`} title="Usa o mesmo perfil dos outros jogos">
