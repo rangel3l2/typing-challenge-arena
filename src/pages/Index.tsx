@@ -11,6 +11,7 @@ import GlobalChat from "@/components/GlobalChat";
 import { readPlayerSession, writePlayerSession } from "@/lib/playerSession";
 const ParticleBackground = lazy(() => import("@/components/ParticleBackground"));
 import { supabase } from "@/integrations/supabase/client";
+import { aggregateProgrammingScores } from "@/lib/programmingRanking";
 
 const HeroImage = ({ className }: { className?: string }) => {
   const [loaded, setLoaded] = useState(false);
@@ -41,6 +42,11 @@ const Index = () => {
   const [restoreInput, setRestoreInput] = useState("");
   const [displayCount, setDisplayCount] = useState(0);
   const [isLiveOnline, setIsLiveOnline] = useState(false);
+  const [champions, setChampions] = useState({
+    digitar: null as { name: string; result: string } | null,
+    acertar: null as { name: string; result: string } | null,
+    programar: null as { name: string; result: string } | null,
+  });
 
   // Real-time online + fallback to monthly unique players
   useEffect(() => {
@@ -87,6 +93,71 @@ const Index = () => {
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChampions = async () => {
+      const [typingResult, acertarResult, programmingResult, programmingProgressResult] = await Promise.all([
+        supabase
+          .from("round_results")
+          .select("wpm, room_players!inner(name)")
+          .order("wpm", { ascending: false })
+          .limit(1),
+        supabase
+          .from("acertar_scores")
+          .select("player_name, score")
+          .order("score", { ascending: false })
+          .limit(1),
+        supabase
+          .from("programming_scores")
+          .select("player_name, player_code, score, arena_level, challenge_number"),
+        supabase
+          .from("programming_progress")
+          .select("session_id, total_points")
+          .gt("total_points", 0)
+          .order("total_points", { ascending: false })
+          .limit(1),
+      ]);
+      if (cancelled) return;
+
+      const typingTop = typingResult.data?.[0] as any;
+      const acertarTop = acertarResult.data?.[0];
+      let programmingTop = programmingResult.data
+        ? aggregateProgrammingScores(programmingResult.data).sort((left, right) => right.totalScore - left.totalScore)[0]
+        : undefined;
+
+      if (!programmingTop && programmingProgressResult.data?.[0]) {
+        const legacyTop = programmingProgressResult.data[0];
+        const { data: identity } = await supabase
+          .from("player_identities")
+          .select("name, player_code")
+          .eq("session_id", legacyTop.session_id)
+          .maybeSingle();
+        if (identity) {
+          programmingTop = {
+            playerName: identity.name,
+            playerCode: identity.player_code,
+            totalScore: legacyTop.total_points,
+            bestScore: legacyTop.total_points,
+            challengesCompleted: 0,
+          };
+        }
+      }
+      if (cancelled) return;
+
+      setChampions({
+        digitar: typingTop ? { name: typingTop.room_players.name, result: `${typingTop.wpm} WPM` } : null,
+        acertar: acertarTop ? { name: acertarTop.player_name, result: `${acertarTop.score} pts` } : null,
+        programar: programmingTop ? { name: programmingTop.playerName, result: `${programmingTop.totalScore} pts` } : null,
+      });
+    };
+
+    void loadChampions();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -520,10 +591,14 @@ const Index = () => {
                     { icon: <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Multiplayer" },
                     { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Rankings" },
                   ]
-                : [
+                : selectedGame === "acertar" ? [
                     { icon: <Calculator className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Matemática" },
                     { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Agilidade" },
                     { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "6 Fases" },
+                  ] : [
+                    { icon: <Bot className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Robótica" },
+                    { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "30 desafios" },
+                    { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Ranking próprio" },
                   ]
               ).map((pill) => (
                 <span key={pill.text} className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-muted/40 text-muted-foreground/80 text-[11px] sm:text-xs font-body">
@@ -545,6 +620,46 @@ const Index = () => {
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
               Ranking Global
             </motion.button>
+
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="w-full glass-card p-3 sm:p-4"
+              aria-labelledby="home-trophies-title"
+            >
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p id="home-trophies-title" className="font-display font-bold text-sm text-foreground">🏆 Campeões de cada jogo</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Cada módulo possui sua própria disputa.</p>
+                </div>
+                <button onClick={() => navigate("/ranking")} className="text-[10px] sm:text-xs font-bold text-primary hover:underline">Ver todos</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  { key: "digitar" as const, icon: "⌨️", label: "Eu Vou Digitar" },
+                  { key: "acertar" as const, icon: "🎈", label: "Eu Vou Acertar" },
+                  { key: "programar" as const, icon: "🤖", label: "Eu Vou Programar" },
+                ]).map((game) => {
+                  const champion = champions[game.key];
+                  return (
+                    <button
+                      key={game.key}
+                      onClick={() => navigate(`/ranking?tab=${game.key}`)}
+                      className="flex items-center gap-2 rounded-xl bg-muted/55 px-3 py-2 text-left hover:bg-muted transition-colors"
+                    >
+                      <span className="text-lg" aria-hidden="true">{game.icon}</span>
+                      <span className="min-w-0">
+                        <b className="block truncate text-[10px] text-foreground">{game.label}</b>
+                        <small className="block truncate text-[9px] text-muted-foreground">
+                          {champion ? `${champion.name} · ${champion.result}` : "Seja o primeiro campeão"}
+                        </small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.section>
           </div>
 
           {/* RIGHT COLUMN - Tabbed: Personagem | Chat Global (desktop only) */}

@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Award, Home, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { aggregateProgrammingScores } from "@/lib/programmingRanking";
+import type { ProgrammingRankingScore } from "@/lib/programmingRanking";
 
 interface TypingScore {
   playerName: string;
@@ -28,12 +30,13 @@ const rankIcons = [
   <Award className="w-6 h-6 text-game-orange" />,
 ];
 
-type Tab = "digitar" | "acertar";
+type Tab = "digitar" | "acertar" | "programar";
 
 const Ranking = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get("tab") as Tab) || "digitar";
+  const requestedTab = searchParams.get("tab");
+  const initialTab: Tab = requestedTab === "acertar" || requestedTab === "programar" ? requestedTab : "digitar";
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Typing state
@@ -46,9 +49,15 @@ const Ranking = () => {
   const [acertarLoading, setAcertarLoading] = useState(true);
   const [acertarSortBy, setAcertarSortBy] = useState<"bestScore" | "bestPhase" | "totalGames">("bestScore");
 
+  // Programar state
+  const [programmingScores, setProgrammingScores] = useState<ProgrammingRankingScore[]>([]);
+  const [programmingLoading, setProgrammingLoading] = useState(true);
+  const [programmingSortBy, setProgrammingSortBy] = useState<"totalScore" | "bestScore" | "challengesCompleted">("totalScore");
+
   useEffect(() => {
     fetchTypingRanking();
     fetchAcertarRanking();
+    fetchProgrammingRanking();
   }, []);
 
   const handleTabChange = (newTab: Tab) => {
@@ -155,8 +164,46 @@ const Ranking = () => {
     setAcertarLoading(false);
   };
 
+  const fetchProgrammingRanking = async () => {
+    setProgrammingLoading(true);
+    const [scoresResult, progressResult, identitiesResult] = await Promise.all([
+      supabase
+        .from("programming_scores")
+        .select("player_name, player_code, score, arena_level, challenge_number")
+        .order("score", { ascending: false }),
+      supabase
+        .from("programming_progress")
+        .select("session_id, total_points")
+        .gt("total_points", 0)
+        .order("total_points", { ascending: false }),
+      supabase
+        .from("player_identities")
+        .select("session_id, name, player_code"),
+    ]);
+
+    const ranking = scoresResult.data ? aggregateProgrammingScores(scoresResult.data) : [];
+    const rankedCodes = new Set(ranking.map((score) => score.playerCode));
+    const identities = new Map((identitiesResult.data ?? []).map((identity) => [identity.session_id, identity]));
+
+    for (const progress of progressResult.data ?? []) {
+      const identity = identities.get(progress.session_id);
+      if (!identity || rankedCodes.has(identity.player_code)) continue;
+      ranking.push({
+        playerName: identity.name,
+        playerCode: identity.player_code,
+        totalScore: progress.total_points,
+        bestScore: progress.total_points,
+        challengesCompleted: 0,
+      });
+    }
+
+    setProgrammingScores(ranking);
+    setProgrammingLoading(false);
+  };
+
   const sortedTyping = [...typingScores].sort((a, b) => b[typingSortBy] - a[typingSortBy]);
   const sortedAcertar = [...acertarScores].sort((a, b) => b[acertarSortBy] - a[acertarSortBy]);
+  const sortedProgramming = [...programmingScores].sort((a, b) => b[programmingSortBy] - a[programmingSortBy]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -181,7 +228,7 @@ const Ranking = () => {
         </motion.div>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-2 mb-6">
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
           <button
             onClick={() => handleTabChange("digitar")}
             className={`px-5 py-2.5 rounded-xl font-display font-bold text-sm transition-all ${
@@ -201,6 +248,16 @@ const Ranking = () => {
             }`}
           >
             🎈 Eu Vou Acertar
+          </button>
+          <button
+            onClick={() => handleTabChange("programar")}
+            className={`px-5 py-2.5 rounded-xl font-display font-bold text-sm transition-all ${
+              tab === "programar"
+                ? "bg-primary text-primary-foreground glow-primary"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🤖 Eu Vou Programar
           </button>
         </div>
 
@@ -343,6 +400,80 @@ const Ranking = () => {
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Fase</p>
                         <p className="font-display font-bold text-lg text-foreground">{score.bestPhase}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ====== PROGRAMAR TAB ====== */}
+        {tab === "programar" && (
+          <>
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              {[
+                { key: "totalScore" as const, label: "Pontuação Total" },
+                { key: "challengesCompleted" as const, label: "Mais Desafios" },
+                { key: "bestScore" as const, label: "Melhor Desafio" },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setProgrammingSortBy(opt.key)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-body font-semibold transition-colors ${
+                    programmingSortBy === opt.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {programmingLoading ? (
+              <div className="flex justify-center py-20">
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : sortedProgramming.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground font-body text-lg">Nenhuma missão concluída ainda.</p>
+                <p className="text-muted-foreground/60 font-body text-sm mt-2">Conclua um desafio do Eu Vou Programar para conquistar seu primeiro troféu!</p>
+              </div>
+            ) : (
+              <div className="w-full max-w-2xl mx-auto space-y-3">
+                {sortedProgramming.map((score, index) => (
+                  <motion.div
+                    key={`${score.playerCode}-${index}`}
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.08 }}
+                    className={`glass-card p-4 flex items-center gap-4 ${index === 0 ? "glow-accent border-accent/30" : ""}`}
+                  >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted shrink-0">
+                      {index < 3 ? rankIcons[index] : <span className="font-display font-bold text-muted-foreground">{index + 1}</span>}
+                    </div>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/20 text-primary font-display font-bold shrink-0">
+                      {score.playerName[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-body font-bold text-foreground truncate">{score.playerName}</p>
+                      <p className="text-xs text-muted-foreground">#{score.playerCode} · {score.challengesCompleted} desafio{score.challengesCompleted !== 1 ? "s" : ""}</p>
+                    </div>
+                    <div className="flex items-center gap-6 shrink-0">
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="font-display font-bold text-lg text-primary">{score.totalScore}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Melhor</p>
+                        <p className="font-display font-bold text-lg text-foreground">{score.bestScore}</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground">Missões</p>
+                        <p className="font-display font-bold text-lg text-foreground">{score.challengesCompleted}/30</p>
                       </div>
                     </div>
                   </motion.div>

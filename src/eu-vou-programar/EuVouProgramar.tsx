@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -120,7 +121,7 @@ function hasChallengeHardware(config: HardwareConfig, requirement: OBRChallenge[
 }
 
 export default function EuVouProgramar() {
-  const { sessionId, playerCode, playerName } = useSession();
+  const { sessionId, playerCode, playerName, registerIdentity } = useSession();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const expandedCanvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<WorldState>(createWorld());
@@ -130,6 +131,7 @@ export default function EuVouProgramar() {
   const logCounterRef = useRef(0);
   const successHandledRef = useRef(false);
   const hardwareRef = useRef<HardwareConfig>(cloneHardware(DEFAULT_HARDWARE));
+  const bestProgressScoreRef = useRef({ tilePoints: 0, challengePoints: 0, totalPoints: 0 });
 
   const [programXml, setProgramXml] = useState(() => createEmptyBlocks());
   const [code, setCode] = useState(EMPTY_BLOCK_CODE);
@@ -152,6 +154,9 @@ export default function EuVouProgramar() {
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
   const [challengeIndex, setChallengeIndex] = useState(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
+  const [identityName, setIdentityName] = useState(playerName || "");
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identityError, setIdentityError] = useState("");
   const [competitionView, setCompetitionView] = useState({
     remaining: 90,
     tilePoints: 5,
@@ -171,6 +176,29 @@ export default function EuVouProgramar() {
   }, []);
 
   useEffect(() => {
+    if (playerName) setIdentityName(playerName);
+  }, [playerName]);
+
+  const handleIdentitySubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = identityName.trim();
+    if (name.length < 2) {
+      setIdentityError("Digite um nome com pelo menos 2 caracteres.");
+      return;
+    }
+
+    setIdentitySaving(true);
+    setIdentityError("");
+    try {
+      await registerIdentity(name);
+    } catch {
+      setIdentityError("Não foi possível registrar agora. Verifique sua conexão e tente novamente.");
+    } finally {
+      setIdentitySaving(false);
+    }
+  }, [identityName, registerIdentity]);
+
+  useEffect(() => {
     if (!arenaExpanded && !legendOpen) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -187,11 +215,17 @@ export default function EuVouProgramar() {
   }, [arenaExpanded, legendOpen]);
 
   useEffect(() => {
+    if (!playerName?.trim()) {
+      setStorageReady(false);
+      return;
+    }
+
     let cancelled = false;
 
     const hydrateProgress = async () => {
       setStorageReady(false);
       setSyncStatus("loading");
+      bestProgressScoreRef.current = { tilePoints: 0, challengePoints: 0, totalPoints: 0 };
 
       const savedBlocks = window.localStorage.getItem(BLOCKS_STORAGE_KEY);
       const savedCode = window.localStorage.getItem(STORAGE_KEY);
@@ -218,7 +252,7 @@ export default function EuVouProgramar() {
 
       const { data, error } = await supabase
         .from("programming_progress")
-        .select("program_xml, python_code, hardware_config, arena_level, program_mode, updated_at")
+        .select("program_xml, python_code, hardware_config, arena_level, program_mode, tile_points, challenge_points, total_points, updated_at")
         .eq("session_id", sessionId)
         .maybeSingle();
 
@@ -230,6 +264,13 @@ export default function EuVouProgramar() {
         nextHardware = normalizeHardware(data.hardware_config as unknown as HardwareConfig);
         if (isArenaLevel(data.arena_level)) nextArena = data.arena_level;
         if (isProgramMode(data.program_mode)) nextMode = data.program_mode;
+      }
+      if (data) {
+        bestProgressScoreRef.current = {
+          tilePoints: data.tile_points,
+          challengePoints: data.challenge_points,
+          totalPoints: data.total_points,
+        };
       }
 
       hardwareRef.current = nextHardware;
@@ -249,7 +290,7 @@ export default function EuVouProgramar() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [playerName, sessionId]);
 
   useEffect(() => {
     if (!storageReady) return;
@@ -267,6 +308,15 @@ export default function EuVouProgramar() {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       const competition = worldRef.current.competition;
+      const currentTotal = competition.tilePoints + competition.challengePoints;
+      if (status === "success" && currentTotal >= bestProgressScoreRef.current.totalPoints) {
+        bestProgressScoreRef.current = {
+          tilePoints: competition.tilePoints,
+          challengePoints: competition.challengePoints,
+          totalPoints: currentTotal,
+        };
+      }
+      const bestScore = bestProgressScoreRef.current;
       const { error } = await supabase.from("programming_progress").upsert({
         session_id: sessionId,
         program_xml: programXml,
@@ -274,9 +324,9 @@ export default function EuVouProgramar() {
         hardware_config: hardware as unknown as Json,
         arena_level: arenaLevel,
         program_mode: programMode,
-        tile_points: competition.tilePoints,
-        challenge_points: competition.challengePoints,
-        total_points: competition.tilePoints + competition.challengePoints,
+        tile_points: bestScore.tilePoints,
+        challenge_points: bestScore.challengePoints,
+        total_points: bestScore.totalPoints,
         updated_at: updatedAt,
       });
 
@@ -293,7 +343,53 @@ export default function EuVouProgramar() {
     speedRef.current = speed;
   }, [speed]);
 
+  const saveProgrammingScore = useCallback(async (world: WorldState) => {
+    const name = playerName?.trim();
+    if (!name) return;
+
+    const score = world.competition.tilePoints + world.competition.challengePoints;
+    const level = world.layout.level;
+    const challengeNumber = world.layout.challenge.number;
+    const tilePoints = world.competition.tilePoints;
+    const challengePoints = world.competition.challengePoints;
+    const elapsedSeconds = world.competition.elapsed;
+
+    try {
+      const code = playerCode || await registerIdentity(name);
+      const { data: previous } = await supabase
+        .from("programming_scores")
+        .select("score, elapsed_seconds")
+        .eq("session_id", sessionId)
+        .eq("arena_level", level)
+        .eq("challenge_number", challengeNumber)
+        .maybeSingle();
+
+      const isBetter = !previous
+        || score > previous.score
+        || (score === previous.score && elapsedSeconds < previous.elapsed_seconds);
+      if (!isBetter) return;
+
+      await supabase.from("programming_scores").upsert({
+        session_id: sessionId,
+        player_name: name,
+        player_code: code,
+        arena_level: level,
+        challenge_number: challengeNumber,
+        score,
+        tile_points: tilePoints,
+        challenge_points: challengePoints,
+        elapsed_seconds: elapsedSeconds,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: "session_id,arena_level,challenge_number" });
+
+    } catch {
+      // O progresso geral continua salvo em programming_progress como fallback.
+    }
+  }, [playerCode, playerName, registerIdentity, sessionId]);
+
   useEffect(() => {
+    if (!playerName?.trim()) return;
+
     let animationFrame = 0;
     let previous = performance.now();
     let telemetryAt = 0;
@@ -319,6 +415,7 @@ export default function EuVouProgramar() {
             setStatus("success");
             setCelebrating(true);
             addLog(world.layout.challenge.successMessage, "success");
+            void saveProgrammingScore(world);
           } else if (world.competition.roundOver) {
             runningRef.current = false;
             setRunning(false);
@@ -369,7 +466,7 @@ export default function EuVouProgramar() {
 
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [addLog]);
+  }, [addLog, playerName, saveProgrammingScore]);
 
   const resetSimulation = useCallback((showLog = true) => {
     runningRef.current = false;
@@ -545,6 +642,58 @@ export default function EuVouProgramar() {
     saved: "Progresso salvo na nuvem",
     offline: "Rascunho salvo neste navegador",
   };
+
+  if (!playerName?.trim()) {
+    return (
+      <main className="programming-identity-shell">
+        <a className="identity-brand" href="/" aria-label="Voltar ao início do Eu Vou Jogar">
+          <span className="brand-mark">EV</span>
+          <span><strong>Eu Vou</strong><b>Programar</b></span>
+        </a>
+
+        <section className="programming-identity-card" aria-labelledby="programming-identity-title">
+          <div className="identity-robot" aria-hidden="true">⚙</div>
+          <span className="identity-eyebrow">Antes de começar</span>
+          <h1 id="programming-identity-title">Como devemos chamar você?</h1>
+          <p>Seu nome identifica seu progresso, suas pontuações e seus troféus no ranking do Eu Vou Programar.</p>
+
+          <form onSubmit={handleIdentitySubmit}>
+            <label htmlFor="programming-player-name">Seu nome ou apelido</label>
+            <div className="identity-input-row">
+              <input
+                id="programming-player-name"
+                type="text"
+                value={identityName}
+                onChange={(event) => {
+                  setIdentityName(event.target.value);
+                  if (identityError) setIdentityError("");
+                }}
+                placeholder="Digite seu nome..."
+                autoComplete="name"
+                autoFocus
+                maxLength={30}
+                disabled={identitySaving}
+                aria-describedby="programming-identity-help"
+              />
+              <button type="submit" disabled={identitySaving || identityName.trim().length < 2}>
+                {identitySaving ? "Salvando…" : "Entrar"}<span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <small id="programming-identity-help">O mesmo perfil será usado nos outros jogos do Eu Vou Jogar.</small>
+            {identityError && <div className="identity-error" role="alert">{identityError}</div>}
+          </form>
+
+          <div className="identity-benefits" aria-label="Benefícios do perfil">
+            <span><b>★</b> Pontuação salva</span>
+            <span><b>🏆</b> Ranking por jogo</span>
+            <span><b>↻</b> Progresso recuperável</span>
+          </div>
+        </section>
+
+        <a className="identity-back-link" href="/">← Voltar ao Eu Vou Jogar</a>
+      </main>
+    );
+  }
 
   return (
     <main className={`app-shell ${builderOpen ? "builder-is-open" : ""}`}>

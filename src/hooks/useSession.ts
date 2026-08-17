@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreatePlayerSessionId, readPlayerSession, writePlayerSession } from "@/lib/playerSession";
 
@@ -22,7 +22,7 @@ export function useSession() {
   }, [playerCode, playerName, sessionId]);
 
   // Register identity when we have a name and no code yet
-  const registerIdentity = async (name: string): Promise<string> => {
+  const registerIdentity = useCallback(async (name: string): Promise<string> => {
     // Check if session already has a code
     const { data: existing } = await supabase
       .from("player_identities")
@@ -62,10 +62,10 @@ export function useSession() {
     setPlayerCode(code);
     setPlayerName(name);
     return code;
-  };
+  }, [sessionId]);
 
   // Restore session from a player tag like "Name#123456"
-  const restoreFromTag = async (tag: string): Promise<{ sessionId: string; name: string } | null> => {
+  const restoreFromTag = useCallback(async (tag: string): Promise<{ sessionId: string; name: string } | null> => {
     const match = tag.match(/^(.+)#(\d{6})$/);
     if (!match) return null;
 
@@ -86,7 +86,7 @@ export function useSession() {
     setPlayerCode(code);
     setPlayerName(data.name);
     return { sessionId: data.session_id, name: data.name };
-  };
+  }, []);
 
   return { sessionId, playerCode, playerName, registerIdentity, restoreFromTag };
 }
