@@ -152,6 +152,10 @@ export function normalizeHardware(value: unknown): HardwareConfig {
 }
 
 export function isRobotReady(config: HardwareConfig) {
+  return MOTOR_PORTS.filter((port) => config.motors[port]).length >= 2;
+}
+
+export function isRobotComplete(config: HardwareConfig) {
   return MOTOR_PORTS.every((port) => config.motors[port]) && SENSOR_PORTS.every((port) => config.sensors[port]);
 }
 

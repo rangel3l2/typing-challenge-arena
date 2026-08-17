@@ -9,6 +9,7 @@ import {
   EMPTY_HARDWARE,
   hardwareCount,
   HardwareConfig,
+  isRobotComplete,
   isRobotReady,
   MOTOR_DEFINITIONS,
   MOTOR_PORTS,
@@ -73,6 +74,7 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
   const [selected, setSelected] = useState<PieceSelection | null>(null);
   const [sensorPlacement, setSensorPlacement] = useState<SensorPlacement | null>(null);
   const ready = isRobotReady(config);
+  const complete = isRobotComplete(config);
   const pieceCount = hardwareCount(config);
 
   const placeMotor = (port: MotorPort, piece: PieceSelection | null) => {
@@ -144,7 +146,10 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
         </div>
         <div className={`builder-readiness ${ready ? "ready" : "incomplete"}`}>
           <span>{ready ? "✓" : pieceCount}</span>
-          <div><strong>{ready ? "Robô pronto" : `${pieceCount} de 8 peças`}</strong><small>{ready ? "Pode começar a programar" : "Complete os encaixes"}</small></div>
+          <div>
+            <strong>{complete ? "Robô completo" : ready ? "Pronto para movimentar" : `${pieceCount} peça${pieceCount === 1 ? "" : "s"} conectada${pieceCount === 1 ? "" : "s"}`}</strong>
+            <small>{complete ? "Todas as funções disponíveis" : ready ? "Dois motores bastam; sensores são opcionais" : "Cada peça libera apenas a sua própria função"}</small>
+          </div>
         </div>
       </div>
 
@@ -278,7 +283,7 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
           </div>
           <div className="builder-actions">
             <button type="button" className="clear-robot-button" onClick={() => { onChange(cloneHardware(EMPTY_HARDWARE)); setSelected(null); }}>Desmontar tudo</button>
-            <button type="button" className="program-robot-button" onClick={onProgram}>{ready ? "Ir para os blocos" : "Programar assim mesmo"}<span>→</span></button>
+            <button type="button" className="program-robot-button" onClick={onProgram}>Ir para os blocos<span>→</span></button>
           </div>
         </aside>
       </div>

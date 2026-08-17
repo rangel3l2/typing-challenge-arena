@@ -522,16 +522,6 @@ export default function EuVouProgramar() {
       return;
     }
 
-    if (!hasChallengeHardware(hardwareRef.current, worldRef.current.layout.challenge.hardwareRequirement)) {
-      runningRef.current = false;
-      setRunning(false);
-      setStatus("error");
-      setLogs([]);
-      addLog("Este desafio precisa de dois sensores de cor: um na lateral esquerda e outro na direita, ambos olhando para fora.", "warning");
-      setBuilderOpen(true);
-      return;
-    }
-
     if (programMode === "blocks" && !blockProgramReady) {
       runningRef.current = false;
       setRunning(false);
@@ -550,6 +540,9 @@ export default function EuVouProgramar() {
       setCelebrating(false);
       setLogs([]);
       addLog("Código carregado. Iniciando a rodada OBR de 5 minutos…");
+      if (!hasChallengeHardware(hardwareRef.current, worldRef.current.layout.challenge.hardwareRequirement)) {
+        addLog("O código será executado com a montagem atual. Para concluir este desafio, ainda serão necessários dois sensores de cor laterais olhando para fora.", "warning");
+      }
       runningRef.current = true;
       setRunning(true);
       setStatus("running");
@@ -603,7 +596,7 @@ export default function EuVouProgramar() {
     setCelebrating(false);
     setStatus("ready");
     setLogs([]);
-    addLog(isRobotReady(normalized) ? "Robô completo e pronto para programar." : "Montagem atualizada. Confira as peças antes de executar.", isRobotReady(normalized) ? "success" : "warning");
+    addLog(isRobotReady(normalized) ? "Dois motores conectados: o robô já pode se movimentar." : "Montagem atualizada. Cada peça conectada já pode cumprir a sua própria função.", isRobotReady(normalized) ? "success" : "info");
   };
 
   const loadExample = (name: keyof typeof examples) => {
@@ -738,7 +731,7 @@ export default function EuVouProgramar() {
           </div>
 
           <div className="mission-checks">
-            <button className={missionHardwareReady ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{missionHardwareReady ? "✓" : "!"}</span> {activeChallenge.hardwareRequirement === "dual-outward-colour" ? challengeHardwareReady ? "Sensores laterais configurados" : "Monte 2 sensores de cor laterais" : isRobotReady(hardware) ? "Robô já está montado" : "Complete a montagem"}</button>
+            <button className={missionHardwareReady ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{missionHardwareReady ? "✓" : "!"}</span> {activeChallenge.hardwareRequirement === "dual-outward-colour" ? challengeHardwareReady ? "Sensores laterais configurados" : "Sensores laterais recomendados para concluir" : isRobotReady(hardware) ? "Dois motores: movimento liberado" : "Adicione apenas as peças que o código usar"}</button>
             <div className={challengeStepsComplete ? "check-done" : ""}><span>{challengeStepsComplete ? "✓" : "2"}</span> {activeChallenge.requiredHazards.length ? `Etapas da pista: ${activeChallenge.requiredHazards.filter((id) => competitionView.scoredHazards.includes(id)).length}/${activeChallenge.requiredHazards.length}` : "Entre no percurso"}</div>
             <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Conclua a condição de vitória</div>
             {activeChallenge.maxCollisions !== undefined && <div className={competitionView.collisionCount <= activeChallenge.maxCollisions ? "check-done" : "check-failed"}><span>{competitionView.collisionCount <= activeChallenge.maxCollisions ? "✓" : "×"}</span> Colisões: {competitionView.collisionCount}/{activeChallenge.maxCollisions}</div>}

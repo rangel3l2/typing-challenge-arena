@@ -1,6 +1,7 @@
 import * as Blockly from "blockly";
 import { describe, expect, it } from "vitest";
 import { generatePython, registerEV3Blocks } from "./blocks";
+import { cloneHardware, EMPTY_HARDWARE, isRobotComplete, isRobotReady } from "./hardware";
 import { createRunner, createWorld, parseProgram, stepRunner } from "./simulator";
 
 registerEV3Blocks(Blockly);
@@ -56,5 +57,35 @@ utils.sleep(1)
     expect(world.robot.motorPowers.D).toBe(0.7);
     expect(world.robot.leftPower).toBe(0.4);
     expect(world.robot.rightPower).toBe(0.7);
+  });
+
+  it("permite movimentar somente com os motores B e C instalados", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.B = "large";
+    hardware.motors.C = "large";
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram(`
+motor_movimento_esquerdo = 1
+motor_movimento_direito = 2
+motors.set_power(motor_movimento_esquerdo, 0.5)
+motors.set_power(motor_movimento_direito, 0.5)
+utils.sleep(1)
+`));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.leftPower).toBe(0.5);
+    expect(world.robot.rightPower).toBe(0.5);
+  });
+});
+
+describe("prontidão funcional da montagem", () => {
+  it("considera dois motores suficientes sem exigir sensores", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.B = "large";
+    hardware.motors.C = "large";
+
+    expect(isRobotReady(hardware)).toBe(true);
+    expect(isRobotComplete(hardware)).toBe(false);
   });
 });
