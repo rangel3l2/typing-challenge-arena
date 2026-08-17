@@ -4,6 +4,14 @@ import type { ArenaLevel } from "./obrArena";
 
 const levels: ArenaLevel[] = ["easy", "medium", "hard"];
 
+function distanceToSegment(point: { x: number; y: number }, start: { x: number; y: number }, end: { x: number; y: number }) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const amount = lengthSquared ? Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)) : 0;
+  return Math.hypot(point.x - (start.x + amount * dx), point.y - (start.y + amount * dy));
+}
+
 describe("catálogo de objetivos da arena", () => {
   it.each(levels)("oferece dez objetivos coerentes no nível %s", (level) => {
     const challenges = getArenaChallenges(level);
@@ -34,5 +42,17 @@ describe("catálogo de objetivos da arena", () => {
     const second = createOBRLayout(0, "easy");
     expect(second.mainPath[0].x).toBe(70);
     expect(second.challenge.requiredHazards).not.toContain("alterado");
+  });
+
+  it("faz os desafios fáceis 2, 3 e 4 exigirem estratégias diferentes de seguir linha", () => {
+    const decision = createOBRLayout(1, "easy");
+    const openField = createOBRLayout(2, "easy");
+    const offTrack = createOBRLayout(3, "easy");
+    expect(decision.branches.length).toBeGreaterThan(0);
+    expect(decision.challenge.requireHazardOrder).toBe(true);
+    expect(openField.gaps.some((gap) => gap.width > 200 && gap.height > 150)).toBe(true);
+    const targetDistance = Math.min(...offTrack.mainPath.slice(1).map((point, index) => distanceToSegment(offTrack.challenge.goal, offTrack.mainPath[index], point)));
+    expect(targetDistance).toBeGreaterThan(100);
+    expect(offTrack.challenge.requiredHazards).toHaveLength(1);
   });
 });
