@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ARENA_CHALLENGE_COUNT, createOBRLayout, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel } from "./obrArena";
+import { cloneHardware, DEFAULT_HARDWARE } from "./hardware";
+import { advanceWorld, createWorld } from "./simulator";
 
 const levels: ArenaLevel[] = ["easy", "medium", "hard"];
 
@@ -54,5 +56,24 @@ describe("catálogo de objetivos da arena", () => {
     const targetDistance = Math.min(...offTrack.mainPath.slice(1).map((point, index) => distanceToSegment(offTrack.challenge.goal, offTrack.mainPath[index], point)));
     expect(targetDistance).toBeGreaterThan(100);
     expect(offTrack.challenge.requiredHazards).toHaveLength(1);
+  });
+
+  it("só confirma o portal quando dois sensores de cor laterais enxergam vermelho", () => {
+    const incompleteWorld = createWorld(DEFAULT_HARDWARE, 4, "easy");
+    incompleteWorld.robot.x = 525;
+    incompleteWorld.robot.y = 500;
+    advanceWorld(incompleteWorld, 0.1, () => undefined);
+    expect(incompleteWorld.competition.scoredHazards).not.toContain("e5-portal");
+
+    const portalHardware = cloneHardware(DEFAULT_HARDWARE);
+    portalHardware.sensors["1"] = "color";
+    portalHardware.sensorMounts["1"] = { position: "left", aim: "outward" };
+    portalHardware.sensors["2"] = "color";
+    portalHardware.sensorMounts["2"] = { position: "right", aim: "outward" };
+    const completeWorld = createWorld(portalHardware, 4, "easy");
+    completeWorld.robot.x = 525;
+    completeWorld.robot.y = 500;
+    advanceWorld(completeWorld, 0.1, () => undefined);
+    expect(completeWorld.competition.scoredHazards).toContain("e5-portal");
   });
 });

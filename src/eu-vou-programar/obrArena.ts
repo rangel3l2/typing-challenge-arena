@@ -2,7 +2,7 @@ export interface ArenaPoint { x: number; y: number }
 export interface ArenaRect { x: number; y: number; width: number; height: number }
 
 export type ArenaLevel = "easy" | "medium" | "hard";
-export type OBRHazardKind = "gap" | "bump" | "ramp" | "intersection" | "obstacle" | "passage" | "checkpoint";
+export type OBRHazardKind = "gap" | "bump" | "ramp" | "intersection" | "obstacle" | "passage" | "checkpoint" | "sensor-gate";
 export type GreenRule = "left" | "right" | "straight" | "dead-end";
 export type ArenaMarkerColour = "azul" | "amarelo" | "vermelho" | "verde" | "prata" | "preto";
 
@@ -11,13 +11,14 @@ export interface OBRFloorMarker extends ArenaRect { id: string; label: string; c
 export interface OBRArenaObstacle extends ArenaRect { colour?: string; sensorColour?: string }
 export interface OBRHazard {
   id: string; kind: OBRHazardKind; label: string; points: number; x: number; y: number; radius: number;
-  requiredHeading?: number; rect?: ArenaRect;
+  requiredHeading?: number; requiredColour?: ArenaMarkerColour; rect?: ArenaRect;
 }
 export interface OBRStart extends ArenaPoint { angle: number }
 export interface OBRChallengeGoal extends ArenaPoint { radius: number; holdSeconds: number; label: string; requiredHeading?: number }
 export interface OBRChallenge {
   number: number; title: string; objective: string; hint: string; successMessage: string;
   requiredHazards: string[]; requireHazardOrder?: boolean; maxCollisions?: number; timeLimit: number; goal: OBRChallengeGoal;
+  hardwareRequirement?: "dual-outward-colour";
 }
 export interface OBRLayout {
   id: string; name: string; level: ArenaLevel; challenge: OBRChallenge; mainPath: ArenaPoint[]; exitPath: ArenaPoint[];
@@ -42,6 +43,7 @@ const finishGoal = (holdSeconds = 5) => goal(678, 510, `Pare ${holdSeconds} segu
 const m = (id: string, label: string, colour: ArenaMarkerColour, x: number, y: number, width = 28, height = 30): OBRFloorMarker => ({ id, label, colour, x: x - width / 2, y: y - height / 2, width, height });
 const h = (id: string, label: string, x: number, y: number, points = 10, requiredHeading?: number): OBRHazard => ({ id, kind: "checkpoint", label, points, x, y, radius: 28, requiredHeading });
 const ev = (id: string, kind: OBRHazardKind, label: string, x: number, y: number, points = 10, requiredHeading?: number, rect?: ArenaRect): OBRHazard => ({ id, kind, label, points, x, y, radius: kind === "obstacle" ? 42 : 30, requiredHeading, rect });
+const sensorGate = (id: string, label: string, x: number, y: number, colour: ArenaMarkerColour = "vermelho"): OBRHazard => ({ id, kind: "sensor-gate", label, points: 20, x, y, radius: 40, requiredColour: colour });
 const leftGreen = (id: string, x: number, y: number): OBRGreenMarker => ({ id, rule: "left", x: x - 17, y: y - 17, width: 13, height: 13 });
 const rightGreen = (id: string, x: number, y: number): OBRGreenMarker => ({ id, rule: "right", x: x + 4, y: y + 4, width: 13, height: 13 });
 
@@ -49,7 +51,7 @@ interface LayoutOptions {
   branches?: ArenaPoint[][]; gaps?: ArenaRect[]; floorMarkers?: OBRFloorMarker[]; greenMarkers?: OBRGreenMarker[];
   hazards?: OBRHazard[]; obstacles?: OBRArenaObstacle[]; start?: OBRStart; exitPath?: ArenaPoint[];
   requiredHazards?: string[]; requireHazardOrder?: boolean; maxCollisions?: number; timeLimit?: number;
-  goal?: OBRChallengeGoal; successMessage?: string;
+  goal?: OBRChallengeGoal; successMessage?: string; hardwareRequirement?: "dual-outward-colour";
 }
 
 function makeLayout(level: ArenaLevel, number: number, title: string, objective: string, hint: string, mainPath: ArenaPoint[], options: LayoutOptions = {}): OBRLayout {
@@ -60,6 +62,7 @@ function makeLayout(level: ArenaLevel, number: number, title: string, objective:
       number, title, objective, hint, successMessage: options.successMessage ?? `${title} concluído!`,
       requiredHazards: options.requiredHazards ?? [], requireHazardOrder: options.requireHazardOrder,
       maxCollisions: options.maxCollisions, timeLimit: options.timeLimit ?? 300, goal: options.goal ?? finishGoal(),
+      hardwareRequirement: options.hardwareRequirement,
     },
     mainPath, exitPath: options.exitPath ?? common.exitPath, branches: options.branches ?? [], gaps: options.gaps ?? [],
     floorMarkers: options.floorMarkers ?? [], greenMarkers: options.greenMarkers ?? [], hazards: options.hazards ?? [],
@@ -77,15 +80,15 @@ const easyLayouts: OBRLayout[] = [
   makeLayout("easy", 3, "Travessia em campo aberto", "Siga a linha até a faixa prateada, atravesse a grande área branca na diagonal e reencontre a pista na faixa azul.", "Quando a linha acabar, memorize o ângulo e a distância com giroscópio e rotações; procurar preto girando não aponta para a saída.",
     [{x:70,y:500},{x:220,y:500},{x:450,y:350},{x:620,y:350}],
     { gaps:[{x:210,y:320,width:265,height:205}], floorMarkers:[m("e3-silver","PARTA","prata",205,500,40,32),m("e3-blue","ACHE","azul",490,350,38,32),m("e3-red","FIM","vermelho",620,350,32,36)], hazards:[h("e3-launch","Entrada do campo aberto",205,500),h("e3-rejoin","Linha reencontrada",490,350)], requiredHazards:["e3-launch","e3-rejoin"], requireHazardOrder:true, goal:goal(620,350,"Atravesse o branco, reencontre a linha e pare",3), maxCollisions:0, timeLimit:130 }),
-  makeLayout("easy", 4, "Alvo fora da pista", "Siga todas as curvas até a plataforma azul; dali, abandone a linha preta e navegue pelo piso branco até o alvo vermelho isolado.", "A plataforma azul é o ponto de lançamento. Depois dela, use ângulo e rotações para alcançar o alvo que não está ligado à pista.",
-    [{x:70,y:510},{x:165,y:510},{x:215,y:460},{x:165,y:410},{x:215,y:360},{x:165,y:310},{x:300,y:310},{x:355,y:365},{x:420,y:310}],
-    { floorMarkers:[m("e4-launch","SAIA","azul",420,310,40,34),m("e4-red","ALVO","vermelho",600,185,48,48)], hazards:[h("e4-launch-check","Plataforma de lançamento alcançada",420,310)], requiredHazards:["e4-launch-check"], goal:goal(600,185,"Saia da linha e pare 3 segundos no alvo vermelho",3), maxCollisions:0, timeLimit:120 }),
-  makeLayout("easy", 5, "Volta ao ponto de partida", "Confirme o ponto azul mais distante e retorne à estação amarela perto da partida.", "O alvo está perto desde o começo, mas só fica válido depois que o azul for visitado.",
-    [{x:70,y:510},{x:300,y:510},{x:300,y:285},{x:105,y:285},{x:105,y:465}],
-    { floorMarkers:[m("e5-blue","VOLTA","azul",300,285,34,34),m("e5-yellow","FIM","amarelo",105,465,32,36)], hazards:[h("e5-far","Ponto mais distante alcançado",300,285)], requiredHazards:["e5-far"], goal:goal(105,465,"Complete a volta e pare no amarelo"), timeLimit:120 }),
-  makeLayout("easy", 6, "A bifurcação enganosa", "Ignore o caminho vermelho sem saída e encontre a chegada azul.", "Um sensor em cada lado permite perceber qual ramo continua depois do cruzamento.",
-    [{x:70,y:510},{x:270,y:510},{x:270,y:350},{x:470,y:350},{x:570,y:250}],
-    { branches:[[{x:270,y:510},{x:430,y:510}]], floorMarkers:[m("e6-wrong","X","vermelho",430,510,32,36),m("e6-right","FIM","azul",570,250,32,36)], hazards:[h("e6-correct","Ramo correto escolhido",420,350)], requiredHazards:["e6-correct"], goal:goal(570,250,"Escolha o ramo correto e pare no azul"), timeLimit:100 }),
+  makeLayout("easy", 4, "Vaga entre obstáculos", "Siga a linha preta irregular até a faixa prateada, saia do traçado e estacione sobre o azul entre os dois obstáculos.", "A linha só leva até o ponto de saída. Depois, use ângulo e rotações para entrar no espaço estreito sem tocar nos blocos.",
+    [{x:70,y:510},{x:165,y:510},{x:215,y:460},{x:165,y:410},{x:215,y:360},{x:165,y:310},{x:300,y:310},{x:355,y:365},{x:430,y:330}],
+    { floorMarkers:[m("e4-launch","SAIA","prata",430,330,40,34),m("e4-blue","VAGA","azul",590,225,48,48)], obstacles:[{x:555,y:155,width:70,height:40,colour:"#e56d43",sensorColour:"vermelho"},{x:555,y:255,width:70,height:40,colour:"#e56d43",sensorColour:"vermelho"}], hazards:[h("e4-launch-check","Fim da linha alcançado",430,330)], requiredHazards:["e4-launch-check"], goal:goal(590,225,"Saia da linha e pare no azul entre os obstáculos",3), maxCollisions:0, timeLimit:130 }),
+  makeLayout("easy", 5, "Portal vermelho na linha", "Siga a linha e pare dentro do portal somente quando os dois sensores de cor laterais enxergarem vermelho ao mesmo tempo.", "Na montagem, coloque um sensor de cor no lado esquerdo e outro no direito, ambos olhando para fora. O piso continua preto: quem identifica o portal são as laterais.",
+    [{x:70,y:500},{x:210,y:500},{x:270,y:440},{x:410,y:440},{x:470,y:500},{x:620,y:500}],
+    { obstacles:[{x:500,y:420,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"},{x:500,y:530,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"}], hazards:[sensorGate("e5-portal","Portal vermelho detectado pelos dois lados",525,500)], requiredHazards:["e5-portal"], hardwareRequirement:"dual-outward-colour", goal:goal(525,500,"Pare 2 segundos dentro do portal vermelho",2), maxCollisions:0, timeLimit:100 }),
+  makeLayout("easy", 6, "Portal fora da linha", "Siga a linha irregular até a faixa prateada; depois atravesse o piso branco e pare no portal vermelho que está fora do traçado.", "Mantenha os dois sensores de cor nas laterais olhando para fora. Após o fim da linha, use o giroscópio para chegar alinhado ao portal.",
+    [{x:70,y:510},{x:180,y:510},{x:230,y:460},{x:180,y:410},{x:230,y:360},{x:330,y:360},{x:380,y:410},{x:330,y:460},{x:380,y:500},{x:420,y:500}],
+    { floorMarkers:[m("e6-launch","SAIA","prata",420,500,40,34)], obstacles:[{x:545,y:420,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"},{x:545,y:530,width:50,height:50,colour:"#d94743",sensorColour:"vermelho"}], hazards:[h("e6-launch-check","Fim da linha alcançado",420,500),sensorGate("e6-portal","Portal externo detectado pelos dois lados",570,500)], requiredHazards:["e6-launch-check","e6-portal"], requireHazardOrder:true, hardwareRequirement:"dual-outward-colour", goal:goal(570,500,"Saia da linha e pare no portal vermelho",2), maxCollisions:0, timeLimit:130 }),
   makeLayout("easy", 7, "Partida ao contrário", "O robô começa olhando para trás: alinhe-se antes de seguir até o alvo amarelo.", "Use o giroscópio ou uma rotação controlada; avançar imediatamente leva à borda.",
     [{x:70,y:510},{x:250,y:510},{x:320,y:440},{x:460,y:440},{x:540,y:360}],
     { start:{x:70,y:510,angle:Math.PI}, floorMarkers:[m("e7-yellow","FIM","amarelo",540,360,32,36)], hazards:[h("e7-align","Alinhamento inicial concluído",150,510,5,0)], requiredHazards:["e7-align"], goal:goal(540,360,"Corrija a orientação e pare no amarelo"), maxCollisions:0, timeLimit:100 }),

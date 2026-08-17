@@ -6,7 +6,7 @@ import BlockEditor from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
 import { createEmptyBlocks, createExampleBlocks } from "./blocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
-import type { ArenaLevel } from "./obrArena";
+import type { ArenaLevel, OBRChallenge } from "./obrArena";
 import {
   cloneHardware,
   DEFAULT_HARDWARE,
@@ -109,6 +109,14 @@ function isArenaLevel(value: unknown): value is ArenaLevel {
 
 function isProgramMode(value: unknown): value is ProgramMode {
   return value === "blocks" || value === "code";
+}
+
+function hasChallengeHardware(config: HardwareConfig, requirement: OBRChallenge["hardwareRequirement"]) {
+  if (requirement !== "dual-outward-colour") return true;
+  return (["left", "right"] as const).every((side) => SENSOR_PORTS.some((port) => {
+    const mount = config.sensorMounts[port];
+    return config.sensors[port] === "color" && mount?.position === side && mount.aim === "outward";
+  }));
 }
 
 export default function EuVouProgramar() {
@@ -415,6 +423,16 @@ export default function EuVouProgramar() {
       return;
     }
 
+    if (!hasChallengeHardware(hardwareRef.current, worldRef.current.layout.challenge.hardwareRequirement)) {
+      runningRef.current = false;
+      setRunning(false);
+      setStatus("error");
+      setLogs([]);
+      addLog("Este desafio precisa de dois sensores de cor: um na lateral esquerda e outro na direita, ambos olhando para fora.", "warning");
+      setBuilderOpen(true);
+      return;
+    }
+
     if (programMode === "blocks" && !blockProgramReady) {
       runningRef.current = false;
       setRunning(false);
@@ -512,6 +530,8 @@ export default function EuVouProgramar() {
   const telemetryUltrasonicMount = telemetryUltrasonicPort ? hardware.sensorMounts[telemetryUltrasonicPort] : null;
   const challengeOptions = getArenaChallenges(arenaLevel);
   const activeChallenge = challengeOptions[challengeIndex] ?? challengeOptions[0];
+  const challengeHardwareReady = hasChallengeHardware(hardware, activeChallenge.hardwareRequirement);
+  const missionHardwareReady = activeChallenge.hardwareRequirement ? challengeHardwareReady : isRobotReady(hardware);
   const challengeStepsComplete = activeChallenge.requiredHazards.length
     ? activeChallenge.requiredHazards.every((id) => competitionView.scoredHazards.includes(id))
     : competitionView.scoredTileCount > 1;
@@ -567,7 +587,7 @@ export default function EuVouProgramar() {
           </div>
 
           <div className="mission-checks">
-            <button className={isRobotReady(hardware) ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{isRobotReady(hardware) ? "✓" : "!"}</span> {isRobotReady(hardware) ? "Robô já está montado" : "Complete a montagem"}</button>
+            <button className={missionHardwareReady ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{missionHardwareReady ? "✓" : "!"}</span> {activeChallenge.hardwareRequirement === "dual-outward-colour" ? challengeHardwareReady ? "Sensores laterais configurados" : "Monte 2 sensores de cor laterais" : isRobotReady(hardware) ? "Robô já está montado" : "Complete a montagem"}</button>
             <div className={challengeStepsComplete ? "check-done" : ""}><span>{challengeStepsComplete ? "✓" : "2"}</span> {activeChallenge.requiredHazards.length ? `Etapas da pista: ${activeChallenge.requiredHazards.filter((id) => competitionView.scoredHazards.includes(id)).length}/${activeChallenge.requiredHazards.length}` : "Entre no percurso"}</div>
             <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Conclua a condição de vitória</div>
             {activeChallenge.maxCollisions !== undefined && <div className={competitionView.collisionCount <= activeChallenge.maxCollisions ? "check-done" : "check-failed"}><span>{competitionView.collisionCount <= activeChallenge.maxCollisions ? "✓" : "×"}</span> Colisões: {competitionView.collisionCount}/{activeChallenge.maxCollisions}</div>}

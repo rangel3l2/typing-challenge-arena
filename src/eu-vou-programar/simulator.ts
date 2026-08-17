@@ -700,6 +700,20 @@ export function sensorColor(world: WorldState, port: SensorPort) {
   return arenaColorAt(world, point.x, point.y);
 }
 
+function sideColourDetected(world: WorldState, side: "left" | "right", colour: string) {
+  return SENSOR_PORTS.some((port) => {
+    const mount = world.hardware.sensorMounts[port];
+    return world.hardware.sensors[port] === "color"
+      && mount?.position === side
+      && mount.aim === "outward"
+      && sensorColor(world, port) === colour;
+  });
+}
+
+function sensorGateDetected(world: WorldState, colour: string) {
+  return sideColourDetected(world, "left", colour) && sideColourDetected(world, "right", colour);
+}
+
 function reflectedLightForColor(color: string) {
   return ({ preto: 8, marrom: 20, azul: 28, vermelho: 42, verde: 48, prata: 70, amarelo: 72, branco: 88 } as Record<string, number>)[color] ?? 50;
 }
@@ -769,7 +783,10 @@ function updateCompetition(world: WorldState, delta: number) {
 
   for (const hazard of world.layout.hazards) {
     if (competition.scoredHazards.includes(hazard.id)) continue;
-    if (Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius && headingMatches(world.robot.angle, hazard.requiredHeading)) {
+    const reached = hazard.kind === "sensor-gate"
+      ? sensorGateDetected(world, hazard.requiredColour ?? "vermelho")
+      : Math.hypot(world.robot.x - hazard.x, world.robot.y - hazard.y) <= hazard.radius && headingMatches(world.robot.angle, hazard.requiredHeading);
+    if (reached) {
       if (challenge.requireHazardOrder && challenge.requiredHazards.includes(hazard.id)) {
         const nextRequired = challenge.requiredHazards.find((id) => !competition.scoredHazards.includes(id));
         if (nextRequired !== hazard.id) continue;
@@ -1007,6 +1024,24 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
       context.strokeStyle = "#ef8c2e";
       context.lineWidth = 7;
       context.beginPath(); context.moveTo(hazard.x - 18, hazard.y + 16); context.lineTo(hazard.x - 18, hazard.y - 17); context.lineTo(hazard.x + 18, hazard.y - 17); context.lineTo(hazard.x + 18, hazard.y + 16); context.stroke();
+      context.restore();
+    }
+    if (hazard.kind === "sensor-gate") {
+      context.save();
+      context.strokeStyle = "#c83e3b";
+      context.fillStyle = "#a9302e";
+      context.lineWidth = 3;
+      context.setLineDash([5, 4]);
+      for (const offset of [-32, 32]) {
+        context.beginPath();
+        context.moveTo(hazard.x - 28, hazard.y + offset);
+        context.lineTo(hazard.x + 28, hazard.y + offset);
+        context.stroke();
+      }
+      context.setLineDash([]);
+      context.textAlign = "center";
+      context.font = "900 8px Nunito, sans-serif";
+      context.fillText("PORTAL VERMELHO", hazard.x, hazard.y - 92);
       context.restore();
     }
   }
