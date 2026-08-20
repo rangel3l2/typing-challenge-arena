@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as Blockly from "blockly";
 import * as locale from "blockly/msg/pt-br";
 import { EV3_BLOCK_COLORS, EV3_TOOLBOX, generatePython, hasExecutableProgram, registerEV3Blocks } from "./blocks";
+import { copyWorkspaceImage } from "./editorClipboard";
+import type { ImageCopyResult } from "./editorClipboard";
 
 interface BlockEditorProps {
   programXml: string;
   onChange: (programXml: string, python: string, executable: boolean) => void;
 }
 
-export default function BlockEditor({ programXml, onChange }: BlockEditorProps) {
+export interface BlockEditorHandle {
+  copyBlocksImage: () => Promise<ImageCopyResult>;
+}
+
+const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function BlockEditor({ programXml, onChange }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const lastSerializedRef = useRef("");
@@ -117,6 +123,14 @@ export default function BlockEditor({ programXml, onChange }: BlockEditorProps) 
 
   const centerBlocks = () => workspaceRef.current?.scrollCenter();
   const undo = (redo = false) => workspaceRef.current?.undo(redo);
+  useImperativeHandle(ref, () => ({
+    copyBlocksImage: async () => {
+      const workspace = workspaceRef.current;
+      if (!workspace) throw new Error("O editor de blocos ainda está carregando.");
+      Blockly.hideChaff(true);
+      return copyWorkspaceImage(workspace);
+    },
+  }), []);
 
   return (
     <div className="ev3-editor-shell">
@@ -132,4 +146,6 @@ export default function BlockEditor({ programXml, onChange }: BlockEditorProps) 
       {loadError && <div className="ev3-editor-error"><strong>Não foi possível abrir o editor.</strong><small>{loadError}</small></div>}
     </div>
   );
-}
+});
+
+export default BlockEditor;

@@ -245,15 +245,15 @@ const Index = () => {
   const savedCode = playerCode || readPlayerSession("playerCode");
 
   return (
-    <div className="min-h-[100dvh] relative overflow-x-hidden flex flex-col">
+    <div className="home-shell min-h-[100dvh] relative overflow-x-hidden flex flex-col">
       <Suspense fallback={null}><ParticleBackground /></Suspense>
 
       {/* ─── NAVBAR ─── */}
-      <nav className="relative z-20 flex items-center justify-between px-3 sm:px-4 md:px-8 py-2 sm:py-3">
+      <nav className="home-navbar relative z-20 flex items-center justify-between px-3 sm:px-4 md:px-8 py-2 sm:py-3" aria-label="Navegação principal">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-2 glass-card px-3 py-1.5 sm:px-4 sm:py-2"
+          className="home-brand flex items-center gap-2 glass-card px-3 py-1.5 sm:px-4 sm:py-2"
         >
           <img src={logoImg} alt="Eu Vou Jogar" className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg" width="32" height="32" />
           <span className="font-display font-bold text-primary text-sm sm:text-lg">Eu Vou Jogar</span>
@@ -263,7 +263,7 @@ const Index = () => {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="hidden md:flex items-center gap-1 glass-card px-2 py-1"
+          className="home-desktop-nav hidden md:flex items-center gap-1 glass-card px-2 py-1"
         >
           {[
             { label: "Início", href: "/" },
@@ -284,90 +284,99 @@ const Index = () => {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
+          className="home-nav-actions"
         >
+          <button type="button" onClick={() => navigate("/ranking")} className="home-mobile-ranking md:hidden" aria-label="Abrir ranking global">
+            <Trophy className="w-4 h-4" />
+            <span>Ranking</span>
+          </button>
           <ThemeToggle />
         </motion.div>
       </nav>
 
       {/* ─── MAIN CONTENT ─── */}
-      <main className="relative z-10 flex-1 flex items-start lg:items-center px-3 sm:px-4 md:px-8 lg:px-16 py-2 sm:py-4">
-        <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-center">
+      <main className="home-main relative z-10 flex-1 flex flex-col items-stretch lg:items-center px-3 sm:px-4 md:px-8 lg:px-16 py-2 sm:py-4">
+        <div className="home-layout w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-center">
 
           {/* LEFT COLUMN — Fibonacci hierarchy: gaps escalam em φ (≈1.618):
               2→3→5→8→13. Tamanhos e ênfase priorizam o caminho do usuário:
               1º Nome  →  2º Tipo de jogo  →  3º Ação principal  →  4º Features  →  5º Ranking */}
-          <div className="flex flex-col gap-[13px] sm:gap-[21px]">
-            {/* Character on mobile - shown above title */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              className="flex lg:hidden items-center justify-center relative"
-            >
-              <div className="absolute w-[70%] aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
-              <HeroImage className="relative z-10 w-40 sm:w-52 md:w-64 drop-shadow-2xl" />
-            </motion.div>
+          <div className="home-content flex flex-col gap-[13px] sm:gap-[21px]">
+            <div className="home-intro-card">
+              {/* Character on mobile - compact and beside the title */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1, duration: 0.5 }}
+                className="home-mobile-character flex lg:hidden items-center justify-center relative"
+                aria-hidden="true"
+              >
+                <div className="home-mobile-character-ring absolute aspect-square rounded-full border-2 border-primary/30 animate-pulse-glow" />
+                <HeroImage className="home-mobile-character-image relative z-10 drop-shadow-2xl" />
+              </motion.div>
 
-            {/* Title — peso visual máximo (φ⁴), centralizado */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-center"
-            >
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight">
-                <span className="text-gradient-primary italic">Eu Vou</span>
-                <br />
-                <span className="text-gradient-fun italic">Jogar</span>
-                <span className="text-primary inline-block animate-pulse-glow ml-2">⚡</span>
-              </h1>
-              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-3 max-w-lg mx-auto">
-                Jogos educacionais e infantis online — escolha e jogue grátis!
-              </p>
-            </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="home-hero-copy"
+              >
+                <span className="home-eyebrow"><Zap className="w-3.5 h-3.5" /> Aprender brincando</span>
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight">
+                  <span className="text-gradient-primary italic">Eu Vou</span>
+                  <br />
+                  <span className="text-gradient-fun italic">Jogar</span>
+                  <span className="text-primary inline-block animate-pulse-glow ml-2">⚡</span>
+                </h1>
+                <p className="text-sm sm:text-base lg:text-lg text-muted-foreground font-body mt-2 sm:mt-3 max-w-lg">
+                  Jogos educacionais para aprender, competir e se divertir gratuitamente.
+                </p>
+              </motion.div>
+            </div>
 
             {/* PRIORIDADE 2 — Seletor de jogo (escala φ³, peso forte) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="flex flex-wrap gap-[8px] sm:gap-[13px] justify-center"
+              className="home-game-switcher"
+              aria-label="Escolha um jogo"
             >
               <button
                 onClick={() => handleSelectGame("digitar")}
                 aria-pressed={selectedGame === "digitar"}
-                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                className={`home-game-option flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "digitar"
                     ? "bg-primary text-primary-foreground glow-primary shadow-lg scale-[1.05]"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Keyboard className="w-5 h-5" />
-                Digitar
+                <span className="home-game-icon"><Keyboard className="w-5 h-5" /></span>
+                <span>Digitar</span>
               </button>
               <button
                 onClick={() => handleSelectGame("acertar")}
                 aria-pressed={selectedGame === "acertar"}
-                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                className={`home-game-option flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "acertar"
                     ? "bg-secondary text-secondary-foreground glow-secondary shadow-lg scale-[1.05]"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <MapPin className="w-5 h-5" />
-                Acertar 🎈
+                <span className="home-game-icon"><MapPin className="w-5 h-5" /></span>
+                <span>Acertar</span>
               </button>
               <button
                 onClick={() => handleSelectGame("programar")}
                 aria-pressed={selectedGame === "programar"}
-                className={`flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
+                className={`home-game-option flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-2xl font-display font-bold text-base sm:text-lg transition-all ${
                   selectedGame === "programar"
                     ? "bg-primary text-primary-foreground glow-primary shadow-lg scale-[1.05]"
                     : "glass-card text-muted-foreground hover:text-foreground hover:border-primary/60"
                 }`}
               >
-                <Bot className="w-5 h-5" />
-                Programar
+                <span className="home-game-icon"><Bot className="w-5 h-5" /></span>
+                <span>Programar</span>
               </button>
             </motion.div>
 
@@ -376,9 +385,9 @@ const Index = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
-              className="glass-card p-3 sm:p-5"
+              className="home-player-card glass-card p-3 sm:p-5"
             >
-              <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+              <div className="home-player-header flex items-center gap-2 mb-1.5 sm:mb-2">
                 <label className="text-xs sm:text-sm font-body font-semibold text-muted-foreground">
                   {restoreMode ? "Restaurar conta:" : "Seu nome:"}
                 </label>
@@ -386,10 +395,10 @@ const Index = () => {
                   onClick={handleToggleRestore}
                   className="text-xs text-primary hover:underline font-body"
                 >
-                  {restoreMode ? "Voltar" : "(Usar código para restaurar)"}
+                  {restoreMode ? "Voltar" : "Já tenho um código"}
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="home-name-row flex gap-2">
                 {restoreMode ? (
                   <input
                     type="text"
@@ -397,7 +406,7 @@ const Index = () => {
                     onChange={(e) => setRestoreInput(e.target.value)}
                     placeholder="Digite o código aqui (ex: 123456)"
                     maxLength={30}
-                    className="flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    className="home-name-input flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                     disabled={restoring}
                   />
                 ) : (
@@ -407,7 +416,7 @@ const Index = () => {
                     onChange={(e) => handleNameChange(e.target.value)}
                     placeholder="Digite seu nome..."
                     maxLength={30}
-                    className="flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    className="home-name-input flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                     disabled={restoring}
                   />
                 )}
@@ -416,11 +425,11 @@ const Index = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={handleConfirm}
                   disabled={restoreMode ? !restoreInput.trim() || restoring : !playerName.trim()}
-                  className="p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="home-confirm-button p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={restoreMode ? "Restaurar conta" : mode === "name" ? "Continuar" : "Trocar jogador"}
                 >
-                  <motion.div animate={{ rotate: !restoreMode && mode !== "name" ? 90 : 0 }} transition={{ duration: 0.2 }}>
-                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </motion.div>
+                  <span>{restoreMode ? restoring ? "Buscando…" : "Restaurar" : mode === "name" ? "Continuar" : "Trocar"}</span>
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </motion.button>
               </div>
               {savedCode && !restoreMode && (
@@ -442,7 +451,7 @@ const Index = () => {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleProgramar}
                   disabled={!playerName.trim()}
-                  className="w-full py-3 sm:py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-base sm:text-lg glow-primary hover:brightness-110 transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="home-primary-action w-full py-3 sm:py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-base sm:text-lg glow-primary hover:brightness-110 transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Bot className="w-5 h-5" />
                   Entrar no Eu Vou Programar
@@ -459,7 +468,7 @@ const Index = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigate("/acertar")}
-                  className="w-full py-3 sm:py-4 rounded-2xl bg-secondary text-secondary-foreground font-display font-bold text-base sm:text-lg glow-secondary hover:brightness-110 transition-all flex items-center justify-center gap-3"
+                  className="home-primary-action w-full py-3 sm:py-4 rounded-2xl bg-secondary text-secondary-foreground font-display font-bold text-base sm:text-lg glow-secondary hover:brightness-110 transition-all flex items-center justify-center gap-3"
                 >
                   🎈 Jogar Eu Vou Acertar
                   <ArrowRight className="w-5 h-5" />
@@ -470,14 +479,14 @@ const Index = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="flex flex-col sm:flex-row gap-2 sm:gap-3"
+                className="home-play-options flex flex-col sm:flex-row gap-2 sm:gap-3"
               >
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSolo}
                   disabled={!playerName.trim()}
-                  className="flex-1 flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl glass-card hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+                  className="home-play-option flex-1 flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl glass-card hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
                 >
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors shrink-0">
                     <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
@@ -493,7 +502,7 @@ const Index = () => {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => playerName.trim() ? setMode("choose") : null}
                   disabled={!playerName.trim()}
-                  className="flex-1 flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl glass-card hover:border-secondary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+                  className="home-play-option flex-1 flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl glass-card hover:border-secondary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
                 >
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors shrink-0">
                     <Users className="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
@@ -567,7 +576,7 @@ const Index = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="flex flex-wrap gap-[5px] sm:gap-[8px] justify-center lg:justify-start"
+              className="home-feature-pills flex flex-wrap gap-[5px] sm:gap-[8px] justify-center lg:justify-start"
             >
               {(selectedGame === "digitar"
                 ? [
@@ -599,7 +608,7 @@ const Index = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/ranking")}
-              className="self-center flex items-center gap-3 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl border-2 border-accent/50 bg-accent/10 text-accent font-display font-bold text-sm sm:text-base hover:bg-accent/20 hover:border-accent transition-all glow-accent"
+              className="home-ranking-button self-center flex items-center gap-3 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl border-2 border-accent/50 bg-accent/10 text-accent font-display font-bold text-sm sm:text-base hover:bg-accent/20 hover:border-accent transition-all glow-accent"
             >
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
               Ranking Global
@@ -609,7 +618,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="w-full glass-card p-3 sm:p-4"
+              className="home-champions w-full glass-card p-3 sm:p-4"
               aria-labelledby="home-trophies-title"
             >
               <div className="flex items-center justify-between gap-3 mb-3">
@@ -619,7 +628,7 @@ const Index = () => {
                 </div>
                 <button onClick={() => navigate("/ranking")} className="text-[10px] sm:text-xs font-bold text-primary hover:underline">Ver todos</button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="home-champions-grid grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {([
                   { key: "digitar" as const, icon: "⌨️", label: "Eu Vou Digitar" },
                   { key: "acertar" as const, icon: "🎈", label: "Eu Vou Acertar" },
@@ -630,7 +639,7 @@ const Index = () => {
                     <button
                       key={game.key}
                       onClick={() => navigate(`/ranking?tab=${game.key}`)}
-                      className="flex items-center gap-2 rounded-xl bg-muted/55 px-3 py-2 text-left hover:bg-muted transition-colors"
+                      className="home-champion-card flex items-center gap-2 rounded-xl bg-muted/55 px-3 py-2 text-left hover:bg-muted transition-colors"
                     >
                       <span className="text-lg" aria-hidden="true">{game.icon}</span>
                       <span className="min-w-0">
@@ -651,7 +660,7 @@ const Index = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.5 }}
-            className="hidden lg:flex flex-col gap-3 h-[560px]"
+            className="home-side hidden lg:flex flex-col gap-3 h-[560px]"
           >
             {/* Tab switcher — Chat só aparece após confirmar o nome */}
             {mode !== "name" && (
@@ -715,7 +724,7 @@ const Index = () => {
 
         {/* MOBILE: Chat Global below the main content — só após confirmar nome */}
         {mode !== "name" && (
-          <div className="lg:hidden w-full max-w-7xl mx-auto mt-6 px-3 sm:px-0">
+          <div className="home-mobile-chat lg:hidden w-full max-w-7xl mx-auto mt-6 px-0 sm:px-0">
             <GlobalChat
               sessionId={sessionId}
               playerName={playerName}
@@ -727,7 +736,7 @@ const Index = () => {
       </main>
 
       {/* ─── FOOTER ─── */}
-      <footer className="relative z-10 flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 md:px-8 py-2 sm:py-4 gap-2 sm:gap-3" role="contentinfo">
+      <footer className="home-footer relative z-10 flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 md:px-8 py-2 sm:py-4 gap-2 sm:gap-3" role="contentinfo">
         <div className="flex items-center gap-3 sm:gap-4 text-xs text-muted-foreground font-body">
           <span className="flex items-center gap-1"><Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" /> Seguro</span>
           <span>·</span>

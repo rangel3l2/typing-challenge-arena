@@ -47,6 +47,14 @@ describe("sintaxe gerada pelos blocos", () => {
 });
 
 describe("conversão Python para blocos", () => {
+  it.each(["", "# Ainda não escrevi o programa\n\n# Vou começar pelos blocos"])("abre uma área de blocos vazia para Python sem comandos", (python) => {
+    const workspace = workspaceFromXml(pythonToBlocks(python));
+
+    expect(workspace.getAllBlocks(false)).toHaveLength(0);
+
+    workspace.dispose();
+  });
+
   it("reconstrói laço, condição composta, sensores e os dois sentidos dos motores", () => {
     const python = `
 from sbot import arduino, leds, motors, utils, ev3
@@ -99,6 +107,21 @@ for sempre_0 in range(100):
 
     original.dispose();
     reconstructed.dispose();
+  });
+
+  it("reconstrói direção e velocidade do movimento iniciado", () => {
+    const python = `
+motors.set_power(motor_movimento_esquerdo, 0.6)
+motors.set_power(motor_movimento_direito, 0.36)
+`;
+    const workspace = workspaceFromXml(pythonToBlocks(python));
+    const move = workspace.getAllBlocks(false).find((block) => block.type === "ev3_move_start");
+
+    expect(move?.getFieldValue("STEERING")).toBe(40);
+    expect(move?.getFieldValue("SPEED")).toBe(60);
+    expect(() => parseProgram(generatePython(workspace))).not.toThrow();
+
+    workspace.dispose();
   });
 
   it("transforma elif na cadeia equivalente de se/senão", () => {

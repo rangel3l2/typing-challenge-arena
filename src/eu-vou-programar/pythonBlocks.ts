@@ -1,5 +1,6 @@
 import { parseProgram, ProgramError } from "./simulator";
 import type { ProgramNode } from "./simulator";
+import { createEmptyBlocks } from "./blocks";
 
 type FieldValue = string | number;
 
@@ -304,6 +305,15 @@ function movementPair(nodes: ProgramNode[], index: number): { block: BlockModel;
   const rightPercent = percentFromPower(right.power);
   if (leftPercent === null || rightPercent === null) return null;
   if (leftPercent === 0 && rightPercent === 0) return { block: { type: "ev3_move_stop" }, consumed: 2 };
+  if (leftPercent * rightPercent >= 0) {
+    const leftIsOuter = Math.abs(leftPercent) >= Math.abs(rightPercent);
+    const speed = leftIsOuter ? leftPercent : rightPercent;
+    const rawSteering = leftIsOuter
+      ? (1 - rightPercent / leftPercent) * 100
+      : (leftPercent / rightPercent - 1) * 100;
+    const steering = Math.max(-100, Math.min(100, Math.round(rawSteering * 1000) / 1000));
+    return { block: { type: "ev3_move_start", fields: { STEERING: steering, SPEED: speed } }, consumed: 2 };
+  }
   return { block: { type: "ev3_move_tank_start", fields: { LEFT: leftPercent, RIGHT: rightPercent } }, consumed: 2 };
 }
 
@@ -435,10 +445,16 @@ function convertSequence(sourceNodes: ProgramNode[], inheritedBindings = new Map
 
 /** Convert the Python subset executed by the simulator into editable Blockly XML. */
 export function pythonToBlocks(code: string): string {
+  const hasCommand = code.split("\n").some((line) => {
+    const trimmed = line.trim();
+    return trimmed !== "" && !trimmed.startsWith("#");
+  });
+  if (!hasCommand) return createEmptyBlocks();
+
   try {
     const nodes = withoutGeneratedHeader(parseProgram(code));
     const blocks = convertSequence(nodes);
-    if (!blocks.length) throw new PythonBlocksError("adicione ao menos um comando que possua bloco equivalente.");
+    if (!blocks.length) return createEmptyBlocks();
     return `<xml xmlns="https://developers.google.com/blockly/xml"><block type="ev3_start" x="34" y="32"><next>${serializeSequence(blocks)}</next></block></xml>`;
   } catch (error) {
     if (error instanceof PythonBlocksError) throw error;

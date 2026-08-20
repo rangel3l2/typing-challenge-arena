@@ -41,13 +41,31 @@ describe("bloco de motores de movimento", () => {
 
   it("mostra a direção como no seletor do EV3 Classroom", () => {
     const workspace = new Blockly.Workspace();
-    const block = workspace.newBlock("ev3_move_start");
+    for (const type of ["ev3_move_start", "ev3_move_steer", "ev3_move_steer_speed"]) {
+      const block = workspace.newBlock(type);
+      expect(block.getField("STEERING")?.getText()).toBe("reto: 0");
+      block.setFieldValue(-45, "STEERING");
+      expect(block.getField("STEERING")?.getText()).toBe("esquerda: -45");
+      block.setFieldValue(35, "STEERING");
+      expect(block.getField("STEERING")?.getText()).toBe("direita: 35");
+    }
 
-    expect(block.getField("STEERING")?.getText()).toBe("reto: 0");
-    block.setFieldValue(-45, "STEERING");
-    expect(block.getField("STEERING")?.getText()).toBe("esquerda: -45");
-    block.setFieldValue(35, "STEERING");
-    expect(block.getField("STEERING")?.getText()).toBe("direita: 35");
+    workspace.dispose();
+  });
+
+  it("inicia o movimento com direção e velocidade escolhidas", () => {
+    const workspace = new Blockly.Workspace();
+    const start = workspace.newBlock("ev3_start");
+    const move = workspace.newBlock("ev3_move_start");
+    move.setFieldValue(40, "STEERING");
+    move.setFieldValue(60, "SPEED");
+    start.nextConnection?.connect(move.previousConnection);
+
+    expect(move.getFieldValue("SPEED")).toBe(60);
+    expect(generatePython(workspace)).toContain([
+      "motors.set_power(motor_movimento_esquerdo, 0.6)",
+      "motors.set_power(motor_movimento_direito, 0.36)",
+    ].join("\n"));
 
     workspace.dispose();
   });

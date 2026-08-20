@@ -66,6 +66,14 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
       editor.setAttribute("aria-valuemin", "-100");
       editor.setAttribute("aria-valuemax", "100");
 
+      const valueInput = document.createElement("input");
+      valueInput.className = "ev3-steering-value";
+      valueInput.type = "text";
+      valueInput.inputMode = "numeric";
+      valueInput.pattern = "-?[0-9]*";
+      valueInput.setAttribute("aria-label", "Valor da direção");
+      valueInput.title = "Digite um valor de -100 a 100";
+
       const dial = document.createElement("div");
       dial.className = "ev3-steering-dial";
       for (let index = 0; index <= 24; index += 1) {
@@ -84,14 +92,25 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
       center.setAttribute("aria-label", "Voltar para reto");
       center.textContent = "❉";
       dial.append(pointer, center);
-      editor.appendChild(dial);
+      editor.append(valueInput, dial);
 
       const renderValue = (rawValue: number) => {
         const value = Math.max(-100, Math.min(100, Math.round(rawValue)));
         this.setValue(value);
+        valueInput.value = String(value);
         pointer.style.setProperty("--steering-angle", `${value * 1.35}deg`);
         editor.setAttribute("aria-valuenow", String(value));
         editor.setAttribute("aria-valuetext", value === 0 ? "reto" : value < 0 ? `esquerda ${Math.abs(value)}` : `direita ${value}`);
+      };
+      const updateFromInput = () => {
+        if (valueInput.value.trim() === "") return false;
+        const value = Number(valueInput.value);
+        if (!Number.isFinite(value)) return false;
+        renderValue(value);
+        return true;
+      };
+      const commitInput = () => {
+        if (!updateFromInput()) valueInput.value = String(Number(this.getValue()) || 0);
       };
       const updateFromPointer = (event: PointerEvent) => {
         const bounds = dial.getBoundingClientRect();
@@ -112,7 +131,18 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
       center.addEventListener("click", (event) => {
         event.stopPropagation();
         renderValue(0);
-        editor.focus();
+        valueInput.focus();
+        valueInput.select();
+      });
+      valueInput.addEventListener("input", updateFromInput);
+      valueInput.addEventListener("change", commitInput);
+      valueInput.addEventListener("blur", commitInput);
+      valueInput.addEventListener("keydown", (event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          commitInput();
+          valueInput.select();
+        }
       });
       editor.addEventListener("keydown", (event) => {
         const current = Number(this.getValue()) || 0;
@@ -126,7 +156,8 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
       dropdown.getContentDiv().appendChild(editor);
       renderValue(Number(this.getValue()) || 0);
       dropdown.showPositionedByField(this);
-      editor.focus();
+      valueInput.focus();
+      valueInput.select();
     }
   }
 
@@ -158,8 +189,8 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
     reporter("ev3_motor_speed", "⚙ %1 velocidade", [dropdown("PORT", motorPorts)], "motor_blocks", "Number"),
 
     stack("ev3_move_direction", "⚙ mover para %1 por %2 rotações", [dropdown("DIRECTION", ["a frente", "para trás"]), numberField("ROTATIONS", 1, 0, 100)], "movement_blocks"),
-    stack("ev3_move_steer", "⚙ mover %1 por %2 rotações", [numberField("STEERING", 0, -100, 100), numberField("ROTATIONS", 1, 0, 100)], "movement_blocks"),
-    stack("ev3_move_start", "❉ iniciar movimento %1", [steeringField("STEERING")], "movement_blocks"),
+    stack("ev3_move_steer", "⚙ mover %1 por %2 rotações", [steeringField("STEERING"), numberField("ROTATIONS", 1, 0, 100)], "movement_blocks"),
+    stack("ev3_move_start", "❉ iniciar movimento %1 com velocidade de %2 %%", [steeringField("STEERING"), numberField("SPEED", 50, -100, 100)], "movement_blocks"),
     stack("ev3_move_stop", "⚙ parar de mover", [], "movement_blocks"),
     stack("ev3_move_set_speed", "⚙ definir velocidade de movimento para %1 %%", [numberField("SPEED", 50, -100, 100)], "movement_blocks"),
     stack(
@@ -170,7 +201,7 @@ export function registerEV3Blocks(BlocklyModule: typeof Blockly) {
       { extensions: ["ev3_movement_motor_defaults"] },
     ),
     stack("ev3_move_set_brake", "⚙ definir motores de movimento para %1 ao parar", [dropdown("BRAKE", ["manter a posição", "movimento livre"])], "movement_blocks"),
-    stack("ev3_move_steer_speed", "⚙ mover %1 por %2 rotações com velocidade de %3 %%", [numberField("STEERING", 0, -100, 100), numberField("ROTATIONS", 1, 0, 100), numberField("SPEED", 50, -100, 100)], "movement_blocks"),
+    stack("ev3_move_steer_speed", "⚙ mover %1 por %2 rotações com velocidade de %3 %%", [steeringField("STEERING"), numberField("ROTATIONS", 1, 0, 100), numberField("SPEED", 50, -100, 100)], "movement_blocks"),
     stack("ev3_move_tank", "⚙ mover por %1 rotações com velocidade de %2 %3 %%", [numberField("ROTATIONS", 1, 0, 100), numberField("LEFT", 50, -100, 100), numberField("RIGHT", 50, -100, 100)], "movement_blocks"),
     stack("ev3_move_tank_start", "⚙ iniciar motores com velocidade de %1 %2 %%", [numberField("LEFT", 50, -100, 100), numberField("RIGHT", 50, -100, 100)], "movement_blocks"),
 
@@ -451,7 +482,10 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
   if (block.type === "ev3_move_stop") return at(movementLines(0, 0));
   if (block.type === "ev3_move_start") {
     const steering = n("STEERING", 0) / 100;
-    return at(movementLines(Math.max(-1, Math.min(1, 0.5 + steering * 0.5)), Math.max(-1, Math.min(1, 0.5 - steering * 0.5))));
+    const movementPower = power(n("SPEED", 50));
+    const left = movementPower * (steering > 0 ? 1 : 1 + steering);
+    const right = movementPower * (steering < 0 ? 1 : 1 - steering);
+    return at(movementLines(left, right));
   }
   if (block.type === "ev3_move_tank_start") return at(movementLines(power(n("LEFT", 50)), power(n("RIGHT", 50))));
   if (["ev3_move_direction", "ev3_move_steer", "ev3_move_steer_speed", "ev3_move_tank"].includes(block.type)) {

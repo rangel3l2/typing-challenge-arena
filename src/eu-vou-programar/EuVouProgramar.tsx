@@ -4,11 +4,14 @@ import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import BlockEditor from "./BlockEditor";
+import type { BlockEditorHandle } from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
 import { createEmptyBlocks, createExampleBlocks } from "./blocks";
+import { copyTextToClipboard } from "./editorClipboard";
 import { pythonToBlocks, PythonBlocksError } from "./pythonBlocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel, OBRChallenge } from "./obrArena";
+import { initialMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
 import {
   cloneHardware,
   createLineFollowerHardware,
@@ -42,6 +45,7 @@ const HARDWARE_STORAGE_KEY = "eu-vou-programar:ev3-hardware";
 const MODE_STORAGE_KEY = "eu-vou-programar:editor-mode-v2";
 const ARENA_STORAGE_KEY = "eu-vou-programar:arena-level";
 const CHALLENGE_STORAGE_KEY = "eu-vou-programar:arena-challenge";
+const UNLOCKED_MISSIONS_STORAGE_KEY = "eu-vou-programar:unlocked-missions-v1";
 const DRAFT_UPDATED_STORAGE_KEY = "eu-vou-programar:draft-updated-at";
 const EMPTY_BLOCK_CODE = "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
 
@@ -118,6 +122,7 @@ type Status = "ready" | "running" | "paused" | "complete" | "success" | "error";
 type EditorTab = "blocks" | "code" | "console";
 type ProgramMode = "blocks" | "code";
 type SyncStatus = "loading" | "local" | "saving" | "saved" | "offline";
+type CopyStatus = "idle" | "working" | "code" | "image" | "shared" | "downloaded" | "error";
 
 const ARENA_LEVELS: Record<ArenaLevel, { name: string; short: string; description: string }> = {
   easy: { name: "Nível fácil", short: "Fácil", description: "Linha preta com muitas curvas" },
@@ -162,6 +167,9 @@ export default function EuVouProgramar() {
   const successHandledRef = useRef(false);
   const hardwareRef = useRef<HardwareConfig>(cloneHardware(DEFAULT_HARDWARE));
   const bestProgressScoreRef = useRef({ tilePoints: 0, challengePoints: 0, totalPoints: 0 });
+  const blockEditorRef = useRef<BlockEditorHandle>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const copyResetTimerRef = useRef(0);
 
   const [programXml, setProgramXml] = useState(() => createEmptyBlocks());
   const [code, setCode] = useState(EMPTY_BLOCK_CODE);
@@ -184,10 +192,12 @@ export default function EuVouProgramar() {
   const [legendOpen, setLegendOpen] = useState(false);
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
   const [challengeIndex, setChallengeIndex] = useState(0);
+  const [unlockedMissions, setUnlockedMissions] = useState(initialMissionUnlocks);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [identityName, setIdentityName] = useState(playerName || "");
   const [identitySaving, setIdentitySaving] = useState(false);
   const [identityError, setIdentityError] = useState("");
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const [competitionView, setCompetitionView] = useState({
     remaining: 90,
     tilePoints: 5,
@@ -264,6 +274,7 @@ export default function EuVouProgramar() {
       const savedHardware = window.localStorage.getItem(HARDWARE_STORAGE_KEY);
       const savedArena = window.localStorage.getItem(ARENA_STORAGE_KEY);
       const savedChallenge = Number.parseInt(window.localStorage.getItem(CHALLENGE_STORAGE_KEY) || "0", 10);
+      const savedUnlocks = window.localStorage.getItem(UNLOCKED_MISSIONS_STORAGE_KEY);
       const localUpdatedAt = Date.parse(window.localStorage.getItem(DRAFT_UPDATED_STORAGE_KEY) || "") || 0;
 
       let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
@@ -272,6 +283,15 @@ export default function EuVouProgramar() {
       let nextHardware = cloneHardware(DEFAULT_HARDWARE);
       let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "easy";
       const nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
+      let nextUnlocks = initialMissionUnlocks();
+
+      if (savedUnlocks) {
+        try {
+          nextUnlocks = normalizeMissionUnlocks(JSON.parse(savedUnlocks), ARENA_CHALLENGE_COUNT);
+        } catch {
+          window.localStorage.removeItem(UNLOCKED_MISSIONS_STORAGE_KEY);
+        }
+      }
 
       if (savedHardware) {
         try {
@@ -281,11 +301,19 @@ export default function EuVouProgramar() {
         }
       }
 
-      const { data, error } = await supabase
-        .from("programming_progress")
-        .select("program_xml, python_code, hardware_config, arena_level, program_mode, tile_points, challenge_points, total_points, updated_at")
-        .eq("session_id", sessionId)
-        .maybeSingle();
+      const [progressResult, scoresResult] = await Promise.all([
+        supabase
+          .from("programming_progress")
+          .select("program_xml, python_code, hardware_config, arena_level, program_mode, tile_points, challenge_points, total_points, updated_at")
+          .eq("session_id", sessionId)
+          .maybeSingle(),
+        supabase
+          .from("programming_scores")
+          .select("arena_level, challenge_number")
+          .eq("session_id", sessionId),
+      ]);
+      const { data, error } = progressResult;
+      nextUnlocks = unlockFromCompletedMissions(nextUnlocks, scoresResult.data ?? [], ARENA_CHALLENGE_COUNT);
 
       if (cancelled) return;
 
@@ -314,14 +342,16 @@ export default function EuVouProgramar() {
       }
 
       hardwareRef.current = nextHardware;
+      const accessibleChallenge = Math.min(nextChallenge, nextUnlocks[nextArena]);
       setHardware(nextHardware);
       setProgramXml(nextBlocks);
       setCode(nextCode);
       setProgramMode(nextMode);
       setEditorTab(nextMode === "code" ? "code" : "blocks");
       setArenaLevel(nextArena);
-      setChallengeIndex(nextChallenge);
-      worldRef.current = createWorld(nextHardware, nextChallenge, nextArena);
+      setChallengeIndex(accessibleChallenge);
+      setUnlockedMissions(nextUnlocks);
+      worldRef.current = createWorld(nextHardware, accessibleChallenge, nextArena);
       setStorageReady(true);
       setSyncStatus(error ? "offline" : data ? "saved" : "local");
     };
@@ -342,6 +372,7 @@ export default function EuVouProgramar() {
     window.localStorage.setItem(MODE_STORAGE_KEY, programMode);
     window.localStorage.setItem(ARENA_STORAGE_KEY, arenaLevel);
     window.localStorage.setItem(CHALLENGE_STORAGE_KEY, String(challengeIndex));
+    window.localStorage.setItem(UNLOCKED_MISSIONS_STORAGE_KEY, JSON.stringify(unlockedMissions));
     window.localStorage.setItem(DRAFT_UPDATED_STORAGE_KEY, updatedAt);
     setSyncStatus("saving");
 
@@ -377,7 +408,7 @@ export default function EuVouProgramar() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [arenaLevel, challengeIndex, code, hardware, programMode, programXml, sessionId, status, storageReady]);
+  }, [arenaLevel, challengeIndex, code, hardware, programMode, programXml, sessionId, status, storageReady, unlockedMissions]);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -454,6 +485,7 @@ export default function EuVouProgramar() {
             setRunning(false);
             setStatus("success");
             setCelebrating(true);
+            setUnlockedMissions((current) => unlockMissionAfterSuccess(current, world.layout.level, world.layout.challenge.number, ARENA_CHALLENGE_COUNT));
             addLog(world.layout.challenge.successMessage, "success");
             void saveProgrammingScore(world);
           } else if (world.competition.roundOver) {
@@ -538,7 +570,7 @@ export default function EuVouProgramar() {
   }, [addLog, arenaLevel]);
 
   const changeArenaChallenge = useCallback((nextIndex: number) => {
-    const normalized = Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, Math.trunc(nextIndex)));
+    const normalized = Math.max(0, Math.min(unlockedMissions[arenaLevel], ARENA_CHALLENGE_COUNT - 1, Math.trunc(nextIndex)));
     if (normalized === challengeIndex) return;
     runningRef.current = false;
     setRunning(false);
@@ -551,7 +583,7 @@ export default function EuVouProgramar() {
     setLogs([]);
     const nextChallenge = getArenaChallenges(arenaLevel)[normalized];
     addLog(`Desafio ${normalized + 1}: ${nextChallenge.title}. ${nextChallenge.objective}`);
-  }, [addLog, arenaLevel, challengeIndex]);
+  }, [addLog, arenaLevel, challengeIndex, unlockedMissions]);
 
   const runProgram = useCallback(() => {
     if (status === "paused" && runnerRef.current) {
@@ -648,6 +680,31 @@ export default function EuVouProgramar() {
     setEditorTab("blocks");
     setProgramMode("blocks");
   };
+
+  const copyEditorContent = async () => {
+    window.clearTimeout(copyResetTimerRef.current);
+    setCopyStatus("working");
+    try {
+      if (editorTab === "blocks") {
+        const result = await blockEditorRef.current?.copyBlocksImage();
+        if (!result) throw new Error("O editor de blocos ainda está carregando.");
+        setCopyStatus(result === "clipboard" ? "image" : result === "shared" ? "shared" : "downloaded");
+      } else {
+        await copyTextToClipboard(code);
+        setCopyStatus("code");
+      }
+    } catch {
+      setCopyStatus("error");
+    }
+    copyResetTimerRef.current = window.setTimeout(() => setCopyStatus("idle"), 2400);
+  };
+
+  const copyButtonLabel = copyStatus === "working" ? "Preparando…"
+    : copyStatus === "code" || copyStatus === "image" ? "Copiado"
+      : copyStatus === "shared" ? "Compartilhar"
+        : copyStatus === "downloaded" ? "Salvo"
+          : copyStatus === "error" ? "Erro"
+            : editorTab === "blocks" ? "Print" : "Copiar";
 
   const updateHardware = (nextHardware: HardwareConfig) => {
     const normalized = normalizeHardware(nextHardware);
@@ -817,19 +874,26 @@ export default function EuVouProgramar() {
               <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => { setEditorTab("code"); setProgramMode("code"); }}><span>🐍</span> robot.py</button>
               <button role="tab" aria-selected={editorTab === "console"} className={editorTab === "console" ? "active" : ""} onClick={() => setEditorTab("console")}><span>›_</span> Saída <i>{logs.length}</i></button>
             </div>
-            <div className="editor-header-actions"><button className="assembly-mini-button" onClick={() => setBuilderOpen(true)}>⚙ Montagem</button><button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button></div>
+            <div className="editor-header-actions">
+              {editorTab !== "console" && <button className={`copy-editor-button copy-${copyStatus}`} onClick={copyEditorContent} disabled={copyStatus === "working"} aria-live="polite" aria-label={editorTab === "blocks" ? "Copiar imagem dos blocos" : "Copiar código Python"} title={editorTab === "blocks" ? "Copia uma imagem PNG dos blocos" : "Copia todo o código Python"}><span aria-hidden="true">{copyStatus === "working" ? "…" : copyStatus === "error" ? "!" : copyStatus === "idle" ? editorTab === "blocks" ? "📷" : "📋" : "✓"}</span><b>{copyButtonLabel}</b></button>}
+              <button className="assembly-mini-button" onClick={() => setBuilderOpen(true)} aria-label="Montagem" title="Montagem"><span aria-hidden="true">⚙</span></button>
+              <button className="examples-button" onClick={() => setCommandsOpen(true)}>Exemplos</button>
+            </div>
           </div>
 
           {editorTab === "blocks" ? (
-            builderOpen ? <div className="block-editor-paused" aria-hidden="true" /> : <BlockEditor programXml={programXml} onChange={updateBlocks} />
+            builderOpen ? <div className="block-editor-paused" aria-hidden="true" /> : <BlockEditor ref={blockEditorRef} programXml={programXml} onChange={updateBlocks} />
           ) : editorTab === "code" ? (
             <div className="editor-wrap">
-              <div className="line-numbers" aria-hidden="true">
+              <div ref={lineNumbersRef} className="line-numbers" aria-hidden="true">
                 {code.split("\n").map((_, index) => <span key={index}>{index + 1}</span>)}
               </div>
               <textarea
                 value={code}
                 onChange={(event) => updateCode(event.target.value)}
+                onScroll={(event) => {
+                  if (lineNumbersRef.current) lineNumbersRef.current.scrollTop = event.currentTarget.scrollTop;
+                }}
                 onKeyDown={(event) => {
                   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
                     event.preventDefault();
@@ -846,6 +910,9 @@ export default function EuVouProgramar() {
                   }
                 }}
                 aria-label="Código Python do robô"
+                autoCapitalize="off"
+                autoComplete="off"
+                autoCorrect="off"
                 spellCheck={false}
               />
               {blockSyncError && <div className="code-block-sync-error" role="status">Blocos aguardando Python válido: {blockSyncError}</div>}
@@ -913,10 +980,31 @@ export default function EuVouProgramar() {
             <label>
               <span>Objetivo {challengeIndex + 1} de {ARENA_CHALLENGE_COUNT}</span>
               <select value={challengeIndex} onChange={(event) => changeArenaChallenge(Number(event.target.value))} aria-label={`Objetivo do nível ${ARENA_LEVELS[arenaLevel].short}`}>
-                {challengeOptions.map((challenge, index) => <option key={challenge.title} value={index}>{index + 1}. {challenge.title}</option>)}
+                {challengeOptions.map((challenge, index) => <option key={challenge.title} value={index} disabled={index > unlockedMissions[arenaLevel]}>{index > unlockedMissions[arenaLevel] ? "🔒 " : ""}{index + 1}. {challenge.title}</option>)}
               </select>
             </label>
-            <button type="button" onClick={() => changeArenaChallenge(challengeIndex + 1)} disabled={challengeIndex === ARENA_CHALLENGE_COUNT - 1} aria-label="Próximo objetivo">›</button>
+            <button type="button" onClick={() => changeArenaChallenge(challengeIndex + 1)} disabled={challengeIndex === ARENA_CHALLENGE_COUNT - 1 || challengeIndex >= unlockedMissions[arenaLevel]} aria-label="Próximo objetivo" title={challengeIndex >= unlockedMissions[arenaLevel] && challengeIndex < ARENA_CHALLENGE_COUNT - 1 ? "Conclua esta missão para liberar a próxima" : undefined}>›</button>
+          </div>
+
+          <div className="arena-mission-progress" role="navigation" aria-label="Progresso das missões">
+            {challengeOptions.map((challenge, index) => {
+              const locked = index > unlockedMissions[arenaLevel];
+              const completed = index < unlockedMissions[arenaLevel];
+              return (
+                <button
+                  key={challenge.title}
+                  type="button"
+                  className={`${index === challengeIndex ? "is-active" : ""} ${locked ? "is-locked" : ""} ${completed ? "is-complete" : ""}`.trim()}
+                  disabled={locked}
+                  onClick={() => changeArenaChallenge(index)}
+                  aria-label={locked ? `Missão ${index + 1} bloqueada` : `Abrir missão ${index + 1}: ${challenge.title}`}
+                  title={locked ? `🔒 Conclua a missão ${index} para liberar` : challenge.title}
+                >
+                  <span aria-hidden="true">{locked ? "🔒" : completed ? "✓" : "•"}</span>
+                  <b>{index + 1}</b>
+                </button>
+              );
+            })}
           </div>
 
           <div className="obr-scoreboard" aria-label="Placar da rodada OBR">
@@ -933,7 +1021,7 @@ export default function EuVouProgramar() {
                 <div className="success-stars">★ <span>★</span> ★</div>
                 <strong>{activeChallenge.title} concluído!</strong>
                 <p>{activeChallenge.successMessage}</p>
-                <button onClick={() => { setCelebrating(false); setEditorTab("blocks"); setProgramMode("blocks"); }}>Continuar aprendendo</button>
+                <button onClick={() => { setCelebrating(false); setEditorTab("blocks"); setProgramMode("blocks"); if (challengeIndex < ARENA_CHALLENGE_COUNT - 1) changeArenaChallenge(challengeIndex + 1); }}>{challengeIndex < ARENA_CHALLENGE_COUNT - 1 ? `Ir para a missão ${challengeIndex + 2}` : "Continuar aprendendo"}</button>
               </div>
             )}
           </div>
