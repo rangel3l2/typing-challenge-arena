@@ -4,23 +4,23 @@
 
 Eu Vou Jogar é uma plataforma brasileira gratuita de jogos educacionais. O objetivo é apoiar estudantes e educadores com experiências interativas que funcionam diretamente no navegador. O conteúdo principal está em português do Brasil.
 
-Site oficial: https://euvoujogar.com.br/
+Site oficial: https://www.euvoujogar.com.br/
 
 ## Eu Vou Digitar
 
-URL: https://euvoujogar.com.br/game
+URL: https://www.euvoujogar.com.br/game
 
 Jogo educacional para treinar velocidade e precisão de digitação. Possui partidas e classificação de jogadores. O resultado de digitação é tratado separadamente dos outros módulos no ranking.
 
 ## Eu Vou Acertar
 
-URL: https://euvoujogar.com.br/acertar
+URL: https://www.euvoujogar.com.br/acertar
 
 Jogo educacional de matemática em que o estudante resolve operações em seis fases de dificuldade crescente. A pontuação possui classificação própria.
 
 ## Eu Vou Programar
 
-URL: https://euvoujogar.com.br/eu-vou-programar/
+URL: https://www.euvoujogar.com.br/eu-vou-programar/
 
 Simulador de programação e robótica educacional para treinamento da Olimpíada Brasileira de Robótica (OBR). O estudante pode montar um robô virtual com quatro portas de motores, A a D, e quatro portas de sensores, 1 a 4. A montagem aceita motores servos médios ou grandes e sensores de cor, ultrassônico, toque e giroscópio.
 
@@ -32,12 +32,12 @@ O módulo possui montagem livre e uma configuração pronta para quem deseja foc
 
 ## Rotas canônicas
 
-- Página inicial: https://euvoujogar.com.br/
-- Digitação: https://euvoujogar.com.br/game
-- Matemática: https://euvoujogar.com.br/acertar
-- Programação e robótica: https://euvoujogar.com.br/eu-vou-programar/
-- Ranking: https://euvoujogar.com.br/ranking
-- Sobre: https://euvoujogar.com.br/sobre
+- Página inicial: https://www.euvoujogar.com.br/
+- Digitação: https://www.euvoujogar.com.br/game
+- Matemática: https://www.euvoujogar.com.br/acertar
+- Programação e robótica: https://www.euvoujogar.com.br/eu-vou-programar/
+- Ranking: https://www.euvoujogar.com.br/ranking
+- Sobre: https://www.euvoujogar.com.br/sobre
 
 ## Termos relacionados
 

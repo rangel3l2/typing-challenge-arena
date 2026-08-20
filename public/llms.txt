@@ -3,19 +3,19 @@
 > Plataforma brasileira gratuita de jogos educacionais para aprender digitação, matemática, programação e robótica no navegador.
 
 Idioma principal: português do Brasil (pt-BR).
-URL canônica: https://euvoujogar.com.br/
+URL canônica: https://www.euvoujogar.com.br/
 
 ## Módulos principais
 
-- [Eu Vou Digitar](https://euvoujogar.com.br/game): jogo educacional para treinar velocidade e precisão de digitação.
-- [Eu Vou Acertar](https://euvoujogar.com.br/acertar): jogo de matemática com seis fases de dificuldade crescente.
-- [Eu Vou Programar](https://euvoujogar.com.br/eu-vou-programar/): simulador de robótica educacional com montagem virtual, blocos em português inspirados no EV3 Classroom e 30 desafios em arenas para treinamento da OBR.
-- [Ranking](https://euvoujogar.com.br/ranking): classificações separadas para os três jogos.
-- [Sobre](https://euvoujogar.com.br/sobre): apresentação da plataforma e orientações de uso.
+- [Eu Vou Digitar](https://www.euvoujogar.com.br/game): jogo educacional para treinar velocidade e precisão de digitação.
+- [Eu Vou Acertar](https://www.euvoujogar.com.br/acertar): jogo de matemática com seis fases de dificuldade crescente.
+- [Eu Vou Programar](https://www.euvoujogar.com.br/eu-vou-programar/): simulador de robótica educacional com montagem virtual, blocos em português inspirados no EV3 Classroom e 30 desafios em arenas para treinamento da OBR.
+- [Ranking](https://www.euvoujogar.com.br/ranking): classificações separadas para os três jogos.
+- [Sobre](https://www.euvoujogar.com.br/sobre): apresentação da plataforma e orientações de uso.
 
 ## Informações detalhadas
 
-- [Descrição completa para agentes de IA](https://euvoujogar.com.br/llms-full.txt)
-- [Sitemap XML](https://euvoujogar.com.br/sitemap.xml)
+- [Descrição completa para agentes de IA](https://www.euvoujogar.com.br/llms-full.txt)
+- [Sitemap XML](https://www.euvoujogar.com.br/sitemap.xml)
 
 O acesso é gratuito. O site funciona diretamente em navegadores modernos.

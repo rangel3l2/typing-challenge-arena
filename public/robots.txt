@@ -30,4 +30,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://euvoujogar.com.br/sitemap.xml
+Sitemap: https://www.euvoujogar.com.br/sitemap.xml

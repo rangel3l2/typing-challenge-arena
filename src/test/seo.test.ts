@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const pages = [
-  { file: "index.html", canonical: "https://euvoujogar.com.br/" },
-  { file: "game/index.html", canonical: "https://euvoujogar.com.br/game" },
-  { file: "acertar/index.html", canonical: "https://euvoujogar.com.br/acertar" },
-  { file: "eu-vou-programar/index.html", canonical: "https://euvoujogar.com.br/eu-vou-programar/" },
-  { file: "ranking/index.html", canonical: "https://euvoujogar.com.br/ranking" },
-  { file: "sobre/index.html", canonical: "https://euvoujogar.com.br/sobre" },
+  { file: "index.html", canonical: "https://www.euvoujogar.com.br/" },
+  { file: "game/index.html", canonical: "https://www.euvoujogar.com.br/game" },
+  { file: "acertar/index.html", canonical: "https://www.euvoujogar.com.br/acertar" },
+  { file: "eu-vou-programar/index.html", canonical: "https://www.euvoujogar.com.br/eu-vou-programar/" },
+  { file: "ranking/index.html", canonical: "https://www.euvoujogar.com.br/ranking" },
+  { file: "sobre/index.html", canonical: "https://www.euvoujogar.com.br/sobre" },
 ];
 
 const read = (file: string) => readFileSync(file, "utf8");
@@ -47,7 +47,7 @@ describe("indexação pública do site", () => {
     for (const crawler of ["Googlebot", "Google-Extended", "Bingbot", "OAI-SearchBot", "GPTBot", "ChatGPT-User", "*"]) {
       expect(robots).toContain(`User-agent: ${crawler}`);
     }
-    expect(robots).toContain("Sitemap: https://euvoujogar.com.br/sitemap.xml");
+    expect(robots).toContain("Sitemap: https://www.euvoujogar.com.br/sitemap.xml");
   });
 
   it("lista todas as páginas canônicas no sitemap e na referência para IAs", () => {

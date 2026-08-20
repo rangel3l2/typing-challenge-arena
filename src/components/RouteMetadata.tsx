@@ -8,7 +8,7 @@ interface PageMetadata {
   index?: boolean;
 }
 
-const SITE_URL = "https://euvoujogar.com.br";
+const SITE_URL = "https://www.euvoujogar.com.br";
 
 const pageMetadata: Record<string, PageMetadata> = {
   "/": {
