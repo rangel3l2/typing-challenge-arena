@@ -6,10 +6,12 @@ import type { Json } from "@/integrations/supabase/types";
 import BlockEditor from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
 import { createEmptyBlocks, createExampleBlocks } from "./blocks";
+import { pythonToBlocks, PythonBlocksError } from "./pythonBlocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel, OBRChallenge } from "./obrArena";
 import {
   cloneHardware,
+  createLineFollowerHardware,
   DEFAULT_HARDWARE,
   HardwareConfig,
   isRobotReady,
@@ -83,6 +85,33 @@ else:
 
 motors.set_power(1, 0)
 motors.set_power(2, 0)`,
+  seguidor: `from sbot import motors, utils, ev3
+
+# Porta 4: sensor de cor da frente esquerda, apontado para o chão
+# Porta 2: sensor de cor da frente direita, apontado para o chão
+while True:
+    cor_esquerda = ev3.color("4")
+    cor_direita = ev3.color("2")
+
+    if (cor_esquerda == "vermelho") or (cor_direita == "vermelho"):
+        motors.set_power(1, 0.20)
+        motors.set_power(2, 0.20)
+        utils.sleep(1.5)
+        motors.set_power(1, 0)
+        motors.set_power(2, 0)
+        utils.sleep(3.2)
+    else:
+        if (cor_esquerda == "preto") and (cor_direita == "branco"):
+            motors.set_power(1, 0.42)
+            motors.set_power(2, 0.08)
+        else:
+            if (cor_esquerda == "branco") and (cor_direita == "preto"):
+                motors.set_power(1, 0.08)
+                motors.set_power(2, 0.42)
+            else:
+                motors.set_power(1, 0.32)
+                motors.set_power(2, 0.32)
+    utils.sleep(0.02)`,
 };
 
 type Status = "ready" | "running" | "paused" | "complete" | "success" | "error";
@@ -144,6 +173,7 @@ export default function EuVouProgramar() {
   const [editorTab, setEditorTab] = useState<EditorTab>("blocks");
   const [programMode, setProgramMode] = useState<ProgramMode>("blocks");
   const [blockProgramReady, setBlockProgramReady] = useState(false);
+  const [blockSyncError, setBlockSyncError] = useState("");
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [telemetry, setTelemetry] = useState({ left: 0, right: 0, ultrasound: 0, bumped: false });
@@ -272,6 +302,15 @@ export default function EuVouProgramar() {
           challengePoints: data.challenge_points,
           totalPoints: data.total_points,
         };
+      }
+
+      if (nextMode === "code") {
+        try {
+          nextBlocks = pythonToBlocks(nextCode);
+        } catch {
+          // Preserve the last valid block workspace when a saved Python draft is
+          // incomplete or uses a command that Blockly cannot represent yet.
+        }
       }
 
       hardwareRef.current = nextHardware;
@@ -567,6 +606,13 @@ export default function EuVouProgramar() {
 
   const updateCode = (value: string) => {
     setCode(value);
+    try {
+      setProgramXml(pythonToBlocks(value));
+      setBlockProgramReady(true);
+      setBlockSyncError("");
+    } catch (error) {
+      setBlockSyncError(error instanceof PythonBlocksError ? error.message : "Não foi possível atualizar os blocos.");
+    }
     if (status === "paused" || status === "complete" || status === "error") {
       runnerRef.current = null;
       setStatus("ready");
@@ -577,11 +623,30 @@ export default function EuVouProgramar() {
     setProgramXml(nextProgramXml);
     setCode(generatedPython);
     setBlockProgramReady(executable);
+    setBlockSyncError("");
     if (status === "paused" || status === "complete" || status === "error" || status === "success") {
       runnerRef.current = null;
       setStatus("ready");
       setCelebrating(false);
     }
+  };
+
+  const openBlocks = () => {
+    if (programMode === "code") {
+      try {
+        setProgramXml(pythonToBlocks(code));
+        setBlockProgramReady(true);
+        setBlockSyncError("");
+      } catch (error) {
+        const message = error instanceof PythonBlocksError ? error.message : "Não foi possível atualizar os blocos.";
+        setBlockSyncError(message);
+        setLogs([]);
+        addLog(`Corrija o Python antes de abrir os blocos: ${message}`, "error");
+        return;
+      }
+    }
+    setEditorTab("blocks");
+    setProgramMode("blocks");
   };
 
   const updateHardware = (nextHardware: HardwareConfig) => {
@@ -602,6 +667,7 @@ export default function EuVouProgramar() {
 
   const loadExample = (name: keyof typeof examples) => {
     resetSimulation(false);
+    if (name === "seguidor") updateHardware(createLineFollowerHardware(hardwareRef.current));
     const nextBlocks = createExampleBlocks(name);
     setProgramXml(nextBlocks);
     setCode(examples[name]);
@@ -747,7 +813,7 @@ export default function EuVouProgramar() {
         <section className="code-panel" aria-label="Editor de código">
           <div className="panel-header editor-header">
             <div className="editor-tabs" role="tablist" aria-label="Editor e saída">
-              <button role="tab" aria-selected={editorTab === "blocks"} className={editorTab === "blocks" ? "active" : ""} onClick={() => { setEditorTab("blocks"); setProgramMode("blocks"); }}><span>▦</span> Blocos</button>
+              <button role="tab" aria-selected={editorTab === "blocks"} className={editorTab === "blocks" ? "active" : ""} onClick={openBlocks}><span>▦</span> Blocos</button>
               <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => { setEditorTab("code"); setProgramMode("code"); }}><span>🐍</span> robot.py</button>
               <button role="tab" aria-selected={editorTab === "console"} className={editorTab === "console" ? "active" : ""} onClick={() => setEditorTab("console")}><span>›_</span> Saída <i>{logs.length}</i></button>
             </div>
@@ -782,6 +848,7 @@ export default function EuVouProgramar() {
                 aria-label="Código Python do robô"
                 spellCheck={false}
               />
+              {blockSyncError && <div className="code-block-sync-error" role="status">Blocos aguardando Python válido: {blockSyncError}</div>}
             </div>
           ) : (
             <div className="console-wrap" role="log" aria-live="polite">
@@ -987,6 +1054,7 @@ export default function EuVouProgramar() {
               <button onClick={() => loadExample("avancar")}><span>↑</span><strong>Seguir reto</strong><small>Controle os dois motores.</small></button>
               <button onClick={() => loadExample("curva")}><span>↗</span><strong>Fazer curva</strong><small>Use potências diferentes.</small></button>
               <button onClick={() => loadExample("sensor")}><span>◔</span><strong>Usar sensor</strong><small>Meça antes de avançar.</small></button>
+              <button onClick={() => loadExample("seguidor")}><span>⌁</span><strong>Seguir linha</strong><small>Use dois sensores sem inverter os motores.</small></button>
             </div>
             <div className="command-list">
               <div><code>motors.set_power(1, 0.6)</code><span>Servo da porta B entre −1 e 1</span></div>

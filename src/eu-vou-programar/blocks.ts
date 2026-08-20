@@ -1,6 +1,6 @@
 import type * as Blockly from "blockly";
 
-export type EV3Example = "avancar" | "curva" | "sensor";
+export type EV3Example = "avancar" | "curva" | "sensor" | "seguidor";
 
 export const EV3_BLOCK_COLORS = {
   events: "#ffbf00",
@@ -265,12 +265,36 @@ const xml = (inner: string) => `<xml xmlns="https://developers.google.com/blockl
 const field = (name: string, value: string | number) => `<field name="${name}">${value}</field>`;
 const next = (inner: string) => `<next>${inner}</next>`;
 const block = (type: string, fields = "", following = "") => `<block type="${type}">${fields}${following ? next(following) : ""}</block>`;
+const value = (name: string, inner: string) => `<value name="${name}">${inner}</value>`;
+const statement = (name: string, inner: string) => `<statement name="${name}">${inner}</statement>`;
+
+const colorIs = (port: "2" | "4", colour: "branco" | "preto" | "vermelho") => block("ev3_color_is", `${field("PORT", port)}${field("COLOR", colour)}`);
+const logic = (operator: "e" | "ou", left: string, right: string) => block("ev3_op_logic", `${field("OP", operator)}${value("LEFT", left)}${value("RIGHT", right)}`);
+const motorSpeeds = (left: number, right: number, following = "") => block(
+  "ev3_motor_start_speed",
+  `${field("PORT", "B")}${field("SPEED", left)}`,
+  block("ev3_motor_start_speed", `${field("PORT", "C")}${field("SPEED", right)}`, following),
+);
 
 export function createEmptyBlocks() {
   return xml("");
 }
 
 export function createExampleBlocks(example: EV3Example = "avancar") {
+  if (example === "seguidor") {
+    const stopOnRed = logic("ou", colorIs("4", "vermelho"), colorIs("2", "vermelho"));
+    const lineOnLeft = logic("e", colorIs("4", "preto"), colorIs("2", "branco"));
+    const lineOnRight = logic("e", colorIs("4", "branco"), colorIs("2", "preto"));
+    const correctRight = motorSpeeds(8, 42);
+    const correctLeft = motorSpeeds(42, 8);
+    const forward = motorSpeeds(32, 32);
+    const finish = motorSpeeds(20, 20, block("ev3_wait", field("SECONDS", 1.5), motorSpeeds(0, 0, block("ev3_wait", field("SECONDS", 3.2)))));
+    const chooseRight = `<block type="ev3_if_else">${value("CONDITION", lineOnRight)}${statement("DO", correctRight)}${statement("ELSE", forward)}</block>`;
+    const chooseLeft = `<block type="ev3_if_else">${value("CONDITION", lineOnLeft)}${statement("DO", correctLeft)}${statement("ELSE", chooseRight)}</block>`;
+    const follow = `<block type="ev3_if_else">${value("CONDITION", stopOnRed)}${statement("DO", finish)}${statement("ELSE", chooseLeft)}${next(block("ev3_wait", field("SECONDS", 0.02)))}</block>`;
+    const forever = `<block type="ev3_forever">${statement("DO", follow)}</block>`;
+    return xml(`<block type="ev3_start" x="34" y="32">${next(forever)}</block>`);
+  }
   if (example === "curva") {
     const chain = block("ev3_move_set_speed", field("SPEED", 55), block("ev3_move_steer_speed", `${field("STEERING", 45)}${field("ROTATIONS", 1.2)}${field("SPEED", 55)}`, block("ev3_move_stop")));
     return xml(`<block type="ev3_start" x="34" y="32">${next(chain)}</block>`);
@@ -294,9 +318,11 @@ const textValue = (block: Blockly.Block, name: string, fallback = "") => String(
 const portChannel = (port: string) => ({ A: 0, B: 1, C: 2, D: 3 }[port] ?? 0);
 const power = (percent: number) => Math.max(-1, Math.min(1, percent / 100));
 const rotationSeconds = (rotations: number, percent: number) => Math.max(0.05, Math.abs(rotations) * 0.72 / Math.max(0.12, Math.abs(percent / 100)));
-const comparison = (word: string) => ({ "menor que": "<", "maior que": ">", "=": "==", "≠": "!=", "≤": "<=", "≥": ">=" }[word] ?? word);
+const comparison = (word: string) => ({ "menor que": "<", "maior que": ">", "=": "==", "≠": "!=", "≤": "<=", "≥": ">=", "e": "and", "ou": "or" }[word] ?? word);
 
 interface ExpressionResult { expression: string; prelude: string[] }
+
+const sensorVariable = (sensor: string, port: string) => `${sensor}_porta_${port.replace(/[^a-z0-9_]/gi, "_")}`;
 
 function expressionFromBlock(block: Blockly.Block | null): ExpressionResult {
   if (!block) return { expression: "False", prelude: [] };
@@ -329,22 +355,42 @@ function expressionFromBlock(block: Blockly.Block | null): ExpressionResult {
     return { expression: value.expression, prelude: value.prelude };
   }
   if (block.type === "ev3_distance" || block.type === "ev3_distance_compare") {
-    const variable = `distancia_${block.id.replace(/[^a-z0-9]/gi, "").slice(0, 8)}`;
+    const port = fieldValue("PORT", "4");
+    const variable = sensorVariable("distancia_ev3", port);
     const test = block.type === "ev3_distance_compare" ? `(${variable} ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 15)})` : variable;
-    return { expression: test, prelude: [`${variable} = ev3.distance_cm(${JSON.stringify(fieldValue("PORT", "4"))})`] };
+    return { expression: test, prelude: [`${variable} = ev3.distance_cm(${JSON.stringify(port)})`] };
   }
-  if (block.type === "ev3_touch") return { expression: fieldValue("STATE") === "liberado" ? "(not toque_ev3)" : "toque_ev3", prelude: [`toque_ev3 = ev3.touch_pressed(${JSON.stringify(fieldValue("PORT", "1"))})`] };
+  if (block.type === "ev3_touch") {
+    const port = fieldValue("PORT", "1");
+    const variable = sensorVariable("toque_ev3", port);
+    return { expression: fieldValue("STATE") === "liberado" ? `(not ${variable})` : variable, prelude: [`${variable} = ev3.touch_pressed(${JSON.stringify(port)})`] };
+  }
   if (block.type === "ev3_gyro_angle" || block.type === "ev3_gyro_compare") {
-    const test = block.type === "ev3_gyro_compare" ? `(angulo_ev3 ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 45)})` : "angulo_ev3";
-    return { expression: test, prelude: [`angulo_ev3 = ev3.gyro_angle(${JSON.stringify(fieldValue("PORT", "2"))})`] };
+    const port = fieldValue("PORT", "2");
+    const variable = sensorVariable("angulo_ev3", port);
+    const test = block.type === "ev3_gyro_compare" ? `(${variable} ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 45)})` : variable;
+    return { expression: test, prelude: [`${variable} = ev3.gyro_angle(${JSON.stringify(port)})`] };
   }
-  if (block.type === "ev3_gyro_speed") return { expression: "velocidade_angular_ev3", prelude: [`velocidade_angular_ev3 = ev3.gyro_speed(${JSON.stringify(fieldValue("PORT", "2"))})`] };
+  if (block.type === "ev3_gyro_speed") {
+    const port = fieldValue("PORT", "2");
+    const variable = sensorVariable("velocidade_angular_ev3", port);
+    return { expression: variable, prelude: [`${variable} = ev3.gyro_speed(${JSON.stringify(port)})`] };
+  }
   if (block.type === "ev3_timer") return { expression: "temporizador_ev3", prelude: ["temporizador_ev3 = ev3.timer()"] };
-  if (block.type === "ev3_color") return { expression: "cor_ev3", prelude: [`cor_ev3 = ev3.color(${JSON.stringify(fieldValue("PORT", "3"))})`] };
-  if (block.type === "ev3_color_is") return { expression: `(cor_ev3 == ${JSON.stringify(fieldValue("COLOR"))})`, prelude: [`cor_ev3 = ev3.color(${JSON.stringify(fieldValue("PORT", "3"))})`] };
-  if (block.type === "ev3_light_reflected" || block.type === "ev3_light_ambient") return { expression: "luz_ev3", prelude: [`luz_ev3 = ev3.${block.type === "ev3_light_reflected" ? "light_reflected" : "light_ambient"}(${JSON.stringify(fieldValue("PORT", "3"))})`] };
-  if (block.type === "ev3_light_reflected_compare") return { expression: `(luz_ev3 ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 50)})`, prelude: [`luz_ev3 = ev3.light_reflected(${JSON.stringify(fieldValue("PORT", "3"))})`] };
-  if (block.type === "ev3_light_ambient_compare") return { expression: `(luz_ev3 ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 50)})`, prelude: [`luz_ev3 = ev3.light_ambient(${JSON.stringify(fieldValue("PORT", "3"))})`] };
+  if (block.type === "ev3_color" || block.type === "ev3_color_is") {
+    const port = fieldValue("PORT", "3");
+    const variable = sensorVariable("cor_ev3", port);
+    const expression = block.type === "ev3_color_is" ? `(${variable} == ${JSON.stringify(fieldValue("COLOR"))})` : variable;
+    return { expression, prelude: [`${variable} = ev3.color(${JSON.stringify(port)})`] };
+  }
+  if (["ev3_light_reflected", "ev3_light_ambient", "ev3_light_reflected_compare", "ev3_light_ambient_compare"].includes(block.type)) {
+    const port = fieldValue("PORT", "3");
+    const reflected = block.type.includes("reflected");
+    const variable = sensorVariable(reflected ? "luz_refletida_ev3" : "luz_ambiente_ev3", port);
+    const isComparison = block.type.endsWith("_compare");
+    const expression = isComparison ? `(${variable} ${comparison(fieldValue("OP"))} ${numericField(block, "VALUE", 50)})` : variable;
+    return { expression, prelude: [`${variable} = ev3.${reflected ? "light_reflected" : "light_ambient"}(${JSON.stringify(port)})`] };
+  }
   if (block.type === "ev3_button") return { expression: fieldValue("STATE") === "liberado" ? "False" : "True", prelude: [] };
   if (block.type === "ev3_motor_degrees") return { expression: "graus_motor", prelude: [`graus_motor = ev3.motor_degrees(${JSON.stringify(fieldValue("PORT", "A"))})`] };
   if (block.type === "ev3_motor_speed") return { expression: "velocidade_motor", prelude: [`velocidade_motor = ev3.motor_speed(${JSON.stringify(fieldValue("PORT", "A"))})`] };
@@ -428,7 +474,7 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
   }
   if (block.type === "ev3_forever") {
     const nested = body("DO");
-    return [...at([`for sempre_${depth} in range(100):`]), ...(nested.length ? nested : indent(["pass"], depth + 1))];
+    return [...at(["while True:"]), ...(nested.length ? nested : indent(["pass"], depth + 1))];
   }
   if (["ev3_if", "ev3_if_else", "ev3_repeat_until"].includes(block.type)) {
     const condition = expressionFromBlock(block.getInputTargetBlock("CONDITION"));

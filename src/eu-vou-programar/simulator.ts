@@ -86,7 +86,7 @@ export interface WorldState {
   competition: CompetitionState;
 }
 
-type ProgramNode =
+export type ProgramNode =
   | { kind: "setPower"; line: number; channel: string; power: string }
   | { kind: "sleep"; line: number; seconds: string }
   | { kind: "sensor"; line: number; target: string; trigger: string; echo: string; divisor?: string }
@@ -110,6 +110,7 @@ interface RunnerFrame {
   repeat: number;
   iteration: number;
   variable?: string;
+  forever?: boolean;
 }
 
 export interface RunnerState {
@@ -282,37 +283,60 @@ export function parseProgram(code: string): ProgramNode[] {
 
   if (!lines.length) throw new ProgramError("escreva pelo menos um comando para o robô.");
 
-  const parseBlock = (start: number, indent: number): [ProgramNode[], number] => {
+  function parseIf(headerIndex: number, indent: number, condition: string): [ProgramNode, number] {
+    const source = lines[headerIndex];
+    const firstBodyLine = lines[headerIndex + 1];
+    if (!firstBodyLine || firstBodyLine.indent <= indent) throw new ProgramError("adicione comandos dentro deste bloco.", source.line);
+    const [body, afterBody] = parseBlock(headerIndex + 1, firstBodyLine.indent);
+    let otherwise: ProgramNode[] = [];
+    let nextCursor = afterBody;
+    const alternative = lines[afterBody];
+    const elifMatch = alternative?.indent === indent ? alternative.text.match(/^elif\s+(.+):$/) : null;
+    if (elifMatch) {
+      const [nestedIf, afterAlternative] = parseIf(afterBody, indent, elifMatch[1]);
+      otherwise = [nestedIf];
+      nextCursor = afterAlternative;
+    } else if (alternative?.indent === indent && alternative.text === "else:") {
+      const firstElseLine = lines[afterBody + 1];
+      if (!firstElseLine || firstElseLine.indent <= indent) throw new ProgramError("adicione comandos dentro do else.", alternative.line);
+      [otherwise, nextCursor] = parseBlock(afterBody + 1, firstElseLine.indent);
+    }
+    return [{ kind: "if", line: source.line, condition, body, otherwise }, nextCursor];
+  }
+
+  function parseBlock(start: number, indent: number): [ProgramNode[], number] {
     const nodes: ProgramNode[] = [];
     let cursor = start;
     while (cursor < lines.length) {
       const source = lines[cursor];
       if (source.indent < indent) break;
       if (source.indent > indent) throw new ProgramError("recuo inesperado.", source.line);
-      if (source.text === "else:") break;
+      if (source.text === "else:" || /^elif\s+.+:$/.test(source.text)) break;
 
       const forMatch = source.text.match(/^for\s+(\w+)\s+in\s+range\((.+)\):$/);
       const ifMatch = source.text.match(/^if\s+(.+):$/);
-      if (forMatch || ifMatch) {
+      const foreverMatch = source.text.match(/^while\s+True:$/);
+      if (forMatch || ifMatch || foreverMatch) {
+        if (ifMatch) {
+          const [conditional, nextCursor] = parseIf(cursor, indent, ifMatch[1]);
+          nodes.push(conditional);
+          cursor = nextCursor;
+          continue;
+        }
         const next = lines[cursor + 1];
         if (!next || next.indent <= indent) throw new ProgramError("adicione comandos dentro deste bloco.", source.line);
         const [body, afterBody] = parseBlock(cursor + 1, next.indent);
-        if (forMatch) {
-          nodes.push({ kind: "for", line: source.line, variable: forMatch[1], count: forMatch[2], body });
+        if (forMatch || foreverMatch) {
+          nodes.push({
+            kind: "for",
+            line: source.line,
+            variable: foreverMatch ? `sempre_while_${source.line}` : forMatch![1],
+            count: foreverMatch ? "100" : forMatch![2],
+            body,
+          });
           cursor = afterBody;
           continue;
         }
-        let otherwise: ProgramNode[] = [];
-        let nextCursor = afterBody;
-        const possibleElse = lines[afterBody];
-        if (possibleElse?.indent === indent && possibleElse.text === "else:") {
-          const firstElseLine = lines[afterBody + 1];
-          if (!firstElseLine || firstElseLine.indent <= indent) throw new ProgramError("adicione comandos dentro do else.", possibleElse.line);
-          [otherwise, nextCursor] = parseBlock(afterBody + 1, firstElseLine.indent);
-        }
-        nodes.push({ kind: "if", line: source.line, condition: ifMatch![1], body, otherwise });
-        cursor = nextCursor;
-        continue;
       }
 
       const node = parseSimpleLine(source);
@@ -320,7 +344,7 @@ export function parseProgram(code: string): ProgramNode[] {
       cursor += 1;
     }
     return [nodes, cursor];
-  };
+  }
 
   const [nodes, cursor] = parseBlock(0, lines[0].indent);
   if (cursor !== lines.length) throw new ProgramError("verifique a organização dos blocos.", lines[cursor].line);
@@ -438,12 +462,23 @@ export function evaluateExpression(expression: string, variables: RunnerState["v
   };
   const parseAnd = (): number | string | boolean | null => {
     let value = parseComparison();
-    while (matches("and")) { take(); value = Boolean(value) && Boolean(parseComparison()); }
+    while (matches("and")) {
+      take();
+      // The parser must always consume the right-hand side. Using JavaScript's
+      // short-circuit expression here left its tokens unread whenever `value`
+      // was false, which later surfaced as the misleading "missing )" error.
+      const right = parseComparison();
+      value = Boolean(value) && Boolean(right);
+    }
     return value;
   };
   const parseOr = (): number | string | boolean | null => {
     let value = parseAnd();
-    while (matches("or")) { take(); value = Boolean(value) || Boolean(parseAnd()); }
+    while (matches("or")) {
+      take();
+      const right = parseAnd();
+      value = Boolean(value) || Boolean(right);
+    }
     return value;
   };
 
@@ -480,8 +515,10 @@ function finishFrame(runner: RunnerState) {
     frame.iteration += 1;
     frame.index = 0;
     if (frame.variable) runner.variables[frame.variable] = frame.iteration;
+    return true;
   } else {
     runner.frames.pop();
+    return false;
   }
 }
 
@@ -506,10 +543,16 @@ export function stepRunner(
   while (immediateBudget > 0 && runner.frames.length) {
     immediateBudget -= 1;
     const frame = runner.frames[runner.frames.length - 1];
-    if (frame.index >= frame.nodes.length) { finishFrame(runner); continue; }
+    if (frame.index >= frame.nodes.length) {
+      // Yield once per loop iteration so sensors are read again only after the
+      // physics advances. Without this, a line follower evaluated every repeat
+      // at the starting position and then kept the final motor command forever.
+      if (finishFrame(runner)) return;
+      continue;
+    }
     const node = frame.nodes[frame.index++];
     runner.executed += 1;
-    if (runner.executed > 800) throw new ProgramError("o programa executou comandos demais. Reduza as repetições.", node.line);
+    if (runner.executed > 800 && !runner.frames.some((item) => item.forever)) throw new ProgramError("o programa executou comandos demais. Reduza as repetições.", node.line);
 
     if (node.kind === "setPower") {
       const channel = Math.round(numeric(evaluateExpression(node.channel, runner.variables)));
@@ -589,10 +632,11 @@ export function stepRunner(
       const blue = colorChannel(numeric(evaluateExpression(node.blue, runner.variables)));
       world.robot.led = `rgb(${red}, ${green}, ${blue})`;
     } else if (node.kind === "for") {
-      const repeat = Math.max(0, Math.min(100, Math.floor(numeric(evaluateExpression(node.count, runner.variables)))));
+      const forever = node.variable.startsWith("sempre_");
+      const repeat = forever ? Number.POSITIVE_INFINITY : Math.max(0, Math.min(100, Math.floor(numeric(evaluateExpression(node.count, runner.variables)))));
       if (repeat) {
         runner.variables[node.variable] = 0;
-        runner.frames.push({ nodes: node.body, index: 0, repeat, iteration: 0, variable: node.variable });
+        runner.frames.push({ nodes: node.body, index: 0, repeat, iteration: 0, variable: node.variable, forever });
       }
     } else if (node.kind === "if") {
       const branch = evaluateExpression(node.condition, runner.variables) ? node.body : node.otherwise;

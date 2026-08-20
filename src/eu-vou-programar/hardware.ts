@@ -116,6 +116,17 @@ export function cloneHardware(config: HardwareConfig): HardwareConfig {
   };
 }
 
+export function createLineFollowerHardware(base: HardwareConfig = DEFAULT_HARDWARE): HardwareConfig {
+  const config = cloneHardware(base);
+  config.motors.B = "large";
+  config.motors.C = "large";
+  config.sensors["4"] = "color";
+  config.sensorMounts["4"] = { position: "front-left", aim: "ground" };
+  config.sensors["2"] = "color";
+  config.sensorMounts["2"] = { position: "front-right", aim: "ground" };
+  return config;
+}
+
 export function defaultSensorMount(kind: SensorKind, port: SensorPort): SensorMount {
   const positions: Record<SensorPort, SensorPosition> = { "1": "front-center", "2": "center", "3": "front-left", "4": "front-right" };
   return { position: positions[port], aim: kind === "color" ? "ground" : "outward" };
