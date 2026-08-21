@@ -2,13 +2,15 @@ import type { ArenaLevel } from "./obrArena";
 
 export type MissionUnlocks = Record<ArenaLevel, number>;
 
-export const initialMissionUnlocks = (): MissionUnlocks => ({ easy: 0, medium: 0, hard: 0 });
+const arenaLevels: ArenaLevel[] = ["beginner", "easy", "medium", "hard"];
+
+export const initialMissionUnlocks = (): MissionUnlocks => ({ beginner: 0, easy: 0, medium: 0, hard: 0 });
 
 export function normalizeMissionUnlocks(value: unknown, missionCount: number): MissionUnlocks {
   const source = value && typeof value === "object" ? value as Partial<Record<ArenaLevel, unknown>> : {};
   const maximum = Math.max(0, missionCount - 1);
   const normalized = initialMissionUnlocks();
-  for (const level of ["easy", "medium", "hard"] as const) {
+  for (const level of arenaLevels) {
     const numeric = Number(source[level]);
     normalized[level] = Number.isFinite(numeric) ? Math.max(0, Math.min(maximum, Math.trunc(numeric))) : 0;
   }
@@ -21,7 +23,7 @@ export function unlockFromCompletedMissions(
   missionCount: number,
 ) {
   const next = { ...current };
-  for (const level of ["easy", "medium", "hard"] as const) {
+  for (const level of arenaLevels) {
     const completedNumbers = new Set(completed.filter((row) => row.arena_level === level).map((row) => row.challenge_number));
     let highestAccessible = 0;
     while (highestAccessible < missionCount - 1 && completedNumbers.has(highestAccessible + 1)) highestAccessible += 1;

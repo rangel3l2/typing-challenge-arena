@@ -1,7 +1,8 @@
 export interface ArenaPoint { x: number; y: number }
 export interface ArenaRect { x: number; y: number; width: number; height: number }
 
-export type ArenaLevel = "easy" | "medium" | "hard";
+export type ArenaLevel = "beginner" | "easy" | "medium" | "hard";
+export type ArenaStyle = "white" | "obr";
 export type OBRHazardKind = "gap" | "bump" | "ramp" | "intersection" | "obstacle" | "passage" | "checkpoint" | "sensor-gate" | "timed-stop";
 export type GreenRule = "left" | "right" | "straight" | "dead-end";
 export type ArenaMarkerColour = "azul" | "amarelo" | "vermelho" | "verde" | "prata" | "preto";
@@ -24,7 +25,7 @@ export interface OBRLayout {
   id: string; name: string; level: ArenaLevel; challenge: OBRChallenge; mainPath: ArenaPoint[]; exitPath: ArenaPoint[];
   branches: ArenaPoint[][]; gaps: ArenaRect[]; floorMarkers: OBRFloorMarker[]; greenMarkers: OBRGreenMarker[];
   hazards: OBRHazard[]; obstacles: OBRArenaObstacle[]; start: OBRStart; rescueRoom: ArenaRect;
-  silverGate: ArenaRect; blackGate: ArenaRect; finishStripe: ArenaRect;
+  silverGate: ArenaRect; blackGate: ArenaRect; finishStripe: ArenaRect; arenaStyle: ArenaStyle;
 }
 
 export const OBR_TILE_SIZE = 100;
@@ -37,7 +38,7 @@ const common = {
   finishStripe: { x: 670, y: 488, width: 16, height: 44 },
   exitPath: [{ x: 815, y: 340 }, { x: 815, y: 510 }, { x: 680, y: 510 }],
 };
-const levelNames: Record<ArenaLevel, string> = { easy: "Fácil", medium: "Médio", hard: "Avançado" };
+const levelNames: Record<ArenaLevel, string> = { beginner: "Muito Fácil", easy: "Fácil", medium: "Médio", hard: "Avançado" };
 const goal = (x: number, y: number, label: string, holdSeconds = 2, requiredHeading?: number): OBRChallengeGoal => ({ x, y, radius: 27, holdSeconds, label, requiredHeading });
 const finishGoal = (holdSeconds = 5) => goal(678, 510, `Pare ${holdSeconds} segundos na faixa vermelha`, holdSeconds);
 const m = (id: string, label: string, colour: ArenaMarkerColour, x: number, y: number, width = 28, height = 30): OBRFloorMarker => ({ id, label, colour, x: x - width / 2, y: y - height / 2, width, height });
@@ -52,7 +53,7 @@ interface LayoutOptions {
   branches?: ArenaPoint[][]; gaps?: ArenaRect[]; floorMarkers?: OBRFloorMarker[]; greenMarkers?: OBRGreenMarker[];
   hazards?: OBRHazard[]; obstacles?: OBRArenaObstacle[]; start?: OBRStart; exitPath?: ArenaPoint[];
   requiredHazards?: string[]; requireHazardOrder?: boolean; maxCollisions?: number; maxVictimTouches?: number; timeLimit?: number;
-  goal?: OBRChallengeGoal; successMessage?: string; hardwareRequirement?: "dual-outward-colour"; finishStripe?: ArenaRect;
+  goal?: OBRChallengeGoal; successMessage?: string; hardwareRequirement?: "dual-outward-colour"; finishStripe?: ArenaRect; arenaStyle?: ArenaStyle;
 }
 
 function makeLayout(level: ArenaLevel, number: number, title: string, objective: string, hint: string, mainPath: ArenaPoint[], options: LayoutOptions = {}): OBRLayout {
@@ -67,10 +68,45 @@ function makeLayout(level: ArenaLevel, number: number, title: string, objective:
     },
     mainPath, exitPath: options.exitPath ?? common.exitPath, branches: options.branches ?? [], gaps: options.gaps ?? [],
     floorMarkers: options.floorMarkers ?? [], greenMarkers: options.greenMarkers ?? [], hazards: options.hazards ?? [],
-    obstacles: options.obstacles ?? [], start: options.start ?? { x: mainPath[0].x, y: mainPath[0].y, angle: 0 },
+    obstacles: options.obstacles ?? [], start: options.start ?? { x: mainPath[0].x, y: mainPath[0].y, angle: 0 }, arenaStyle: options.arenaStyle ?? "obr",
     finishStripe: options.finishStripe ?? common.finishStripe,
   };
 }
+
+const whiteArena = { arenaStyle: "white" as const, exitPath: [] as ArenaPoint[], finishStripe: { x: 0, y: 0, width: 0, height: 0 } };
+
+const beginnerLayouts: OBRLayout[] = [
+  makeLayout("beginner", 1, "Primeiros metros", "Faça o carrinho andar somente para a frente, em linha reta, e parar dentro do objetivo no outro lado da pista branca.", "Use a mesma potência nos dois motores. Ajuste apenas o tempo de movimento até o robô alcançar a estrela sem ultrapassá-la.",
+    [{x:100,y:500},{x:560,y:500}],
+    { ...whiteArena, goal:goal(560,500,"Ande reto e pare dentro do objetivo",1), timeLimit:60, successMessage:"Primeira missão concluída: o carrinho andou reto e parou no lugar certo!" }),
+  makeLayout("beginner", 2, "Curva em L", "Percorra as duas partes do L na ordem: avance até o ponto 1, faça uma curva de 90 graus e termine dentro do objetivo.", "Separe o programa em três ações: andar reto, girar com os motores em potências diferentes e andar reto novamente.",
+    [{x:100,y:500},{x:430,y:500},{x:430,y:190}],
+    { ...whiteArena, hazards:[h("b2-corner","Primeira parte do L concluída",430,500)], requiredHazards:["b2-corner"], goal:goal(430,190,"Complete o L e pare no objetivo",1,-Math.PI/2), timeLimit:70, successMessage:"O percurso em L foi concluído com uma curva de 90 graus!" }),
+  makeLayout("beginner", 3, "Uma volta completa", "Dê uma volta completa em formato de quadrado, passando pelos pontos 1, 2 e 3 na ordem, e retorne ao objetivo da partida.", "Repita quatro vezes a ideia de andar uma lateral e girar 90 graus. Pequenos ajustes no tempo do giro deixam a volta mais precisa.",
+    [{x:150,y:480},{x:540,y:480},{x:540,y:150},{x:150,y:150},{x:150,y:480}],
+    { ...whiteArena, hazards:[h("b3-a","Primeiro lado concluído",540,480,10,0),h("b3-b","Segundo lado concluído",540,150,10,-Math.PI/2),h("b3-c","Terceiro lado concluído",150,150,10,Math.PI)], requiredHazards:["b3-a","b3-b","b3-c"], requireHazardOrder:true, goal:goal(150,480,"Complete a volta e pare onde começou",1,Math.PI/2), timeLimit:90, successMessage:"Volta completa: os quatro lados foram percorridos na ordem certa!" }),
+  makeLayout("beginner", 4, "Caminho em U", "Faça um U aberto: avance até o ponto 1, vire, alcance o ponto 2, vire novamente para o mesmo lado e siga até o objetivo.", "Agora são duas curvas para o mesmo lado. Compare os dois giros e tente usar exatamente a mesma potência e duração em ambos.",
+    [{x:110,y:480},{x:570,y:480},{x:570,y:210},{x:250,y:210}],
+    { ...whiteArena, hazards:[h("b4-a","Primeira curva alcançada",570,480),h("b4-b","Segunda curva alcançada",570,210)], requiredHazards:["b4-a","b4-b"], requireHazardOrder:true, goal:goal(250,210,"Complete o U e pare no objetivo",1,Math.PI), timeLimit:90, successMessage:"Caminho em U concluído com duas curvas iguais!" }),
+  makeLayout("beginner", 5, "Escadinha", "Suba a escadinha invisível passando pelos quatro pontos numerados na ordem e pare no objetivo final da pista branca.", "As curvas alternam de lado. Monte uma sequência curta para cada degrau e observe quais comandos podem ser repetidos.",
+    [{x:90,y:510},{x:290,y:510},{x:290,y:380},{x:490,y:380},{x:490,y:250},{x:720,y:250}],
+    { ...whiteArena, hazards:[h("b5-a","Degrau 1",290,510),h("b5-b","Degrau 2",290,380),h("b5-c","Degrau 3",490,380),h("b5-d","Degrau 4",490,250)], requiredHazards:["b5-a","b5-b","b5-c","b5-d"], requireHazardOrder:true, goal:goal(720,250,"Complete a escadinha e pare no objetivo",1,0), timeLimit:110, successMessage:"Escadinha concluída: você alternou as curvas sem uma linha-guia!" }),
+  makeLayout("beginner", 6, "Volta triangular", "Contorne o triângulo passando pelos pontos 1 e 2 e volte ao objetivo da partida, usando giros diferentes de 90 graus.", "O tempo de giro do quadrado não serve aqui. Teste um giro menor nas pontas e corrija aos poucos até fechar o triângulo.",
+    [{x:170,y:470},{x:680,y:470},{x:425,y:140},{x:170,y:470}],
+    { ...whiteArena, hazards:[h("b6-a","Base do triângulo concluída",680,470),h("b6-b","Topo do triângulo alcançado",425,140)], requiredHazards:["b6-a","b6-b"], requireHazardOrder:true, goal:goal(170,470,"Feche o triângulo e pare no objetivo",1,2.23), timeLimit:110, successMessage:"Triângulo fechado: você calculou curvas com novos ângulos!" }),
+  makeLayout("beginner", 7, "Garagem de ré", "Avance até o ponto 1, mantenha o carrinho na mesma direção e use marcha à ré para estacionar dentro do objetivo.", "Depois de alcançar o ponto 1, use a mesma potência negativa nos dois motores. Não faça outro giro antes de entrar na garagem.",
+    [{x:120,y:430},{x:700,y:430},{x:430,y:430}],
+    { ...whiteArena, hazards:[h("b7-turnaround","Ponto de retorno alcançado",700,430,15,0)], requiredHazards:["b7-turnaround"], goal:goal(430,430,"Volte de ré e pare dentro da garagem",1,0), timeLimit:80, successMessage:"Garagem concluída: o carrinho estacionou de ré sem mudar de direção!" }),
+  makeLayout("beginner", 8, "Desvio de três blocos", "Passe alternadamente por cima, por baixo e por cima dos três blocos, confirme os pontos numerados e pare no objetivo sem colisões.", "Programe um desvio de cada vez. Distâncias menores e velocidade moderada ajudam a manter espaço entre o robô e os blocos.",
+    [{x:90,y:500},{x:210,y:500},{x:340,y:340},{x:390,y:340},{x:520,y:500},{x:560,y:500},{x:690,y:340},{x:830,y:340}],
+    { ...whiteArena, obstacles:[{x:260,y:390,width:60,height:100},{x:430,y:285,width:60,height:120},{x:610,y:390,width:60,height:100}], hazards:[h("b8-a","Primeiro bloco desviado",340,340),h("b8-b","Segundo bloco desviado",520,500),h("b8-c","Terceiro bloco desviado",690,340)], requiredHazards:["b8-a","b8-b","b8-c"], requireHazardOrder:true, goal:goal(830,340,"Desvie dos três blocos e pare",1), maxCollisions:0, timeLimit:130, successMessage:"Os três blocos foram desviados sem nenhuma colisão!" }),
+  makeLayout("beginner", 9, "Rota dos cinco pontos", "Visite os cinco pontos espalhados pela pista branca exatamente na ordem indicada e, só depois, pare no objetivo.", "Transforme cada trecho em uma pequena missão: descubra o ângulo, avance a distância necessária e então pense no próximo ponto.",
+    [{x:100,y:500},{x:260,y:500},{x:190,y:250},{x:470,y:150},{x:650,y:360},{x:470,y:500},{x:820,y:220}],
+    { ...whiteArena, hazards:[h("b9-a","Ponto 1 visitado",260,500),h("b9-b","Ponto 2 visitado",190,250),h("b9-c","Ponto 3 visitado",470,150),h("b9-d","Ponto 4 visitado",650,360),h("b9-e","Ponto 5 visitado",470,500)], requiredHazards:["b9-a","b9-b","b9-c","b9-d","b9-e"], requireHazardOrder:true, goal:goal(820,220,"Visite os cinco pontos e pare no objetivo",1), timeLimit:150, successMessage:"Rota completa: os cinco pontos foram visitados na ordem correta!" }),
+  makeLayout("beginner", 10, "Circuito final branco", "Una tudo: siga os cinco pontos na ordem, contorne os blocos sem tocar neles e termine estacionando de ré dentro da garagem.", "Resolva por partes: retas, curvas, trechos diagonais e, por último, a ré. Teste cada parte antes de montar a sequência completa.",
+    [{x:90,y:500},{x:240,y:500},{x:240,y:330},{x:420,y:330},{x:500,y:220},{x:700,y:220},{x:700,y:480},{x:700,y:350}],
+    { ...whiteArena, obstacles:[{x:300,y:390,width:85,height:65},{x:530,y:285,width:80,height:65},{x:625,y:315,width:38,height:150},{x:737,y:315,width:38,height:150}], hazards:[h("b10-a","Primeira reta concluída",240,500),h("b10-b","Primeira curva concluída",240,330),h("b10-c","Trecho central concluído",420,330),h("b10-d","Segundo bloco contornado",500,220),h("b10-e","Entrada da garagem alcançada",700,480,20,Math.PI/2)], requiredHazards:["b10-a","b10-b","b10-c","b10-d","b10-e"], requireHazardOrder:true, goal:goal(700,350,"Estacione de ré dentro da garagem",1,Math.PI/2), maxCollisions:0, timeLimit:180, successMessage:"Nível Muito Fácil completo: circuito final e estacionamento de ré concluídos!" }),
+];
 
 const easyLayouts: OBRLayout[] = [
   makeLayout("easy", 1, "Parada de precisão", "Siga a linha e pare completamente sobre a pequena estação vermelha por 3 segundos.", "Não use apenas tempo: leia a cor vermelha para decidir a hora de parar.",
@@ -131,13 +167,13 @@ const hardLayouts: OBRLayout[] = [
   makeLayout("hard",10,"Missão final integrada","Complete gaps, verdes, obstáculo, lombada, sala de resgate e chegada.","Organize decisões pequenas e teste cada sensor; esta pista reúne tudo.",[{x:70,y:510},{x:190,y:510},{x:190,y:410},{x:360,y:410},{x:430,y:340},{x:520,y:340},{x:580,y:260},{x:650,y:220}],{branches:[[{x:190,y:510},{x:300,y:510}],[{x:360,y:410},{x:360,y:300}]],gaps:[{x:105,y:495,width:48,height:30}],obstacles:[{x:445,y:314,width:42,height:48}],greenMarkers:[leftGreen("h10-left",190,510),{id:"h10-straight",rule:"straight",x:364,y:393,width:13,height:13}],hazards:[ev("h10-gap","gap","Gap final",170,510),ev("h10-left","intersection","Curva verde",190,455,10,-Math.PI/2),ev("h10-st","intersection","Cruzamento reto",405,390,10,0),ev("h10-ob","obstacle","Obstáculo final",515,330,20),ev("h10-bump","bump","Lombada final",600,248,10),h("h10-silver","Sala alcançada",680,220,20),h("h10-black","Saída preta",815,370,20,Math.PI/2)],requiredHazards:["h10-gap","h10-left","h10-st","h10-ob","h10-bump","h10-silver","h10-black"],requireHazardOrder:true,goal:finishGoal(),maxCollisions:0,timeLimit:300,successMessage:"Missão final completa: todos os problemas foram resolvidos!"}),
 ];
 
-const layoutsByLevel: Record<ArenaLevel, OBRLayout[]> = { easy: easyLayouts, medium: mediumLayouts, hard: hardLayouts };
+const layoutsByLevel: Record<ArenaLevel, OBRLayout[]> = { beginner: beginnerLayouts, easy: easyLayouts, medium: mediumLayouts, hard: hardLayouts };
 
 export function getArenaChallenges(level: ArenaLevel): OBRChallenge[] {
   return layoutsByLevel[level].map((layout) => structuredClone(layout.challenge));
 }
 
-export function createOBRLayout(layoutIndex = 0, level: ArenaLevel = "easy"): OBRLayout {
+export function createOBRLayout(layoutIndex = 0, level: ArenaLevel = "beginner"): OBRLayout {
   const layouts = layoutsByLevel[level];
   return structuredClone(layouts[Math.abs(Math.trunc(layoutIndex)) % layouts.length]);
 }

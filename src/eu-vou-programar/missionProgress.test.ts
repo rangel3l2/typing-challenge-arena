@@ -3,7 +3,7 @@ import { initialMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMiss
 
 describe("ordem das missões", () => {
   it("começa somente com a missão 1 liberada em cada nível", () => {
-    expect(initialMissionUnlocks()).toEqual({ easy: 0, medium: 0, hard: 0 });
+    expect(initialMissionUnlocks()).toEqual({ beginner: 0, easy: 0, medium: 0, hard: 0 });
   });
 
   it("libera a missão seguinte depois do sucesso atual", () => {
@@ -25,6 +25,6 @@ describe("ordem das missões", () => {
   });
 
   it("normaliza progresso local fora dos limites", () => {
-    expect(normalizeMissionUnlocks({ easy: 15, medium: -2, hard: "3" }, 10)).toEqual({ easy: 9, medium: 0, hard: 3 });
+    expect(normalizeMissionUnlocks({ beginner: "4", easy: 15, medium: -2, hard: "3" }, 10)).toEqual({ beginner: 4, easy: 9, medium: 0, hard: 3 });
   });
 });

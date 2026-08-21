@@ -131,7 +131,7 @@ export class ProgramError extends Error {
   }
 }
 
-export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutIndex?: number, level: ArenaLevel = "easy"): WorldState {
+export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutIndex?: number, level: ArenaLevel = "beginner"): WorldState {
   const layout = createOBRLayout(layoutIndex, level);
   const start = layout.start;
   const startTile = tileKeyAt(start.x, start.y);
@@ -160,7 +160,7 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
     collisionReported: false,
     hardware: cloneHardware(hardware),
     layout,
-    victims: [
+    victims: layout.arenaStyle === "white" ? [] : [
       { id: "alive-1", type: "alive", x: layout.rescueRoom.x + 90, y: layout.rescueRoom.y + 90, rescued: false, touched: false },
       { id: "alive-2", type: "alive", x: layout.rescueRoom.x + 185, y: layout.rescueRoom.y + 105, rescued: false, touched: false },
       { id: "dead-1", type: "dead", x: layout.rescueRoom.x + 145, y: layout.rescueRoom.y + 205, rescued: false, touched: false },
@@ -176,7 +176,7 @@ export function createWorld(hardware: HardwareConfig = DEFAULT_HARDWARE, layoutI
       hazardHoldTimes: {},
       collisionCount: 0,
       victimTouches: 0,
-      lastEvent: "Ladrilho de partida: +5 pontos",
+      lastEvent: layout.arenaStyle === "white" ? "Ponto de partida: +5 pontos" : "Ladrilho de partida: +5 pontos",
       finishStopped: 0,
       roundOver: false,
     },
@@ -671,6 +671,7 @@ function distanceToPath(point: ArenaPoint, path: ArenaPoint[]) {
 }
 
 function rescueWallRectangles(layout: OBRLayout): ArenaRect[] {
+  if (layout.arenaStyle === "white") return [];
   const room = layout.rescueRoom;
   const wall = 8;
   return [
@@ -684,6 +685,7 @@ function rescueWallRectangles(layout: OBRLayout): ArenaRect[] {
 }
 
 function rescueAreaColor(world: WorldState, x: number, y: number) {
+  if (world.layout.arenaStyle === "white") return null;
   const room = world.layout.rescueRoom;
   const size = 72;
   const greenLocalX = x - (room.x + 10);
@@ -705,6 +707,7 @@ export function arenaColorAt(world: WorldState, x: number, y: number) {
   const rescueColor = rescueAreaColor(world, x, y);
   if (rescueColor) return rescueColor;
   if (world.layout.gaps.some((gap) => pointInsideRect(x, y, gap))) return "branco";
+  if (world.layout.arenaStyle === "white") return "branco";
   const paths = [world.layout.mainPath, world.layout.exitPath, ...world.layout.branches];
   if (paths.some((path) => distanceToPath({ x, y }, path) <= 5)) return "preto";
   return "branco";
@@ -814,6 +817,7 @@ function circleHitsArenaRect(x: number, y: number, radius: number, rectangle: Ar
 }
 
 function robotIsInsideRoom(world: WorldState) {
+  if (world.layout.arenaStyle === "white") return false;
   const room = world.layout.rescueRoom;
   return world.robot.x > room.x && world.robot.x < room.x + room.width && world.robot.y > room.y && world.robot.y < room.y + room.height;
 }
@@ -837,7 +841,7 @@ function updateCompetition(world: WorldState, delta: number) {
   if (!robotIsInsideRoom(world) && distanceFromLine <= 42 && !competition.scoredTiles.includes(currentTile)) {
     competition.scoredTiles.push(currentTile);
     competition.tilePoints += 5;
-    competition.lastEvent = `Novo ladrilho percorrido: +5 pontos`;
+    competition.lastEvent = world.layout.arenaStyle === "white" ? "Novo trecho percorrido: +5 pontos" : "Novo ladrilho percorrido: +5 pontos";
   }
 
   const stopped = Math.abs(world.robot.leftPower) < 0.02 && Math.abs(world.robot.rightPower) < 0.02;
@@ -921,7 +925,7 @@ function updateCompetition(world: WorldState, delta: number) {
 
   if (competition.remaining <= 0) {
     competition.roundOver = true;
-    competition.lastEvent = "Tempo encerrado: 5 minutos";
+    competition.lastEvent = "Tempo encerrado: reinicie para tentar novamente";
     world.robot.leftPower = 0;
     world.robot.rightPower = 0;
   }
@@ -954,7 +958,7 @@ export function restartRound(world: WorldState) {
     hazardHoldTimes: {},
     collisionCount: 0,
     victimTouches: 0,
-    lastEvent: "Ladrilho de partida: +5 pontos",
+    lastEvent: world.layout.arenaStyle === "white" ? "Ponto de partida: +5 pontos" : "Ladrilho de partida: +5 pontos",
     finishStopped: 0,
     roundOver: false,
   };
@@ -1048,26 +1052,35 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.setTransform(scale * dpr, 0, 0, scale * dpr, offsetX * dpr, offsetY * dpr);
 
-  context.fillStyle = "#c9d1d5";
+  const whiteArena = world.layout.arenaStyle === "white";
+  context.fillStyle = whiteArena ? "#fbfbf8" : "#c9d1d5";
   context.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-  for (let y = 6; y < WORLD_HEIGHT - 6; y += OBR_TILE_SIZE) {
-    for (let x = 6; x < WORLD_WIDTH - 6; x += OBR_TILE_SIZE) {
-      context.fillStyle = ((x + y) / OBR_TILE_SIZE) % 2 < 1 ? "#f5f3ec" : "#f1efe7";
-      context.fillRect(x, y, OBR_TILE_SIZE - 4, OBR_TILE_SIZE - 4);
-      context.strokeStyle = "rgba(74,82,87,.16)";
-      context.lineWidth = 1;
-      context.strokeRect(x, y, OBR_TILE_SIZE - 4, OBR_TILE_SIZE - 4);
+  if (whiteArena) {
+    context.strokeStyle = "#d9ded9";
+    context.lineWidth = 4;
+    context.strokeRect(4, 4, WORLD_WIDTH - 8, WORLD_HEIGHT - 8);
+  } else {
+    for (let y = 6; y < WORLD_HEIGHT - 6; y += OBR_TILE_SIZE) {
+      for (let x = 6; x < WORLD_WIDTH - 6; x += OBR_TILE_SIZE) {
+        context.fillStyle = ((x + y) / OBR_TILE_SIZE) % 2 < 1 ? "#f5f3ec" : "#f1efe7";
+        context.fillRect(x, y, OBR_TILE_SIZE - 4, OBR_TILE_SIZE - 4);
+        context.strokeStyle = "rgba(74,82,87,.16)";
+        context.lineWidth = 1;
+        context.strokeRect(x, y, OBR_TILE_SIZE - 4, OBR_TILE_SIZE - 4);
+      }
     }
   }
 
   const room = world.layout.rescueRoom;
-  context.save();
-  context.shadowColor = "rgba(39,48,54,.2)";
-  context.shadowBlur = 15;
-  context.fillStyle = "#f7f6f1";
-  context.fillRect(room.x, room.y, room.width, room.height);
-  context.restore();
+  if (!whiteArena) {
+    context.save();
+    context.shadowColor = "rgba(39,48,54,.2)";
+    context.shadowBlur = 15;
+    context.fillStyle = "#f7f6f1";
+    context.fillRect(room.x, room.y, room.width, room.height);
+    context.restore();
+  }
 
   for (const hazard of world.layout.hazards.filter((item) => item.kind === "ramp" && item.rect)) {
     const ramp = hazard.rect!;
@@ -1082,16 +1095,18 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
     context.fillText("RAMPA", ramp.x + 18, ramp.y + 13);
   }
 
-  context.save();
-  context.strokeStyle = "#15181b";
-  context.lineWidth = 8;
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  drawPath(context, world.layout.mainPath);
-  drawPath(context, world.layout.exitPath);
-  context.lineWidth = 7;
-  for (const branch of world.layout.branches) drawPath(context, branch);
-  context.restore();
+  if (!whiteArena) {
+    context.save();
+    context.strokeStyle = "#15181b";
+    context.lineWidth = 8;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    drawPath(context, world.layout.mainPath);
+    drawPath(context, world.layout.exitPath);
+    context.lineWidth = 7;
+    for (const branch of world.layout.branches) drawPath(context, branch);
+    context.restore();
+  }
 
   for (const gap of world.layout.gaps) {
     context.fillStyle = "#f4f2ea";
@@ -1122,24 +1137,48 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
 
   context.fillStyle = "#1f9a4a";
   for (const marker of world.layout.greenMarkers) context.fillRect(marker.x, marker.y, marker.width, marker.height);
-  context.fillStyle = "#c7cbd0";
-  context.fillRect(world.layout.silverGate.x, world.layout.silverGate.y, world.layout.silverGate.width, world.layout.silverGate.height);
-  context.strokeStyle = "#8f969d";
-  context.strokeRect(world.layout.silverGate.x, world.layout.silverGate.y, world.layout.silverGate.width, world.layout.silverGate.height);
-  context.fillStyle = "#121519";
-  context.fillRect(world.layout.blackGate.x, world.layout.blackGate.y, world.layout.blackGate.width, world.layout.blackGate.height);
-  if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
-    context.fillStyle = "#e23f3f";
-    context.fillRect(world.layout.finishStripe.x, world.layout.finishStripe.y, world.layout.finishStripe.width, world.layout.finishStripe.height);
+  if (!whiteArena) {
+    context.fillStyle = "#c7cbd0";
+    context.fillRect(world.layout.silverGate.x, world.layout.silverGate.y, world.layout.silverGate.width, world.layout.silverGate.height);
+    context.strokeStyle = "#8f969d";
+    context.strokeRect(world.layout.silverGate.x, world.layout.silverGate.y, world.layout.silverGate.width, world.layout.silverGate.height);
+    context.fillStyle = "#121519";
+    context.fillRect(world.layout.blackGate.x, world.layout.blackGate.y, world.layout.blackGate.width, world.layout.blackGate.height);
+    if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
+      context.fillStyle = "#e23f3f";
+      context.fillRect(world.layout.finishStripe.x, world.layout.finishStripe.y, world.layout.finishStripe.width, world.layout.finishStripe.height);
+    }
+
+    const areaSize = 72;
+    context.fillStyle = "#2ea552";
+    context.beginPath(); context.moveTo(room.x + 10, room.y + 10); context.lineTo(room.x + 10 + areaSize, room.y + 10); context.lineTo(room.x + 10, room.y + 10 + areaSize); context.closePath(); context.fill();
+    context.fillStyle = "#d94743";
+    context.beginPath(); context.moveTo(room.x + room.width - 10, room.y + 10); context.lineTo(room.x + room.width - 10 - areaSize, room.y + 10); context.lineTo(room.x + room.width - 10, room.y + 10 + areaSize); context.closePath(); context.fill();
   }
 
-  const areaSize = 72;
-  context.fillStyle = "#2ea552";
-  context.beginPath(); context.moveTo(room.x + 10, room.y + 10); context.lineTo(room.x + 10 + areaSize, room.y + 10); context.lineTo(room.x + 10, room.y + 10 + areaSize); context.closePath(); context.fill();
-  context.fillStyle = "#d94743";
-  context.beginPath(); context.moveTo(room.x + room.width - 10, room.y + 10); context.lineTo(room.x + room.width - 10 - areaSize, room.y + 10); context.lineTo(room.x + room.width - 10, room.y + 10 + areaSize); context.closePath(); context.fill();
-
   for (const hazard of world.layout.hazards) {
+    if (whiteArena && hazard.kind === "checkpoint") {
+      const checkpointIndex = world.layout.challenge.requiredHazards.indexOf(hazard.id);
+      const completed = world.competition.scoredHazards.includes(hazard.id);
+      context.save();
+      context.fillStyle = completed ? "rgba(48,145,81,.14)" : "rgba(48,129,181,.10)";
+      context.strokeStyle = completed ? "#309151" : "#4a91bd";
+      context.lineWidth = 3;
+      context.setLineDash([6, 5]);
+      context.beginPath();
+      context.arc(hazard.x, hazard.y, 24, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.setLineDash([]);
+      context.fillStyle = completed ? "#237842" : "#316d93";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = "900 16px Nunito, sans-serif";
+      context.fillText(completed ? "✓" : String(checkpointIndex + 1), hazard.x, hazard.y);
+      context.font = "800 8px Nunito, sans-serif";
+      context.fillText(`PONTO ${checkpointIndex + 1}`, hazard.x, hazard.y - 35);
+      context.restore();
+    }
     if (hazard.kind === "bump") {
       context.save();
       context.strokeStyle = "#d8d6ce";
@@ -1178,11 +1217,32 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
 
   context.fillStyle = "#40505a";
   context.font = "900 9px Nunito, sans-serif";
-  context.fillText("PARTIDA", 38, 558);
-  context.fillText("SALA DE RESGATE", room.x + 88, room.y + room.height - 14);
-  if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
-    context.fillStyle = "#b83232";
-    context.fillText("CHEGADA", world.layout.finishStripe.x - 20, world.layout.finishStripe.y + 58);
+  if (whiteArena) {
+    context.save();
+    context.strokeStyle = "#66a97a";
+    context.fillStyle = "rgba(48,145,81,.07)";
+    context.lineWidth = 2;
+    context.setLineDash([4, 4]);
+    context.beginPath();
+    context.arc(world.layout.start.x, world.layout.start.y, 32, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.setLineDash([]);
+    context.fillStyle = "#307d4a";
+    context.textAlign = "center";
+    context.fillText("PARTIDA", world.layout.start.x, world.layout.start.y + 45);
+    context.textAlign = "left";
+    context.fillStyle = "#7b8680";
+    context.font = "800 10px Nunito, sans-serif";
+    context.fillText("PISTA BRANCA · SEM LINHA-GUIA", 26, 32);
+    context.restore();
+  } else {
+    context.fillText("PARTIDA", 38, 558);
+    context.fillText("SALA DE RESGATE", room.x + 88, room.y + room.height - 14);
+    if (world.layout.finishStripe.width > 0 && world.layout.finishStripe.height > 0) {
+      context.fillStyle = "#b83232";
+      context.fillText("CHEGADA", world.layout.finishStripe.x - 20, world.layout.finishStripe.y + 58);
+    }
   }
 
   for (const obstacle of world.obstacles) {
@@ -1223,11 +1283,13 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
     context.restore();
   }
 
-  context.fillStyle = "#e8ecee";
-  for (const wall of rescueWallRectangles(world.layout)) context.fillRect(wall.x, wall.y, wall.width, wall.height);
-  context.strokeStyle = "#69757d";
-  context.lineWidth = 2;
-  for (const wall of rescueWallRectangles(world.layout)) context.strokeRect(wall.x, wall.y, wall.width, wall.height);
+  if (!whiteArena) {
+    context.fillStyle = "#e8ecee";
+    for (const wall of rescueWallRectangles(world.layout)) context.fillRect(wall.x, wall.y, wall.width, wall.height);
+    context.strokeStyle = "#69757d";
+    context.lineWidth = 2;
+    for (const wall of rescueWallRectangles(world.layout)) context.strokeRect(wall.x, wall.y, wall.width, wall.height);
+  }
 
   context.save();
   context.strokeStyle = "#df9920";
@@ -1248,6 +1310,7 @@ export function drawWorld(canvas: HTMLCanvasElement, world: WorldState) {
   for (const port of SENSOR_PORTS) {
     const kind = world.hardware.sensors[port];
     if (!kind) continue;
+    if (whiteArena) continue;
     const mount = world.hardware.sensorMounts[port];
     const pose = sensorPose(world, port);
     if (kind === "color" && mount?.aim === "ground") {

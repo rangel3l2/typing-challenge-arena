@@ -124,10 +124,11 @@ type ProgramMode = "blocks" | "code";
 type SyncStatus = "loading" | "local" | "saving" | "saved" | "offline";
 type CopyStatus = "idle" | "working" | "code" | "image" | "shared" | "downloaded" | "error";
 
-const ARENA_LEVELS: Record<ArenaLevel, { name: string; short: string; description: string }> = {
-  easy: { name: "Nível fácil", short: "Fácil", description: "Linha preta com muitas curvas" },
-  medium: { name: "Nível médio", short: "Médio", description: "Curvas seguidas, gap e obstáculo" },
-  hard: { name: "Nível avançado", short: "Avançado", description: "Gap, sinais verdes, cruzamentos e lombada" },
+const ARENA_LEVELS: Record<ArenaLevel, { number: number; name: string; short: string; description: string }> = {
+  beginner: { number: 1, name: "Nível muito fácil", short: "Muito Fácil", description: "Pista branca sem linha-guia" },
+  easy: { number: 2, name: "Nível fácil", short: "Fácil", description: "Linha preta com muitas curvas" },
+  medium: { number: 3, name: "Nível médio", short: "Médio", description: "Curvas seguidas, gap e obstáculo" },
+  hard: { number: 4, name: "Nível avançado", short: "Avançado", description: "Gap, sinais verdes, cruzamentos e lombada" },
 };
 
 const statusLabels: Record<Status, string> = {
@@ -140,7 +141,7 @@ const statusLabels: Record<Status, string> = {
 };
 
 function isArenaLevel(value: unknown): value is ArenaLevel {
-  return value === "easy" || value === "medium" || value === "hard";
+  return value === "beginner" || value === "easy" || value === "medium" || value === "hard";
 }
 
 function isProgramMode(value: unknown): value is ProgramMode {
@@ -190,7 +191,7 @@ export default function EuVouProgramar() {
   const [arenaHidden, setArenaHidden] = useState(false);
   const [arenaExpanded, setArenaExpanded] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("easy");
+  const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("beginner");
   const [challengeIndex, setChallengeIndex] = useState(0);
   const [unlockedMissions, setUnlockedMissions] = useState(initialMissionUnlocks);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
@@ -206,8 +207,8 @@ export default function EuVouProgramar() {
     scoredHazards: [] as string[],
     collisionCount: 0,
     victimTouches: 0,
-    layoutName: "Fácil 1 · Parada de precisão",
-    lastEvent: "Ladrilho de partida: +5 pontos",
+    layoutName: "Muito Fácil 1 · Primeiros metros",
+    lastEvent: "Ponto de partida: +5 pontos",
   });
 
   const addLog = useCallback((message: string, level: LogLevel = "info") => {
@@ -281,7 +282,7 @@ export default function EuVouProgramar() {
       let nextCode = savedCode || EMPTY_BLOCK_CODE;
       let nextMode: ProgramMode = isProgramMode(savedMode) ? savedMode : "blocks";
       let nextHardware = cloneHardware(DEFAULT_HARDWARE);
-      let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "easy";
+      let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "beginner";
       const nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
       let nextUnlocks = initialMissionUnlocks();
 
@@ -862,7 +863,7 @@ export default function EuVouProgramar() {
             {activeChallenge.maxVictimTouches !== undefined && <div className={competitionView.victimTouches <= activeChallenge.maxVictimTouches ? "check-done" : "check-failed"}><span>{competitionView.victimTouches <= activeChallenge.maxVictimTouches ? "✓" : "×"}</span> Bolinhas tocadas: {competitionView.victimTouches}/{activeChallenge.maxVictimTouches}</div>}
           </div>
 
-          <div className="obr-rule-event"><span>⚑</span><div><strong>Último evento da prova</strong><small>{competitionView.lastEvent}</small></div></div>
+          <div className="obr-rule-event"><span>⚑</span><div><strong>{arenaLevel === "beginner" ? "Último evento do percurso" : "Último evento da prova"}</strong><small>{competitionView.lastEvent}</small></div></div>
 
           <button className="lesson-button" onClick={() => setCommandsOpen(true)}>Ver comandos disponíveis <span>→</span></button>
         </aside>
@@ -953,7 +954,7 @@ export default function EuVouProgramar() {
 
           {!arenaHidden && <section className="arena-panel" aria-label="Arena do robô">
           <div className="arena-toolbar">
-            <div><span className={`live-dot ${running ? "pulsing" : ""}`} /> Arena OBR <small>{competitionView.layoutName}</small></div>
+            <div><span className={`live-dot ${running ? "pulsing" : ""}`} /> {arenaLevel === "beginner" ? "Pista de treino" : "Arena OBR"} <small>{competitionView.layoutName}</small></div>
             <div className="arena-toolbar-actions">
               <button className="expand-arena-button legend-arena-button" type="button" onClick={() => setLegendOpen(true)} aria-label="Abrir legenda da arena"><span>?</span> Legenda</button>
               <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} aria-label="Abrir arena em tela cheia"><span>⛶</span> Tela cheia</button>
@@ -968,7 +969,7 @@ export default function EuVouProgramar() {
           <div className="arena-level-picker" role="group" aria-label="Escolha o nível da arena">
             {(Object.keys(ARENA_LEVELS) as ArenaLevel[]).map((level) => (
               <button key={level} type="button" className={arenaLevel === level ? `active level-${level}` : `level-${level}`} onClick={() => changeArenaLevel(level)} aria-pressed={arenaLevel === level}>
-                <span>{level === "easy" ? "1" : level === "medium" ? "2" : "3"}</span>
+                <span>{ARENA_LEVELS[level].number}</span>
                 <b>{ARENA_LEVELS[level].short}</b>
                 <small>{ARENA_LEVELS[level].description}</small>
               </button>
@@ -1007,15 +1008,15 @@ export default function EuVouProgramar() {
             })}
           </div>
 
-          <div className="obr-scoreboard" aria-label="Placar da rodada OBR">
+          <div className="obr-scoreboard" aria-label={arenaLevel === "beginner" ? "Placar do percurso" : "Placar da rodada OBR"}>
             <div><small>Tempo</small><strong>{Math.floor(competitionView.remaining / 60)}:{String(Math.ceil(competitionView.remaining % 60)).padStart(2, "0")}</strong></div>
-            <div><small>Ladrilhos</small><strong>{competitionView.tilePoints} pts</strong></div>
+            <div><small>{arenaLevel === "beginner" ? "Percurso" : "Ladrilhos"}</small><strong>{competitionView.tilePoints} pts</strong></div>
             <div><small>Desafios</small><strong>{competitionView.challengePoints} pts</strong></div>
             <div><small>Total</small><strong>{competitionView.tilePoints + competitionView.challengePoints} pts</strong></div>
           </div>
 
           <div className="arena">
-            <canvas ref={canvasRef} aria-label="Arena OBR: robô, linha, ladrilhos e desafios" />
+            <canvas ref={canvasRef} aria-label={arenaLevel === "beginner" ? "Pista branca sem linha: robô, pontos e objetivo" : "Arena OBR: robô, linha, ladrilhos e desafios"} />
             {celebrating && (
               <div className="success-pop" role="status">
                 <div className="success-stars">★ <span>★</span> ★</div>
@@ -1101,7 +1102,13 @@ export default function EuVouProgramar() {
           <section className="legend-dialog" role="dialog" aria-modal="true" aria-labelledby="arena-legend-title">
             <header><div><span>?</span><div><strong id="arena-legend-title">Objetivo {challengeIndex + 1}: {activeChallenge.title}</strong><small>{activeChallenge.objective}</small></div></div><button type="button" onClick={() => setLegendOpen(false)} aria-label="Fechar legenda">×</button></header>
             <div className="arena-legend" aria-label="Elementos da arena">
-              <div><i className="legend-tile" /><span><b>Ladrilho percorrido</b><small>+5 pontos</small></span></div>
+              {arenaLevel === "beginner" ? (
+                <>
+                  <div><i className="legend-white" /><span><b>Pista branca</b><small>Sem linha para seguir</small></span></div>
+                  <div><i className="legend-waypoint" /><span><b>Ponto numerado</b><small>Passe na ordem indicada</small></span></div>
+                  <div><i className="legend-goal" /><span><b>Objetivo</b><small>Pare dentro da estrela</small></span></div>
+                </>
+              ) : <div><i className="legend-tile" /><span><b>Ladrilho percorrido</b><small>+5 pontos</small></span></div>}
               {arenaLevel === "easy" && <div><i className="legend-curve" /><span><b>Curvas seguidas</b><small>Siga a linha preta</small></span></div>}
               {arenaLevel === "medium" && (
                 <>

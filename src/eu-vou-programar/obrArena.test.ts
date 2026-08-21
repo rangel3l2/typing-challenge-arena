@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ARENA_CHALLENGE_COUNT, createOBRLayout, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel } from "./obrArena";
 import { cloneHardware, DEFAULT_HARDWARE } from "./hardware";
-import { advanceWorld, createWorld, fitWorldToViewport, WORLD_HEIGHT, WORLD_WIDTH } from "./simulator";
+import { advanceWorld, arenaColorAt, createWorld, fitWorldToViewport, WORLD_HEIGHT, WORLD_WIDTH } from "./simulator";
 
-const levels: ArenaLevel[] = ["easy", "medium", "hard"];
+const levels: ArenaLevel[] = ["beginner", "easy", "medium", "hard"];
 
 function distanceToSegment(point: { x: number; y: number }, start: { x: number; y: number }, end: { x: number; y: number }) {
   const dx = end.x - start.x;
@@ -58,6 +58,51 @@ describe("catálogo de objetivos da arena", () => {
     const second = createOBRLayout(0, "easy");
     expect(second.mainPath[0].x).toBe(70);
     expect(second.challenge.requiredHazards).not.toContain("alterado");
+  });
+
+  it("mantém as dez missões muito fáceis em pista branca e sem linha sensorial", () => {
+    for (let index = 0; index < ARENA_CHALLENGE_COUNT; index += 1) {
+      const layout = createOBRLayout(index, "beginner");
+      const world = createWorld(DEFAULT_HARDWARE, index, "beginner");
+
+      expect(layout.arenaStyle).toBe("white");
+      expect(layout.exitPath).toEqual([]);
+      expect(layout.floorMarkers).toEqual([]);
+      expect(layout.greenMarkers).toEqual([]);
+      expect(layout.finishStripe.width).toBe(0);
+      expect(world.victims).toEqual([]);
+      expect(arenaColorAt(world, layout.mainPath[0].x, layout.mainPath[0].y)).toBe("branco");
+      expect(arenaColorAt(world, layout.mainPath[1].x, layout.mainPath[1].y)).toBe("branco");
+    }
+  });
+
+  it("começa por reta, L e uma volta completa antes de aumentar a complexidade", () => {
+    const straight = createOBRLayout(0, "beginner");
+    expect(straight.mainPath).toHaveLength(2);
+    expect(straight.mainPath[0].y).toBe(straight.mainPath[1].y);
+    expect(straight.challenge.requiredHazards).toEqual([]);
+
+    const lShape = createOBRLayout(1, "beginner");
+    expect(lShape.mainPath).toHaveLength(3);
+    expect(lShape.mainPath[0].y).toBe(lShape.mainPath[1].y);
+    expect(lShape.mainPath[1].x).toBe(lShape.mainPath[2].x);
+    expect(lShape.challenge.requiredHazards).toHaveLength(1);
+
+    const fullLap = createOBRLayout(2, "beginner");
+    expect(fullLap.mainPath).toHaveLength(5);
+    expect(fullLap.mainPath[fullLap.mainPath.length - 1]).toEqual(fullLap.mainPath[0]);
+    expect(fullLap.challenge.requiredHazards).toHaveLength(3);
+    expect(fullLap.challenge.requireHazardOrder).toBe(true);
+  });
+
+  it("fecha o nível muito fácil com obstáculos, etapas em ordem e estacionamento de ré", () => {
+    const finalMission = createOBRLayout(9, "beginner");
+    expect(finalMission.obstacles.length).toBeGreaterThanOrEqual(4);
+    expect(finalMission.challenge.requiredHazards).toHaveLength(5);
+    expect(finalMission.challenge.requireHazardOrder).toBe(true);
+    expect(finalMission.challenge.maxCollisions).toBe(0);
+    expect(finalMission.challenge.goal.requiredHeading).toBe(Math.PI / 2);
+    expect(finalMission.mainPath[finalMission.mainPath.length - 2].y).toBeGreaterThan(finalMission.mainPath[finalMission.mainPath.length - 1].y);
   });
 
   it("faz os desafios fáceis 2, 3 e 4 exigirem estratégias diferentes de seguir linha", () => {

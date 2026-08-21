@@ -26,7 +26,7 @@ Simulador de programação e robótica educacional para treinamento da Olimpíad
 
 O editor usa blocos em português inspirados no EV3 Classroom. Os blocos controlam motores, movimento, visor e som, fluxo do programa, sensores e operadores. O programa gerado é executado no próprio navegador, sem backend obrigatório para a simulação.
 
-O simulador oferece 30 objetivos, divididos em dez desafios fáceis, dez médios e dez avançados. Entre os elementos treinados estão seguimento de linha, curvas, cores, gaps, obstáculos, sinais verdes, temporizador, giroscópio, portais laterais e sala de resgate.
+O simulador oferece 40 objetivos, divididos em dez desafios muito fáceis, dez fáceis, dez médios e dez avançados. O nível muito fácil usa uma pista branca sem linha-guia para ensinar retas, curvas, voltas, marcha à ré e planejamento de trajetos. Os níveis seguintes treinam seguimento de linha, cores, gaps, obstáculos, sinais verdes, temporizador, giroscópio, portais laterais e sala de resgate.
 
 O módulo possui montagem livre e uma configuração pronta para quem deseja focar somente na programação. Motores e sensores têm funções independentes: somente os componentes usados pelo programa precisam estar instalados. O ranking do Eu Vou Programar registra pontuações e troféus separadamente.
 
@@ -43,4 +43,4 @@ O módulo possui montagem livre e uma configuração pronta para quem deseja foc
 
 Jogos educacionais, jogos educativos gratuitos, digitação online, jogo de matemática infantil, programação em blocos, robótica educacional, EV3 Classroom, simulador OBR, Olimpíada Brasileira de Robótica, sensores EV3 e motores EV3.
 
-Última atualização desta referência: 2026-08-17.
+Última atualização desta referência: 2026-08-21.

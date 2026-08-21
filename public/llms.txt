@@ -9,7 +9,7 @@ URL canônica: https://www.euvoujogar.com.br/
 
 - [Eu Vou Digitar](https://www.euvoujogar.com.br/game): jogo educacional para treinar velocidade e precisão de digitação.
 - [Eu Vou Acertar](https://www.euvoujogar.com.br/acertar): jogo de matemática com seis fases de dificuldade crescente.
-- [Eu Vou Programar](https://www.euvoujogar.com.br/eu-vou-programar/): simulador de robótica educacional com montagem virtual, blocos em português inspirados no EV3 Classroom e 30 desafios em arenas para treinamento da OBR.
+- [Eu Vou Programar](https://www.euvoujogar.com.br/eu-vou-programar/): simulador de robótica educacional com montagem virtual, blocos em português inspirados no EV3 Classroom e 40 desafios progressivos, da pista branca à arena OBR.
 - [Ranking](https://www.euvoujogar.com.br/ranking): classificações separadas para os três jogos.
 - [Sobre](https://www.euvoujogar.com.br/sobre): apresentação da plataforma e orientações de uso.
 

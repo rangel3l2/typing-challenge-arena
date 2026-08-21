@@ -590,7 +590,7 @@ const Index = () => {
                     { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "6 Fases" },
                   ] : [
                     { icon: <Bot className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Robótica" },
-                    { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "30 desafios" },
+                    { icon: <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "40 desafios" },
                     { icon: <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />, text: "Ranking próprio" },
                   ]
               ).map((pill) => (
