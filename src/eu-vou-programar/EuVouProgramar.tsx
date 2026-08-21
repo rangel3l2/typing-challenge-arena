@@ -845,6 +845,13 @@ export default function EuVouProgramar() {
           <h1>{activeChallenge.title}</h1>
           <p>{activeChallenge.objective}</p>
 
+          <section className="mission-criteria" aria-label="Regras exatas para concluir a missão">
+            <strong>Para concluir, faça exatamente isto:</strong>
+            <ol>
+              {activeChallenge.successCriteria.map((criterion, index) => <li key={`${index}-${criterion}`}>{criterion}</li>)}
+            </ol>
+          </section>
+
           <div className={`goal-card ${status === "success" ? "is-complete" : ""}`}>
             <span className="goal-icon">★</span>
             <div><strong>{status === "success" ? "Objetivo concluído" : "Condição de vitória"}</strong><small>{status === "success" ? activeChallenge.successMessage : activeChallenge.goal.label}</small></div>

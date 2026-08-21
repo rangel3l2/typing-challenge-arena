@@ -906,7 +906,8 @@ function updateCompetition(world: WorldState, delta: number) {
   const collisionsReady = challenge.maxCollisions === undefined || competition.collisionCount <= challenge.maxCollisions;
   const victimsReady = challenge.maxVictimTouches === undefined || competition.victimTouches <= challenge.maxVictimTouches;
   const motionReady = challengeGoal.stopRequired === false || stopped;
-  competition.finishStopped = onFinish && motionReady && headingReady && hazardsReady && collisionsReady && victimsReady ? competition.finishStopped + delta : 0;
+  const finishReady = onFinish && motionReady && headingReady && hazardsReady && collisionsReady && victimsReady;
+  competition.finishStopped = finishReady ? competition.finishStopped + delta : 0;
   if (onFinish && stopped && !hazardsReady) {
     const missing = challenge.requiredHazards.filter((id) => !competition.scoredHazards.includes(id)).length;
     competition.lastEvent = `Objetivo encontrado, mas ainda faltam ${missing} etapa${missing === 1 ? "" : "s"}`;
@@ -917,7 +918,7 @@ function updateCompetition(world: WorldState, delta: number) {
   } else if (onFinish && !victimsReady) {
     competition.lastEvent = "Uma bolinha foi tocada; reinicie para tentar a travessia novamente";
   }
-  if (competition.finishStopped >= challengeGoal.holdSeconds && !world.success) {
+  if (finishReady && competition.finishStopped >= challengeGoal.holdSeconds && !world.success) {
     competition.lastEvent = challenge.successMessage;
     competition.roundOver = true;
     world.success = true;

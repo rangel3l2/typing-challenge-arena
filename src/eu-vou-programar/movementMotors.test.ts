@@ -129,6 +129,30 @@ motors.set_power(motor_movimento_direito, 0.5)
     expect(hasActiveDrivePower(world)).toBe(true);
     expect(Math.hypot(world.robot.x - initialPosition.x, world.robot.y - initialPosition.y)).toBeGreaterThan(0);
   });
+
+  it("conclui a primeira missão ao terminar 5,8 rotações parado dentro do objetivo", () => {
+    const world = createWorld();
+    const runner = createRunner(parseProgram(`
+motor_movimento_esquerdo = 1
+motor_movimento_direito = 2
+motors.set_power(motor_movimento_esquerdo, 0.5)
+motors.set_power(motor_movimento_direito, 0.5)
+utils.sleep(8.352)
+motors.set_power(motor_movimento_esquerdo, 0)
+motors.set_power(motor_movimento_direito, 0)
+`));
+
+    for (let step = 0; step < 500 && !runner.finished; step += 1) {
+      stepRunner(runner, world, 0.02, () => undefined);
+      advanceWorld(world, 0.02, () => undefined);
+    }
+
+    expect(runner.finished).toBe(true);
+    expect(hasActiveDrivePower(world)).toBe(false);
+    expect(Math.hypot(world.robot.x - world.goal.x, world.robot.y - world.goal.y)).toBeLessThanOrEqual(world.goal.radius);
+    expect(world.layout.challenge.goal.holdSeconds).toBe(0);
+    expect(world.success).toBe(true);
+  });
 });
 
 describe("prontidão funcional da montagem", () => {

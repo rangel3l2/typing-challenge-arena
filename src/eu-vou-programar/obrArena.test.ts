@@ -35,6 +35,7 @@ describe("catálogo de objetivos da arena", () => {
     expect(challenges.map((challenge) => challenge.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(new Set(challenges.map((challenge) => challenge.title)).size).toBe(ARENA_CHALLENGE_COUNT);
     expect(challenges.every((challenge) => challenge.objective.length > 35 && challenge.hint.length > 25)).toBe(true);
+    expect(challenges.every((challenge) => challenge.successCriteria.length >= 3)).toBe(true);
   });
 
   it.each(levels)("mantém metas, etapas e elementos dentro da arena no nível %s", (level) => {
@@ -93,6 +94,32 @@ describe("catálogo de objetivos da arena", () => {
     expect(fullLap.mainPath[fullLap.mainPath.length - 1]).toEqual(fullLap.mainPath[0]);
     expect(fullLap.challenge.requiredHazards).toHaveLength(3);
     expect(fullLap.challenge.requireHazardOrder).toBe(true);
+  });
+
+  it("mostra na lição todas as regras que realmente são cobradas", () => {
+    for (let index = 0; index < ARENA_CHALLENGE_COUNT; index += 1) {
+      const layout = createOBRLayout(index, "beginner");
+      const criteria = layout.challenge.successCriteria.join(" ");
+
+      expect(criteria).toContain(layout.challenge.goal.label);
+      expect(criteria).toContain(`até ${layout.challenge.timeLimit} segundos`);
+      for (const hazardId of layout.challenge.requiredHazards) {
+        const hazard = layout.hazards.find((item) => item.id === hazardId);
+        expect(criteria).toContain(hazard?.label);
+      }
+    }
+
+    expect(createOBRLayout(7, "beginner").challenge.successCriteria.join(" ")).toContain("Não encoste em nenhum obstáculo");
+    expect(createOBRLayout(6, "beginner").challenge.successCriteria.join(" ")).toContain("apontado para a direita");
+    expect(createOBRLayout(9, "beginner").challenge.successCriteria.join(" ")).toContain("apontado para baixo");
+  });
+
+  it("não cobra orientação oculta nas missões iniciais do nível muito fácil", () => {
+    for (let index = 1; index <= 5; index += 1) {
+      const layout = createOBRLayout(index, "beginner");
+      expect(layout.challenge.goal.requiredHeading).toBeUndefined();
+      expect(layout.hazards.every((hazard) => hazard.requiredHeading === undefined)).toBe(true);
+    }
   });
 
   it("fecha o nível muito fácil com obstáculos, etapas em ordem e estacionamento de ré", () => {
