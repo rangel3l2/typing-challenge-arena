@@ -1,6 +1,6 @@
 import * as Blockly from "blockly";
 import { describe, expect, it } from "vitest";
-import { createExampleBlocks, generatePython, registerEV3Blocks } from "./blocks";
+import { createEmptyBlocks, createExampleBlocks, EMPTY_BLOCK_CODE, generatePython, registerEV3Blocks } from "./blocks";
 import { pythonToBlocks } from "./pythonBlocks";
 import { evaluateExpression, parseProgram } from "./simulator";
 
@@ -13,6 +13,16 @@ function workspaceFromXml(source: string) {
 }
 
 describe("sintaxe gerada pelos blocos", () => {
+  it("mantém blocos e Python completamente vazios ao começar uma nova fase", () => {
+    const workspace = workspaceFromXml(createEmptyBlocks());
+
+    expect(workspace.getAllBlocks(false)).toHaveLength(0);
+    expect(generatePython(workspace)).toBe(EMPTY_BLOCK_CODE);
+    expect(EMPTY_BLOCK_CODE).toBe("");
+
+    workspace.dispose();
+  });
+
   it("consome os dois lados de and/or sem acusar parêntese ausente", () => {
     expect(evaluateExpression("(False and (True == True))", {})).toBe(false);
     expect(evaluateExpression("(True or (False == True))", {})).toBe(true);

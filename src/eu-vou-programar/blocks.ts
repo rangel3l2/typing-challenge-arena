@@ -311,6 +311,8 @@ export function createEmptyBlocks() {
   return xml("");
 }
 
+export const EMPTY_BLOCK_CODE = "";
+
 export function createExampleBlocks(example: EV3Example = "avancar") {
   if (example === "seguidor") {
     const stopOnRed = logic("ou", colorIs("4", "vermelho"), colorIs("2", "vermelho"));
@@ -428,11 +430,15 @@ function expressionFromBlock(block: Blockly.Block | null): ExpressionResult {
   return { expression: "False", prelude: [] };
 }
 
-function blockSequence(first: Blockly.Block | null, depth: number): string[] {
+interface GenerationContext {
+  movementSpeed: number;
+}
+
+function blockSequence(first: Blockly.Block | null, depth: number, context: GenerationContext): string[] {
   const lines: string[] = [];
   let current = first;
   while (current) {
-    lines.push(...generateBlock(current, depth));
+    lines.push(...generateBlock(current, depth, context));
     current = current.getNextBlock();
   }
   return lines;
@@ -444,10 +450,10 @@ function movementLines(left: number, right: number, seconds?: number) {
   return lines;
 }
 
-function generateBlock(block: Blockly.Block, depth: number): string[] {
+function generateBlock(block: Blockly.Block, depth: number, context: GenerationContext): string[] {
   const f = (name: string, fallback = "") => textValue(block, name, fallback);
   const n = (name: string, fallback = 0) => numericField(block, name, fallback);
-  const body = (name: string) => blockSequence(block.getInputTargetBlock(name), depth + 1);
+  const body = (name: string) => blockSequence(block.getInputTargetBlock(name), depth + 1, { ...context });
   const at = (raw: string[]) => indent(raw, depth);
   const speedVariable = (port: string) => `velocidade_motor_${port}`;
 
@@ -468,7 +474,10 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
     return at([`motors.set_power(${portChannel(port)}, ${power(signed)})`, `utils.sleep(${rotationSeconds(n("ROTATIONS", 1), percent)})`, `motors.set_power(${portChannel(port)}, 0)`]);
   }
   if (["ev3_motor_set_brake", "ev3_motor_reset_degrees"].includes(block.type)) return at([block.type === "ev3_motor_reset_degrees" ? "graus_motor = 0" : `print(${JSON.stringify(`Motor ${f("PORT", "A")}: ${f("BRAKE")}`)})`]);
-  if (block.type === "ev3_move_set_speed") return at([`velocidade_movimento = ${n("SPEED", 50)}`]);
+  if (block.type === "ev3_move_set_speed") {
+    context.movementSpeed = n("SPEED", 50);
+    return at([`velocidade_movimento = ${context.movementSpeed}`]);
+  }
   if (block.type === "ev3_move_set_motors") {
     const leftPort = f("LEFT_PORT", "B");
     const rightPort = f("RIGHT_PORT", "C");
@@ -489,7 +498,7 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
   }
   if (block.type === "ev3_move_tank_start") return at(movementLines(power(n("LEFT", 50)), power(n("RIGHT", 50))));
   if (["ev3_move_direction", "ev3_move_steer", "ev3_move_steer_speed", "ev3_move_tank"].includes(block.type)) {
-    const percent = block.type === "ev3_move_steer_speed" ? n("SPEED", 50) : 50;
+    const percent = block.type === "ev3_move_steer_speed" ? n("SPEED", 50) : context.movementSpeed;
     let left = power(percent), right = power(percent);
     if (block.type === "ev3_move_direction" && f("DIRECTION") === "para trás") left = right = -left;
     if (block.type.includes("steer")) {
@@ -554,25 +563,26 @@ function generateBlock(block: Blockly.Block, depth: number): string[] {
 export function generatePython(workspace: Blockly.Workspace) {
   const eventTypes = new Set(["ev3_start", "ev3_event_color", "ev3_event_button", "ev3_event_distance", "ev3_event_condition", "ev3_event_message"]);
   const topBlocks = workspace.getTopBlocks(true).filter((block) => eventTypes.has(block.type) && block.getNextBlock());
-  if (!topBlocks.length) return "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
+  if (!topBlocks.length) return EMPTY_BLOCK_CODE;
   const code: string[] = [
     "from sbot import arduino, leds, motors, utils, ev3", "", "# Gerado pelos blocos EV3 em português",
     "velocidade_motor_A = 75", "velocidade_motor_B = 75", "velocidade_motor_C = 75", "velocidade_motor_D = 75", "velocidade_movimento = 50",
     "motor_movimento_esquerdo = 1", "motor_movimento_direito = 2", "",
   ];
   for (const top of topBlocks) {
+    const context: GenerationContext = { movementSpeed: 50 };
     if (top.type === "ev3_event_distance") {
       const operator = comparison(textValue(top, "OP", "menor que"));
-      const nested = blockSequence(top.getNextBlock(), 1);
+      const nested = blockSequence(top.getNextBlock(), 1, context);
       code.push(`distancia_evento = ev3.distance_cm(${JSON.stringify(textValue(top, "PORT", "4"))})`, `if distancia_evento ${operator} ${numericField(top, "DISTANCE", 15)}:`, ...(nested.length ? nested : ["    pass"]), "");
     } else if (top.type === "ev3_event_condition") {
       const condition = expressionFromBlock(top.getInputTargetBlock("CONDITION"));
-      const nested = blockSequence(top.getNextBlock(), 1);
+      const nested = blockSequence(top.getNextBlock(), 1, context);
       code.push(...condition.prelude, `if ${condition.expression}:`, ...(nested.length ? nested : ["    pass"]), "");
     } else if (top.type === "ev3_event_color") {
-      const nested = blockSequence(top.getNextBlock(), 1);
+      const nested = blockSequence(top.getNextBlock(), 1, context);
       code.push(`cor_evento = ev3.color(${JSON.stringify(textValue(top, "PORT", "3"))})`, `if cor_evento == ${JSON.stringify(textValue(top, "COLOR", "vermelho"))}:`, ...(nested.length ? nested : ["    pass"]), "");
-    } else code.push(...blockSequence(top, 0), "");
+    } else code.push(...blockSequence(top, 0, context), "");
   }
   return code.join("\n").trimEnd();
 }

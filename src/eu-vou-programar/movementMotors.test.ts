@@ -69,6 +69,30 @@ describe("bloco de motores de movimento", () => {
 
     workspace.dispose();
   });
+
+  it("mantém a velocidade configurada depois de parar e iniciar o movimento novamente", () => {
+    const workspace = new Blockly.Workspace();
+    const start = workspace.newBlock("ev3_start");
+    const setSpeed = workspace.newBlock("ev3_move_set_speed");
+    const firstMove = workspace.newBlock("ev3_move_direction");
+    const stop = workspace.newBlock("ev3_move_stop");
+    const secondMove = workspace.newBlock("ev3_move_direction");
+    setSpeed.setFieldValue(90, "SPEED");
+    start.nextConnection?.connect(setSpeed.previousConnection);
+    setSpeed.nextConnection?.connect(firstMove.previousConnection);
+    firstMove.nextConnection?.connect(stop.previousConnection);
+    stop.nextConnection?.connect(secondMove.previousConnection);
+
+    const code = generatePython(workspace);
+    const movementStarts = code.match(/motors\.set_power\(motor_movimento_(?:esquerdo|direito), 0\.9\)/g) ?? [];
+
+    expect(setSpeed.getFieldValue("SPEED")).toBe(90);
+    expect(movementStarts).toHaveLength(4);
+    expect(code).not.toContain("motors.set_power(motor_movimento_esquerdo, 0.5)");
+    expect(() => parseProgram(code)).not.toThrow();
+
+    workspace.dispose();
+  });
 });
 
 describe("simulação dos motores escolhidos", () => {

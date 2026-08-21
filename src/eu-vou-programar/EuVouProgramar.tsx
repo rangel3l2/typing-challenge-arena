@@ -6,7 +6,7 @@ import type { Json } from "@/integrations/supabase/types";
 import BlockEditor from "./BlockEditor";
 import type { BlockEditorHandle } from "./BlockEditor";
 import RobotBuilder from "./RobotBuilder";
-import { createEmptyBlocks, createExampleBlocks } from "./blocks";
+import { createEmptyBlocks, createExampleBlocks, EMPTY_BLOCK_CODE } from "./blocks";
 import { copyTextToClipboard } from "./editorClipboard";
 import { pythonToBlocks, PythonBlocksError } from "./pythonBlocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
@@ -47,8 +47,6 @@ const ARENA_STORAGE_KEY = "eu-vou-programar:arena-level";
 const CHALLENGE_STORAGE_KEY = "eu-vou-programar:arena-challenge";
 const UNLOCKED_MISSIONS_STORAGE_KEY = "eu-vou-programar:unlocked-missions-v1";
 const DRAFT_UPDATED_STORAGE_KEY = "eu-vou-programar:draft-updated-at";
-const EMPTY_BLOCK_CODE = "# Arraste um bloco de evento e encaixe seus comandos abaixo.";
-
 const examples = {
   avancar: `from sbot import motors, utils, leds
 
@@ -555,6 +553,15 @@ export default function EuVouProgramar() {
     }
   }, [addLog, arenaLevel, challengeIndex]);
 
+  const clearProgramForMissionChange = useCallback(() => {
+    setProgramXml(createEmptyBlocks());
+    setCode(EMPTY_BLOCK_CODE);
+    setBlockProgramReady(false);
+    setBlockSyncError("");
+    setEditorTab("blocks");
+    setProgramMode("blocks");
+  }, []);
+
   const changeArenaLevel = useCallback((nextLevel: ArenaLevel) => {
     if (nextLevel === arenaLevel) return;
     runningRef.current = false;
@@ -564,11 +571,12 @@ export default function EuVouProgramar() {
     successHandledRef.current = false;
     setCelebrating(false);
     setStatus("ready");
+    clearProgramForMissionChange();
     setArenaLevel(nextLevel);
     setChallengeIndex(0);
     setLogs([]);
     addLog(`${ARENA_LEVELS[nextLevel].name}: ${ARENA_LEVELS[nextLevel].description}.`);
-  }, [addLog, arenaLevel]);
+  }, [addLog, arenaLevel, clearProgramForMissionChange]);
 
   const changeArenaChallenge = useCallback((nextIndex: number) => {
     const normalized = Math.max(0, Math.min(unlockedMissions[arenaLevel], ARENA_CHALLENGE_COUNT - 1, Math.trunc(nextIndex)));
@@ -580,11 +588,12 @@ export default function EuVouProgramar() {
     successHandledRef.current = false;
     setCelebrating(false);
     setStatus("ready");
+    clearProgramForMissionChange();
     setChallengeIndex(normalized);
     setLogs([]);
     const nextChallenge = getArenaChallenges(arenaLevel)[normalized];
     addLog(`Desafio ${normalized + 1}: ${nextChallenge.title}. ${nextChallenge.objective}`);
-  }, [addLog, arenaLevel, challengeIndex, unlockedMissions]);
+  }, [addLog, arenaLevel, challengeIndex, clearProgramForMissionChange, unlockedMissions]);
 
   const runProgram = useCallback(() => {
     if (status === "paused" && runnerRef.current) {
