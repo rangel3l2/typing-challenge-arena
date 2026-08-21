@@ -40,6 +40,7 @@ const Index = () => {
   const [restoring, setRestoring] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
   const [restoreInput, setRestoreInput] = useState("");
+  const [restoreError, setRestoreError] = useState("");
   const [displayCount, setDisplayCount] = useState(0);
   const [isLiveOnline, setIsLiveOnline] = useState(false);
   const [champions, setChampions] = useState({
@@ -123,7 +124,7 @@ const Index = () => {
       ]);
       if (cancelled) return;
 
-      const typingTop = typingResult.data?.[0] as any;
+      const typingTop = typingResult.data?.[0] as unknown as { wpm: number; room_players: { name: string } } | undefined;
       const acertarTop = acertarResult.data?.[0];
       let programmingTop = programmingResult.data
         ? aggregateProgrammingScores(programmingResult.data).sort((left, right) => right.totalScore - left.totalScore)[0]
@@ -175,38 +176,35 @@ const Index = () => {
       // Going back to name mode
       setRestoreMode(false);
       setRestoreInput("");
+      setRestoreError("");
     } else {
       setRestoreMode(true);
       setRestoreInput("");
+      setRestoreError("");
     }
   };
 
   const handleConfirm = async () => {
     if (restoreMode) {
-      // Try to restore from code
       const code = restoreInput.trim();
       if (!code) return;
       setRestoring(true);
-      // Support both "Name#123456" and just "123456"
-      const tag = code.includes("#") ? code : `_#${code}`;
-      const match = tag.match(/#(\d{6})$/);
-      if (match) {
-        const { data } = await supabase
-          .from("player_identities")
-          .select("session_id, name, player_code")
-          .eq("player_code", match[1])
-          .maybeSingle();
-        if (data) {
-          writePlayerSession("sessionId", data.session_id);
-          writePlayerSession("playerCode", data.player_code);
-          writePlayerSession("playerName", data.name);
-          setPlayerName(data.name);
-          setRestoreMode(false);
-          setRestoreInput("");
-          setMode("idle");
+      setRestoreError("");
+      try {
+        const restored = await restoreFromTag(code);
+        if (!restored) {
+          setRestoreError("Código inválido ou não encontrado.");
+          return;
         }
+        setPlayerName(restored.name);
+        setRestoreMode(false);
+        setRestoreInput("");
+        setMode("idle");
+      } catch {
+        setRestoreError("Não foi possível recuperar o progresso. Verifique sua conexão e tente novamente.");
+      } finally {
+        setRestoring(false);
       }
-      setRestoring(false);
     } else {
       // Normal name confirm
       if (playerName.trim()) {
@@ -389,13 +387,13 @@ const Index = () => {
             >
               <div className="home-player-header flex items-center gap-2 mb-1.5 sm:mb-2">
                 <label className="text-xs sm:text-sm font-body font-semibold text-muted-foreground">
-                  {restoreMode ? "Restaurar conta:" : "Seu nome:"}
+                  {restoreMode ? "Código de recuperação:" : "Seu nome:"}
                 </label>
                 <button
                   onClick={handleToggleRestore}
                   className="text-xs text-primary hover:underline font-body"
                 >
-                  {restoreMode ? "Voltar" : "Já tenho um código"}
+                  {restoreMode ? "Voltar" : "Já tenho um código de recuperação"}
                 </button>
               </div>
               <div className="home-name-row flex gap-2">
@@ -403,8 +401,11 @@ const Index = () => {
                   <input
                     type="text"
                     value={restoreInput}
-                    onChange={(e) => setRestoreInput(e.target.value)}
-                    placeholder="Digite o código aqui (ex: 123456)"
+                    onChange={(e) => {
+                      setRestoreInput(e.target.value);
+                      setRestoreError("");
+                    }}
+                    placeholder="Digite os 6 números (ex: 123456)"
                     maxLength={30}
                     className="home-name-input flex-1 bg-muted rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground font-body placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                     disabled={restoring}
@@ -426,15 +427,18 @@ const Index = () => {
                   onClick={handleConfirm}
                   disabled={restoreMode ? !restoreInput.trim() || restoring : !playerName.trim()}
                   className="home-confirm-button p-2.5 sm:p-3 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label={restoreMode ? "Restaurar conta" : mode === "name" ? "Continuar" : "Trocar jogador"}
+                  aria-label={restoreMode ? "Restaurar progresso" : mode === "name" ? "Continuar" : "Trocar jogador"}
                 >
                   <span>{restoreMode ? restoring ? "Buscando…" : "Restaurar" : mode === "name" ? "Continuar" : "Trocar"}</span>
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </motion.button>
               </div>
+              {restoreError && restoreMode && (
+                <p role="alert" className="text-xs text-destructive font-body mt-1.5 sm:mt-2">{restoreError}</p>
+              )}
               {savedCode && !restoreMode && (
                 <p className="text-xs text-muted-foreground font-body mt-1.5 sm:mt-2">
-                  Seu código: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>
+                  Código de recuperação: <span className="text-accent font-bold select-all">{playerName || "Jogador"}#{savedCode}</span>. Ele recupera seu progresso, mas não é uma senha.
                 </p>
               )}
             </motion.div>

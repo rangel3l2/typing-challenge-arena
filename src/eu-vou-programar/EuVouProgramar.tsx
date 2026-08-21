@@ -11,7 +11,8 @@ import { copyTextToClipboard } from "./editorClipboard";
 import { pythonToBlocks, PythonBlocksError } from "./pythonBlocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel, OBRChallenge } from "./obrArena";
-import { initialMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { initialMissionUnlocks, mergeMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { migrateLegacyProgrammingStorage, readProgrammingStorage, removeProgrammingStorage, writeProgrammingStorage } from "./programmingStorage";
 import {
   cloneHardware,
   createLineFollowerHardware,
@@ -39,14 +40,6 @@ import {
 } from "./simulator";
 import type { GameLog, LogLevel, RunnerState, WorldState } from "./simulator";
 
-const STORAGE_KEY = "eu-vou-programar:robot-v2.py";
-const BLOCKS_STORAGE_KEY = "eu-vou-programar:ev3-blocks-v2.xml";
-const HARDWARE_STORAGE_KEY = "eu-vou-programar:ev3-hardware";
-const MODE_STORAGE_KEY = "eu-vou-programar:editor-mode-v2";
-const ARENA_STORAGE_KEY = "eu-vou-programar:arena-level";
-const CHALLENGE_STORAGE_KEY = "eu-vou-programar:arena-challenge";
-const UNLOCKED_MISSIONS_STORAGE_KEY = "eu-vou-programar:unlocked-missions-v1";
-const DRAFT_UPDATED_STORAGE_KEY = "eu-vou-programar:draft-updated-at";
 const examples = {
   avancar: `from sbot import motors, utils, leds
 
@@ -267,28 +260,29 @@ export default function EuVouProgramar() {
       setSyncStatus("loading");
       bestProgressScoreRef.current = { tilePoints: 0, challengePoints: 0, totalPoints: 0 };
 
-      const savedBlocks = window.localStorage.getItem(BLOCKS_STORAGE_KEY);
-      const savedCode = window.localStorage.getItem(STORAGE_KEY);
-      const savedMode = window.localStorage.getItem(MODE_STORAGE_KEY);
-      const savedHardware = window.localStorage.getItem(HARDWARE_STORAGE_KEY);
-      const savedArena = window.localStorage.getItem(ARENA_STORAGE_KEY);
-      const savedChallenge = Number.parseInt(window.localStorage.getItem(CHALLENGE_STORAGE_KEY) || "0", 10);
-      const savedUnlocks = window.localStorage.getItem(UNLOCKED_MISSIONS_STORAGE_KEY);
-      const localUpdatedAt = Date.parse(window.localStorage.getItem(DRAFT_UPDATED_STORAGE_KEY) || "") || 0;
+      migrateLegacyProgrammingStorage(sessionId);
+      const savedBlocks = readProgrammingStorage(sessionId, "blocks");
+      const savedCode = readProgrammingStorage(sessionId, "code");
+      const savedMode = readProgrammingStorage(sessionId, "mode");
+      const savedHardware = readProgrammingStorage(sessionId, "hardware");
+      const savedArena = readProgrammingStorage(sessionId, "arena");
+      const savedChallenge = Number.parseInt(readProgrammingStorage(sessionId, "challenge") || "0", 10);
+      const savedUnlocks = readProgrammingStorage(sessionId, "unlockedMissions");
+      const localUpdatedAt = Date.parse(readProgrammingStorage(sessionId, "draftUpdatedAt") || "") || 0;
 
       let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
       let nextCode = savedCode || EMPTY_BLOCK_CODE;
       let nextMode: ProgramMode = isProgramMode(savedMode) ? savedMode : "blocks";
       let nextHardware = cloneHardware(DEFAULT_HARDWARE);
       let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "beginner";
-      const nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
+      let nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
       let nextUnlocks = initialMissionUnlocks();
 
       if (savedUnlocks) {
         try {
           nextUnlocks = normalizeMissionUnlocks(JSON.parse(savedUnlocks), ARENA_CHALLENGE_COUNT);
         } catch {
-          window.localStorage.removeItem(UNLOCKED_MISSIONS_STORAGE_KEY);
+          removeProgrammingStorage(sessionId, "unlockedMissions");
         }
       }
 
@@ -296,14 +290,14 @@ export default function EuVouProgramar() {
         try {
           nextHardware = normalizeHardware(JSON.parse(savedHardware));
         } catch {
-          window.localStorage.removeItem(HARDWARE_STORAGE_KEY);
+          removeProgrammingStorage(sessionId, "hardware");
         }
       }
 
       const [progressResult, scoresResult] = await Promise.all([
         supabase
           .from("programming_progress")
-          .select("program_xml, python_code, hardware_config, arena_level, program_mode, tile_points, challenge_points, total_points, updated_at")
+          .select("program_xml, python_code, hardware_config, arena_level, program_mode, current_challenge, unlocked_missions, tile_points, challenge_points, total_points, updated_at")
           .eq("session_id", sessionId)
           .maybeSingle(),
         supabase
@@ -312,6 +306,7 @@ export default function EuVouProgramar() {
           .eq("session_id", sessionId),
       ]);
       const { data, error } = progressResult;
+      if (data) nextUnlocks = mergeMissionUnlocks(nextUnlocks, data.unlocked_missions, ARENA_CHALLENGE_COUNT);
       nextUnlocks = unlockFromCompletedMissions(nextUnlocks, scoresResult.data ?? [], ARENA_CHALLENGE_COUNT);
 
       if (cancelled) return;
@@ -322,6 +317,7 @@ export default function EuVouProgramar() {
         nextHardware = normalizeHardware(data.hardware_config as unknown as HardwareConfig);
         if (isArenaLevel(data.arena_level)) nextArena = data.arena_level;
         if (isProgramMode(data.program_mode)) nextMode = data.program_mode;
+        nextChallenge = Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, data.current_challenge - 1));
       }
       if (data) {
         bestProgressScoreRef.current = {
@@ -365,14 +361,14 @@ export default function EuVouProgramar() {
     if (!storageReady) return;
 
     const updatedAt = new Date().toISOString();
-    window.localStorage.setItem(STORAGE_KEY, code);
-    window.localStorage.setItem(BLOCKS_STORAGE_KEY, programXml);
-    window.localStorage.setItem(HARDWARE_STORAGE_KEY, JSON.stringify(hardware));
-    window.localStorage.setItem(MODE_STORAGE_KEY, programMode);
-    window.localStorage.setItem(ARENA_STORAGE_KEY, arenaLevel);
-    window.localStorage.setItem(CHALLENGE_STORAGE_KEY, String(challengeIndex));
-    window.localStorage.setItem(UNLOCKED_MISSIONS_STORAGE_KEY, JSON.stringify(unlockedMissions));
-    window.localStorage.setItem(DRAFT_UPDATED_STORAGE_KEY, updatedAt);
+    writeProgrammingStorage(sessionId, "code", code);
+    writeProgrammingStorage(sessionId, "blocks", programXml);
+    writeProgrammingStorage(sessionId, "hardware", JSON.stringify(hardware));
+    writeProgrammingStorage(sessionId, "mode", programMode);
+    writeProgrammingStorage(sessionId, "arena", arenaLevel);
+    writeProgrammingStorage(sessionId, "challenge", String(challengeIndex));
+    writeProgrammingStorage(sessionId, "unlockedMissions", JSON.stringify(unlockedMissions));
+    writeProgrammingStorage(sessionId, "draftUpdatedAt", updatedAt);
     setSyncStatus("saving");
 
     let cancelled = false;
@@ -394,6 +390,8 @@ export default function EuVouProgramar() {
         hardware_config: hardware as unknown as Json,
         arena_level: arenaLevel,
         program_mode: programMode,
+        current_challenge: challengeIndex + 1,
+        unlocked_missions: unlockedMissions as unknown as Json,
         tile_points: bestScore.tilePoints,
         challenge_points: bestScore.challengePoints,
         total_points: bestScore.totalPoints,

@@ -17,6 +17,13 @@ export function normalizeMissionUnlocks(value: unknown, missionCount: number): M
   return normalized;
 }
 
+export function mergeMissionUnlocks(current: MissionUnlocks, incoming: unknown, missionCount: number): MissionUnlocks {
+  const normalized = normalizeMissionUnlocks(incoming, missionCount);
+  const merged = initialMissionUnlocks();
+  for (const level of arenaLevels) merged[level] = Math.max(current[level], normalized[level]);
+  return merged;
+}
+
 export function unlockFromCompletedMissions(
   current: MissionUnlocks,
   completed: Array<{ arena_level: string; challenge_number: number }>,

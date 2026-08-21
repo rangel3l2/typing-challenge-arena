@@ -109,6 +109,7 @@ export type Database = {
           arena_level: string
           challenge_points: number
           created_at: string
+          current_challenge: number
           hardware_config: Json
           program_mode: string
           program_xml: string
@@ -116,12 +117,14 @@ export type Database = {
           session_id: string
           tile_points: number
           total_points: number
+          unlocked_missions: Json
           updated_at: string
         }
         Insert: {
           arena_level?: string
           challenge_points?: number
           created_at?: string
+          current_challenge?: number
           hardware_config?: Json
           program_mode?: string
           program_xml?: string
@@ -129,12 +132,14 @@ export type Database = {
           session_id: string
           tile_points?: number
           total_points?: number
+          unlocked_missions?: Json
           updated_at?: string
         }
         Update: {
           arena_level?: string
           challenge_points?: number
           created_at?: string
+          current_challenge?: number
           hardware_config?: Json
           program_mode?: string
           program_xml?: string
@@ -142,6 +147,7 @@ export type Database = {
           session_id?: string
           tile_points?: number
           total_points?: number
+          unlocked_missions?: Json
           updated_at?: string
         }
         Relationships: []

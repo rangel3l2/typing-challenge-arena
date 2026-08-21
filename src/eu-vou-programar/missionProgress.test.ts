@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { initialMissionUnlocks, mergeMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
 
 describe("ordem das missões", () => {
   it("começa somente com a missão 1 liberada em cada nível", () => {
@@ -26,5 +26,13 @@ describe("ordem das missões", () => {
 
   it("normaliza progresso local fora dos limites", () => {
     expect(normalizeMissionUnlocks({ beginner: "4", easy: 15, medium: -2, hard: "3" }, 10)).toEqual({ beginner: 4, easy: 9, medium: 0, hard: 3 });
+  });
+
+  it("mescla desbloqueios locais e remotos sem rebaixar o jogador", () => {
+    expect(mergeMissionUnlocks(
+      { beginner: 5, easy: 1, medium: 0, hard: 4 },
+      { beginner: 2, easy: 7, medium: 3, hard: 1 },
+      10,
+    )).toEqual({ beginner: 5, easy: 7, medium: 3, hard: 4 });
   });
 });
