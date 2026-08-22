@@ -1,7 +1,7 @@
 import * as Blockly from "blockly";
 import { describe, expect, it } from "vitest";
-import { generatePython, registerEV3Blocks } from "./blocks";
-import { cloneHardware, EMPTY_HARDWARE, isRobotComplete, isRobotReady } from "./hardware";
+import { createExampleBlocks, generatePython, registerEV3Blocks } from "./blocks";
+import { cloneHardware, EMPTY_HARDWARE, isRobotComplete, isRobotReady, normalizeHardware } from "./hardware";
 import { advanceWorld, createRunner, createWorld, hasActiveDrivePower, parseProgram, stepRunner } from "./simulator";
 
 registerEV3Blocks(Blockly);
@@ -70,6 +70,31 @@ describe("bloco de motores de movimento", () => {
     workspace.dispose();
   });
 
+  it("gera o par de movimento conforme as rodas escolhidas na montagem", () => {
+    const workspace = new Blockly.Workspace();
+    const start = workspace.newBlock("ev3_start");
+    const move = workspace.newBlock("ev3_move_start");
+    start.nextConnection?.connect(move.previousConnection);
+
+    const code = generatePython(workspace, { left: "A", right: "B" });
+
+    expect(code).toContain("motor_movimento_esquerdo = 0");
+    expect(code).toContain("motor_movimento_direito = 1");
+    workspace.dispose();
+  });
+
+  it("mantém as rodas da montagem ao carregar o exemplo de movimento", () => {
+    const workspace = new Blockly.Workspace();
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(createExampleBlocks("avancar")), workspace);
+
+    const code = generatePython(workspace, { left: "A", right: "B" });
+
+    expect(code).toContain("motor_movimento_esquerdo = 0");
+    expect(code).toContain("motor_movimento_direito = 1");
+    expect(code).not.toContain("Motores de movimento: B e C");
+    workspace.dispose();
+  });
+
   it("mantém a velocidade configurada depois de parar e iniciar o movimento novamente", () => {
     const workspace = new Blockly.Workspace();
     const start = workspace.newBlock("ev3_start");
@@ -100,6 +125,8 @@ describe("simulação dos motores escolhidos", () => {
     const hardware = cloneHardware(EMPTY_HARDWARE);
     hardware.motors.B = "large";
     hardware.motors.C = "large";
+    hardware.motorMounts.B = { role: "left-wheel" };
+    hardware.motorMounts.C = { role: "right-wheel" };
     const world = createWorld(hardware);
     const runner = createRunner(parseProgram(`
 motors.set_power(1, 0.5)
@@ -135,6 +162,45 @@ utils.sleep(1)
     expect(world.robot.rightPower).toBe(0.75);
 
     workspace.dispose();
+  });
+
+  it("usa A e B como tração quando essas funções são escolhidas", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motorMounts.A = { role: "left-wheel" };
+    hardware.motorMounts.B = { role: "right-wheel" };
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram(`
+motors.set_power(0, 0.75)
+motors.set_power(1, -0.75)
+utils.sleep(1)
+`));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.motorPowers.A).toBe(0.75);
+    expect(world.robot.motorPowers.B).toBe(-0.75);
+    expect(world.robot.leftPower).toBe(0.75);
+    expect(world.robot.rightPower).toBe(0.75);
+  });
+
+  it("aciona um acessório sem movimentar as rodas", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motors.C = "medium";
+    hardware.motorMounts.A = { role: "left-wheel" };
+    hardware.motorMounts.B = { role: "right-wheel" };
+    hardware.motorMounts.C = { role: "accessory" };
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram("motors.set_power(2, 0.8)"));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.motorPowers.C).toBe(0.8);
+    expect(world.robot.leftPower).toBe(0);
+    expect(world.robot.rightPower).toBe(0);
   });
 
   it("move os lados do robô usando portas diferentes de B e C", () => {
@@ -221,12 +287,36 @@ motors.set_power(motor_movimento_direito, 0)
 });
 
 describe("prontidão funcional da montagem", () => {
-  it("considera dois motores suficientes sem exigir sensores", () => {
+  it("considera as duas rodas suficientes sem exigir sensores", () => {
     const hardware = cloneHardware(EMPTY_HARDWARE);
     hardware.motors.B = "large";
     hardware.motors.C = "large";
+    hardware.motorMounts.B = { role: "left-wheel" };
+    hardware.motorMounts.C = { role: "right-wheel" };
 
     expect(isRobotReady(hardware)).toBe(true);
     expect(isRobotComplete(hardware)).toBe(false);
+  });
+
+  it("não libera movimento quando há dois motores sem funções de roda", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motorMounts.A = { role: "accessory" };
+    hardware.motorMounts.B = { role: "unassigned" };
+
+    expect(isRobotReady(hardware)).toBe(false);
+  });
+
+  it("migra uma montagem antiga A/B para roda esquerda e direita", () => {
+    const migrated = normalizeHardware({
+      motors: { A: "large", B: "large", C: null, D: null },
+      sensors: { "1": null, "2": null, "3": null, "4": null },
+      sensorMounts: { "1": null, "2": null, "3": null, "4": null },
+    });
+
+    expect(migrated.motorMounts.A?.role).toBe("left-wheel");
+    expect(migrated.motorMounts.B?.role).toBe("right-wheel");
+    expect(isRobotReady(migrated)).toBe(true);
   });
 });

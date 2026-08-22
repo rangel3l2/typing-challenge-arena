@@ -1,4 +1,5 @@
 import type * as Blockly from "blockly";
+import type { MotorPort } from "./hardware";
 
 export type EV3Example = "avancar" | "curva" | "sensor" | "seguidor";
 
@@ -338,7 +339,7 @@ export function createExampleBlocks(example: EV3Example = "avancar") {
     const conditional = `<block type="ev3_if">${condition}<statement name="DO">${movement}</statement>${next(block("ev3_display_write_line", `${field("TEXT", "Sensor conferido!")}${field("LINE", 1)}`))}</block>`;
     return xml(`<block type="ev3_start" x="34" y="32">${next(conditional)}</block>`);
   }
-  const chain = block("ev3_status_light", field("COLOR", "laranja"), block("ev3_move_set_motors", `${field("LEFT_PORT", "B")}${field("RIGHT_PORT", "C")}`, block("ev3_move_set_speed", field("SPEED", 60), block("ev3_move_direction", `${field("DIRECTION", "a frente")}${field("ROTATIONS", 3)}`, block("ev3_move_stop", "", block("ev3_display_write_line", `${field("TEXT", "Cheguei na estrela!")}${field("LINE", 1)}`))))));
+  const chain = block("ev3_status_light", field("COLOR", "laranja"), block("ev3_move_set_speed", field("SPEED", 60), block("ev3_move_direction", `${field("DIRECTION", "a frente")}${field("ROTATIONS", 3)}`, block("ev3_move_stop", "", block("ev3_display_write_line", `${field("TEXT", "Cheguei na estrela!")}${field("LINE", 1)}`)))));
   return xml(`<block type="ev3_start" x="34" y="32">${next(chain)}</block>`);
 }
 
@@ -560,14 +561,14 @@ function generateBlock(block: Blockly.Block, depth: number, context: GenerationC
   return [];
 }
 
-export function generatePython(workspace: Blockly.Workspace) {
+export function generatePython(workspace: Blockly.Workspace, movementMotors: { left: MotorPort; right: MotorPort } = { left: "B", right: "C" }) {
   const eventTypes = new Set(["ev3_start", "ev3_event_color", "ev3_event_button", "ev3_event_distance", "ev3_event_condition", "ev3_event_message"]);
   const topBlocks = workspace.getTopBlocks(true).filter((block) => eventTypes.has(block.type) && block.getNextBlock());
   if (!topBlocks.length) return EMPTY_BLOCK_CODE;
   const code: string[] = [
     "from sbot import arduino, leds, motors, utils, ev3", "", "# Gerado pelos blocos EV3 em português",
     "velocidade_motor_A = 75", "velocidade_motor_B = 75", "velocidade_motor_C = 75", "velocidade_motor_D = 75", "velocidade_movimento = 50",
-    "motor_movimento_esquerdo = 1", "motor_movimento_direito = 2", "",
+    `motor_movimento_esquerdo = ${portChannel(movementMotors.left)}`, `motor_movimento_direito = ${portChannel(movementMotors.right)}`, "",
   ];
   for (const top of topBlocks) {
     const context: GenerationContext = { movementSpeed: 50 };

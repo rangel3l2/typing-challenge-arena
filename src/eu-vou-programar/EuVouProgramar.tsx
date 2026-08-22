@@ -17,6 +17,7 @@ import {
   cloneHardware,
   createLineFollowerHardware,
   DEFAULT_HARDWARE,
+  getDriveMotorPorts,
   HardwareConfig,
   isRobotReady,
   MOTOR_DEFINITIONS,
@@ -752,6 +753,7 @@ export default function EuVouProgramar() {
 
   const telemetryUltrasonicPort = SENSOR_PORTS.find((port) => hardware.sensors[port] === "ultrasonic");
   const telemetryUltrasonicMount = telemetryUltrasonicPort ? hardware.sensorMounts[telemetryUltrasonicPort] : null;
+  const movementMotorPorts = getDriveMotorPorts(hardware) ?? { left: "B" as const, right: "C" as const };
   const challengeOptions = getArenaChallenges(arenaLevel);
   const activeChallenge = challengeOptions[challengeIndex] ?? challengeOptions[0];
   const challengeHardwareReady = hasChallengeHardware(hardware, activeChallenge.hardwareRequirement);
@@ -870,7 +872,7 @@ export default function EuVouProgramar() {
           </div>
 
           <div className="mission-checks">
-            <button className={missionHardwareReady ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{missionHardwareReady ? "✓" : "!"}</span> {activeChallenge.hardwareRequirement === "dual-outward-colour" ? challengeHardwareReady ? "Sensores laterais configurados" : "Sensores laterais recomendados para concluir" : isRobotReady(hardware) ? "Dois motores: movimento liberado" : "Adicione apenas as peças que o código usar"}</button>
+            <button className={missionHardwareReady ? "check-done hardware-check" : "hardware-check"} onClick={() => setBuilderOpen(true)}><span>{missionHardwareReady ? "✓" : "!"}</span> {activeChallenge.hardwareRequirement === "dual-outward-colour" ? challengeHardwareReady ? "Sensores laterais configurados" : "Sensores laterais recomendados para concluir" : isRobotReady(hardware) ? "Rodas esquerda e direita configuradas" : "Defina os motores que movem as rodas"}</button>
             <div className={challengeStepsComplete ? "check-done" : ""}><span>{challengeStepsComplete ? "✓" : "2"}</span> {activeChallenge.requiredHazards.length ? `Etapas da pista: ${activeChallenge.requiredHazards.filter((id) => competitionView.scoredHazards.includes(id)).length}/${activeChallenge.requiredHazards.length}` : "Entre no percurso"}</div>
             <div className={status === "success" ? "check-done" : ""}><span>{status === "success" ? "✓" : "3"}</span> Conclua a condição de vitória</div>
             {activeChallenge.maxCollisions !== undefined && <div className={competitionView.collisionCount <= activeChallenge.maxCollisions ? "check-done" : "check-failed"}><span>{competitionView.collisionCount <= activeChallenge.maxCollisions ? "✓" : "×"}</span> Colisões: {competitionView.collisionCount}/{activeChallenge.maxCollisions}</div>}
@@ -897,7 +899,7 @@ export default function EuVouProgramar() {
           </div>
 
           {editorTab === "blocks" ? (
-            builderOpen ? <div className="block-editor-paused" aria-hidden="true" /> : <BlockEditor ref={blockEditorRef} programXml={programXml} onChange={updateBlocks} />
+            builderOpen ? <div className="block-editor-paused" aria-hidden="true" /> : <BlockEditor ref={blockEditorRef} programXml={programXml} leftMotorPort={movementMotorPorts.left} rightMotorPort={movementMotorPorts.right} onChange={updateBlocks} />
           ) : editorTab === "code" ? (
             <div className="editor-wrap">
               <div ref={lineNumbersRef} className="line-numbers" aria-hidden="true">
@@ -1058,10 +1060,12 @@ export default function EuVouProgramar() {
               <h3>Motores <span>letras A–D</span></h3>
               {MOTOR_PORTS.map((port) => {
                 const motor = hardware.motors[port];
+                const role = hardware.motorMounts[port]?.role;
+                const roleName = role === "left-wheel" ? "Roda E" : role === "right-wheel" ? "Roda D" : role === "accessory" ? "Acessório" : role === "unassigned" ? "Sem função" : "Livre";
                 return (
                   <div className={`connection-port connection-motor-${motor ?? "empty"}`} key={port}>
                     <b>{port}</b>
-                    <span><small>Porta {port}</small><strong>{motor ? MOTOR_DEFINITIONS[motor].shortName : "Livre"}</strong></span>
+                    <span><small>Porta {port} · {roleName}</small><strong>{motor ? MOTOR_DEFINITIONS[motor].shortName : "Livre"}</strong></span>
                   </div>
                 );
               })}

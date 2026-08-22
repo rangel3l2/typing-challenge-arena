@@ -15,6 +15,7 @@ import {
   MOTOR_PORTS,
   MotorKind,
   MotorPort,
+  MotorRole,
   SENSOR_DEFINITIONS,
   SENSOR_POSITION_DEFINITIONS,
   SENSOR_POSITIONS,
@@ -37,6 +38,13 @@ type PieceSelection =
   | { type: "sensor"; kind: SensorKind; sourcePort?: SensorPort };
 
 type SensorPieceSelection = Extract<PieceSelection, { type: "sensor" }>;
+type MotorPieceSelection = Extract<PieceSelection, { type: "motor" }>;
+
+interface MotorPlacement {
+  port: MotorPort;
+  piece: MotorPieceSelection;
+  role: MotorRole;
+}
 
 interface SensorPlacement {
   port: SensorPort;
@@ -45,6 +53,12 @@ interface SensorPlacement {
 }
 
 const DRAG_TYPE = "application/x-euvou-ev3-piece";
+const MOTOR_ROLE_OPTIONS: Array<{ role: MotorRole; icon: string; name: string; description: string }> = [
+  { role: "left-wheel", icon: "←", name: "Roda esquerda", description: "Move o lado esquerdo do carrinho." },
+  { role: "right-wheel", icon: "→", name: "Roda direita", description: "Move o lado direito e fica espelhado." },
+  { role: "accessory", icon: "⚙", name: "Acessório", description: "Funciona pelo código sem mover as rodas." },
+  { role: "unassigned", icon: "○", name: "Sem função", description: "Fica conectado para você definir depois." },
+];
 
 function parsePiece(event: DragEvent): PieceSelection | null {
   try {
@@ -72,18 +86,47 @@ function SensorPiece({ kind, compact = false }: { kind: SensorKind; compact?: bo
 
 export default function RobotBuilder({ config, onChange, onProgram }: RobotBuilderProps) {
   const [selected, setSelected] = useState<PieceSelection | null>(null);
+  const [motorPlacement, setMotorPlacement] = useState<MotorPlacement | null>(null);
   const [sensorPlacement, setSensorPlacement] = useState<SensorPlacement | null>(null);
   const ready = isRobotReady(config);
   const complete = isRobotComplete(config);
   const pieceCount = hardwareCount(config);
+  const motorCount = MOTOR_PORTS.filter((port) => config.motors[port]).length;
+  const needsWheelRoles = motorCount >= 2 && !ready;
 
-  const placeMotor = (port: MotorPort, piece: PieceSelection | null) => {
-    if (!piece || piece.type !== "motor") return;
+  const startMotorPlacement = (port: MotorPort, piece: PieceSelection | null) => {
+    const installed = config.motors[port];
+    const motorPiece = piece?.type === "motor" ? piece : installed ? { type: "motor" as const, kind: installed, sourcePort: port } : null;
+    if (!motorPiece) return;
+    const existingRole = motorPiece.sourcePort ? config.motorMounts[motorPiece.sourcePort]?.role : config.motorMounts[port]?.role;
+    const role = existingRole
+      ?? (!MOTOR_PORTS.some((item) => config.motorMounts[item]?.role === "left-wheel")
+        ? "left-wheel"
+        : !MOTOR_PORTS.some((item) => config.motorMounts[item]?.role === "right-wheel")
+          ? "right-wheel"
+          : "accessory");
+    setMotorPlacement({ port, piece: motorPiece, role });
+  };
+
+  const confirmMotorPlacement = () => {
+    if (!motorPlacement) return;
+    const { port, piece, role } = motorPlacement;
     const next = cloneHardware(config);
     const replaced = next.motors[port];
-    if (piece.sourcePort && piece.sourcePort !== port) next.motors[piece.sourcePort] = replaced;
+    const replacedMount = next.motorMounts[port];
+    if (piece.sourcePort && piece.sourcePort !== port) {
+      next.motors[piece.sourcePort] = replaced;
+      next.motorMounts[piece.sourcePort] = replaced ? replacedMount ?? { role: "unassigned" } : null;
+    }
     next.motors[port] = piece.kind;
+    next.motorMounts[port] = { role };
+    if (role === "left-wheel" || role === "right-wheel") {
+      for (const otherPort of MOTOR_PORTS) {
+        if (otherPort !== port && next.motorMounts[otherPort]?.role === role) next.motorMounts[otherPort] = { role: "unassigned" };
+      }
+    }
     onChange(next);
+    setMotorPlacement(null);
     setSelected(null);
   };
 
@@ -119,6 +162,7 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
   const removeMotor = (port: MotorPort) => {
     const next = cloneHardware(config);
     next.motors[port] = null;
+    next.motorMounts[port] = null;
     onChange(next);
   };
 
@@ -147,8 +191,8 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
         <div className={`builder-readiness ${ready ? "ready" : "incomplete"}`}>
           <span>{ready ? "✓" : pieceCount}</span>
           <div>
-            <strong>{complete ? "Robô completo" : ready ? "Pronto para movimentar" : `${pieceCount} peça${pieceCount === 1 ? "" : "s"} conectada${pieceCount === 1 ? "" : "s"}`}</strong>
-            <small>{complete ? "Todas as funções disponíveis" : ready ? "Dois motores bastam; sensores são opcionais" : "Cada peça libera apenas a sua própria função"}</small>
+            <strong>{complete ? "Robô completo" : ready ? "Pronto para movimentar" : needsWheelRoles ? "Defina as duas rodas" : `${pieceCount} peça${pieceCount === 1 ? "" : "s"} conectada${pieceCount === 1 ? "" : "s"}`}</strong>
+            <small>{complete ? "Todas as funções disponíveis" : ready ? "Rodas esquerda e direita configuradas" : needsWheelRoles ? "Escolha uma roda esquerda e uma direita" : "Cada peça libera apenas a sua própria função"}</small>
           </div>
         </div>
       </div>
@@ -208,20 +252,21 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
 
             {MOTOR_PORTS.map((port) => {
               const installed = config.motors[port];
-              const portName: Record<MotorPort, string> = { A: "Acessório esquerdo", B: "Tração esquerda", C: "Tração direita", D: "Acessório direito" };
+              const role = config.motorMounts[port]?.role;
+              const portName = !installed ? "Saída de motor" : role === "left-wheel" ? "Tração esquerda" : role === "right-wheel" ? "Tração direita" : role === "accessory" ? "Acessório" : "Sem função";
               return (
                 <div
                   key={port}
                   className={`motor-slot motor-slot-${port.toLowerCase()} ${installed ? "filled" : "empty"} ${selected?.type === "motor" ? "can-drop" : ""}`}
                   onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
-                  onDrop={(event) => { event.preventDefault(); placeMotor(port, parsePiece(event)); }}
-                  onClick={() => placeMotor(port, selected)}
+                  onDrop={(event) => { event.preventDefault(); startMotorPlacement(port, parsePiece(event)); }}
+                  onClick={() => startMotorPlacement(port, selected)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") placeMotor(port, selected); }}
-                  aria-label={`Saída de motor ${port}, ${portName[port]}${installed ? `, ${MOTOR_DEFINITIONS[installed].name}` : ", vazia"}`}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") startMotorPlacement(port, selected); }}
+                  aria-label={`Saída de motor ${port}, ${portName}${installed ? `, ${MOTOR_DEFINITIONS[installed].name}` : ", vazia"}`}
                 >
-                  <span className="slot-label"><b>{port}</b>{portName[port]}</span>
+                  <span className="slot-label"><b>{port}</b>{portName}</span>
                   {installed ? (
                     <div className="installed-piece" draggable onDragStart={(event) => beginDrag(event, { type: "motor", kind: installed, sourcePort: port })}>
                       <MotorPiece kind={installed} />
@@ -287,6 +332,43 @@ export default function RobotBuilder({ config, onChange, onProgram }: RobotBuild
           </div>
         </aside>
       </div>
+
+      {motorPlacement && (() => {
+        const motor = MOTOR_DEFINITIONS[motorPlacement.piece.kind];
+        const occupiedBy = (role: MotorRole) => role === "left-wheel" || role === "right-wheel"
+          ? MOTOR_PORTS.find((port) => port !== motorPlacement.piece.sourcePort && port !== motorPlacement.port && config.motors[port] && config.motorMounts[port]?.role === role)
+          : undefined;
+        return (
+          <div className="sensor-placement-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMotorPlacement(null); }}>
+            <section className="sensor-placement-dialog motor-placement-dialog" role="dialog" aria-modal="true" aria-labelledby="motor-placement-title">
+              <header>
+                <MotorPiece kind={motorPlacement.piece.kind} compact />
+                <div><span>Motor na porta {motorPlacement.port}</span><h3 id="motor-placement-title">Qual será a função do {motor.shortName}?</h3><p>A porta não determina a posição: você escolhe o que este motor fará.</p></div>
+                <button type="button" onClick={() => setMotorPlacement(null)} aria-label="Cancelar função do motor">×</button>
+              </header>
+
+              <div className="motor-role-picker" aria-label="Funções disponíveis para o motor">
+                {MOTOR_ROLE_OPTIONS.map((option) => {
+                  const occupiedPort = occupiedBy(option.role);
+                  const active = motorPlacement.role === option.role;
+                  return <button
+                    type="button"
+                    key={option.role}
+                    className={active ? "active" : ""}
+                    onClick={() => setMotorPlacement((current) => current ? { ...current, role: option.role } : current)}
+                    aria-pressed={active}
+                  >
+                    <span>{option.icon}</span><b>{option.name}</b><small>{occupiedPort ? `Substitui a porta ${occupiedPort} nesta função.` : option.description}</small>
+                  </button>;
+                })}
+              </div>
+
+              <div className="sensor-behaviour-note motor-role-note"><span>✓</span><p>Motor grande ou médio funciona em qualquer porta. Para o carrinho andar, escolha exatamente uma roda esquerda e uma roda direita.</p></div>
+              <footer><button type="button" onClick={() => setMotorPlacement(null)}>Cancelar</button><button type="button" onClick={confirmMotorPlacement}>Confirmar função <span>→</span></button></footer>
+            </section>
+          </div>
+        );
+      })()}
 
       {sensorPlacement && (() => {
         const sensor = SENSOR_DEFINITIONS[sensorPlacement.piece.kind];

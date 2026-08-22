@@ -6,9 +6,12 @@ import * as locale from "blockly/msg/pt-br";
 import { EV3_BLOCK_COLORS, EV3_TOOLBOX, generatePython, hasExecutableProgram, registerEV3Blocks } from "./blocks";
 import { copyWorkspaceImage } from "./editorClipboard";
 import type { ImageCopyResult } from "./editorClipboard";
+import type { MotorPort } from "./hardware";
 
 interface BlockEditorProps {
   programXml: string;
+  leftMotorPort: MotorPort;
+  rightMotorPort: MotorPort;
   onChange: (programXml: string, python: string, executable: boolean) => void;
 }
 
@@ -16,11 +19,12 @@ export interface BlockEditorHandle {
   copyBlocksImage: () => Promise<ImageCopyResult>;
 }
 
-const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function BlockEditor({ programXml, onChange }, ref) {
+const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function BlockEditor({ programXml, leftMotorPort, rightMotorPort, onChange }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const lastSerializedRef = useRef("");
   const onChangeRef = useRef(onChange);
+  const movementMotorsRef = useRef({ left: leftMotorPort, right: rightMotorPort });
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
@@ -85,12 +89,12 @@ const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function Blo
       };
 
       loadXml(programXml);
-      onChangeRef.current(lastSerializedRef.current, generatePython(workspace), hasExecutableProgram(workspace));
+      onChangeRef.current(lastSerializedRef.current, generatePython(workspace, movementMotorsRef.current), hasExecutableProgram(workspace));
       workspace.addChangeListener((event) => {
         if (event.isUiEvent || workspace.isDragging()) return;
         const xmlText = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
         lastSerializedRef.current = xmlText;
-        onChangeRef.current(xmlText, generatePython(workspace), hasExecutableProgram(workspace));
+        onChangeRef.current(xmlText, generatePython(workspace, movementMotorsRef.current), hasExecutableProgram(workspace));
       });
 
       workspaceRef.current = workspace;
@@ -118,8 +122,15 @@ const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function Blo
     Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(programXml), workspace);
     lastSerializedRef.current = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
     workspace.scrollCenter();
-    onChangeRef.current(lastSerializedRef.current, generatePython(workspace), hasExecutableProgram(workspace));
+    onChangeRef.current(lastSerializedRef.current, generatePython(workspace, movementMotorsRef.current), hasExecutableProgram(workspace));
   }, [programXml]);
+
+  useEffect(() => {
+    movementMotorsRef.current = { left: leftMotorPort, right: rightMotorPort };
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    onChangeRef.current(lastSerializedRef.current, generatePython(workspace, movementMotorsRef.current), hasExecutableProgram(workspace));
+  }, [leftMotorPort, rightMotorPort]);
 
   const centerBlocks = () => workspaceRef.current?.scrollCenter();
   const undo = (redo = false) => workspaceRef.current?.undo(redo);
