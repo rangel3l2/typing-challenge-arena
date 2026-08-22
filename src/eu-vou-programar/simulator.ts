@@ -568,7 +568,12 @@ export function stepRunner(
         else if (movementChannel === "motor_movimento_direito") world.robot.rightPower = power;
         else {
           if (port === "B") world.robot.leftPower = power;
-          if (port === "C") world.robot.rightPower = power;
+          // Os motores de tração B e C ficam espelhados no robô físico. Por
+          // isso, o mesmo sentido de giro dos dois eixos move uma roda para a
+          // frente e a outra para trás. Os blocos diretos de Motor representam
+          // o giro do eixo; já os blocos de Movimento acima representam o
+          // sentido do carrinho e não precisam desta conversão.
+          if (port === "C") world.robot.rightPower = -power;
         }
       }
     } else if (node.kind === "sleep") {

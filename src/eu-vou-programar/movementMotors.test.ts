@@ -96,6 +96,47 @@ describe("bloco de motores de movimento", () => {
 });
 
 describe("simulação dos motores escolhidos", () => {
+  it("espelha o motor C nos comandos diretos como acontece no robô físico", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.B = "large";
+    hardware.motors.C = "large";
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram(`
+motors.set_power(1, 0.5)
+motors.set_power(2, -0.5)
+utils.sleep(1)
+`));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.motorPowers.B).toBe(0.5);
+    expect(world.robot.motorPowers.C).toBe(-0.5);
+    expect(world.robot.leftPower).toBe(0.5);
+    expect(world.robot.rightPower).toBe(0.5);
+  });
+
+  it("avança com o bloco B horário e o bloco C anti-horário", () => {
+    const workspace = new Blockly.Workspace();
+    const start = workspace.newBlock("ev3_start");
+    const leftMotor = workspace.newBlock("ev3_motor_start");
+    const rightMotor = workspace.newBlock("ev3_motor_start");
+    leftMotor.setFieldValue("B", "PORT");
+    leftMotor.setFieldValue("horário", "DIRECTION");
+    rightMotor.setFieldValue("C", "PORT");
+    rightMotor.setFieldValue("anti-horário", "DIRECTION");
+    start.nextConnection?.connect(leftMotor.previousConnection);
+    leftMotor.nextConnection?.connect(rightMotor.previousConnection);
+
+    const world = createWorld();
+    const runner = createRunner(parseProgram(generatePython(workspace)));
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.leftPower).toBe(0.75);
+    expect(world.robot.rightPower).toBe(0.75);
+
+    workspace.dispose();
+  });
+
   it("move os lados do robô usando portas diferentes de B e C", () => {
     const world = createWorld();
     const runner = createRunner(parseProgram(`
