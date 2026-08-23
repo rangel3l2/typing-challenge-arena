@@ -646,6 +646,9 @@ export default function EuVouProgramar() {
   };
 
   const updateCode = (value: string) => {
+    // Apenas editar o texto torna o Python a fonte do programa. Abrir a aba
+    // robot.py para consultar o código gerado não deve reconstruir os blocos.
+    setProgramMode("code");
     setCode(value);
     try {
       setProgramXml(pythonToBlocks(value));
@@ -888,7 +891,7 @@ export default function EuVouProgramar() {
           <div className="panel-header editor-header">
             <div className="editor-tabs" role="tablist" aria-label="Editor e saída">
               <button role="tab" aria-selected={editorTab === "blocks"} className={editorTab === "blocks" ? "active" : ""} onClick={openBlocks}><span>▦</span> Blocos</button>
-              <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => { setEditorTab("code"); setProgramMode("code"); }}><span>🐍</span> robot.py</button>
+              <button role="tab" aria-selected={editorTab === "code"} className={editorTab === "code" ? "active" : ""} onClick={() => setEditorTab("code")}><span>🐍</span> robot.py</button>
               <button role="tab" aria-selected={editorTab === "console"} className={editorTab === "console" ? "active" : ""} onClick={() => setEditorTab("console")}><span>›_</span> Saída <i>{logs.length}</i></button>
             </div>
             <div className="editor-header-actions">

@@ -65,6 +65,40 @@ describe("conversão Python para blocos", () => {
     workspace.dispose();
   });
 
+  it("ignora o cabeçalho automático com rodas A/B e preserva somente os blocos do aluno", () => {
+    const python = `
+from sbot import arduino, leds, motors, utils, ev3
+
+# Gerado pelos blocos EV3 em português
+velocidade_motor_A = 75
+velocidade_motor_B = 75
+velocidade_motor_C = 75
+velocidade_motor_D = 75
+velocidade_movimento = 50
+motor_movimento_esquerdo = 0
+motor_movimento_direito = 1
+
+velocidade_motor_A = 75
+velocidade_motor_B = 75
+while True:
+    cor_ev3_porta_1 = ev3.color("1")
+    cor_ev3_porta_2 = ev3.color("2")
+    if ((cor_ev3_porta_1 == "branco") and (cor_ev3_porta_2 == "branco")):
+        motors.set_power(0, velocidade_motor_A / 100)
+        motors.set_power(1, -1 * velocidade_motor_B / 100)
+`;
+    const workspace = workspaceFromXml(pythonToBlocks(python));
+    const allBlocks = workspace.getAllBlocks(false);
+    const speedBlocks = allBlocks.filter((block) => block.type === "ev3_motor_set_speed");
+
+    expect(speedBlocks.map((block) => block.getFieldValue("PORT"))).toEqual(["A", "B"]);
+    expect(allBlocks.filter((block) => block.type === "ev3_move_set_speed")).toHaveLength(0);
+    expect(allBlocks.filter((block) => block.type === "ev3_move_set_motors")).toHaveLength(0);
+    expect(allBlocks.filter((block) => block.type === "ev3_motor_start")).toHaveLength(2);
+
+    workspace.dispose();
+  });
+
   it("reconstrói laço, condição composta, sensores e os dois sentidos dos motores", () => {
     const python = `
 from sbot import arduino, leds, motors, utils, ev3

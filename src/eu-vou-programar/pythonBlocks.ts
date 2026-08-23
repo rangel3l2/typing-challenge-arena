@@ -253,22 +253,31 @@ function expressionBlock(expression: string, bindings: Map<string, SensorBinding
   throw new PythonBlocksError(`a expressão “${source}” não possui um bloco equivalente.`);
 }
 
-const headerAssignments: Array<[string, string]> = [
+const fixedHeaderAssignments: Array<[string, string]> = [
   ["velocidade_motor_A", "75"],
   ["velocidade_motor_B", "75"],
   ["velocidade_motor_C", "75"],
   ["velocidade_motor_D", "75"],
   ["velocidade_movimento", "50"],
-  ["motor_movimento_esquerdo", "1"],
-  ["motor_movimento_direito", "2"],
 ];
 
 function withoutGeneratedHeader(nodes: ProgramNode[]): ProgramNode[] {
-  const hasHeader = headerAssignments.every(([target, expression], index) => {
+  const hasFixedHeader = fixedHeaderAssignments.every(([target, expression], index) => {
     const node = nodes[index];
     return node?.kind === "assign" && node.target === target && stripOuterParentheses(node.expression) === expression;
   });
-  return hasHeader ? nodes.slice(headerAssignments.length) : nodes;
+  if (!hasFixedHeader) return nodes;
+
+  const left = nodes[fixedHeaderAssignments.length];
+  const right = nodes[fixedHeaderAssignments.length + 1];
+  const isMotorChannel = (node: ProgramNode | undefined, target: string) => {
+    if (node?.kind !== "assign" || node.target !== target) return false;
+    const channel = numberLiteral(node.expression);
+    return channel !== null && Number.isInteger(channel) && channel >= 0 && channel <= 3;
+  };
+  const hasMovementHeader = isMotorChannel(left, "motor_movimento_esquerdo")
+    && isMotorChannel(right, "motor_movimento_direito");
+  return hasMovementHeader ? nodes.slice(fixedHeaderAssignments.length + 2) : nodes;
 }
 
 const channelPorts = ["A", "B", "C", "D"];
