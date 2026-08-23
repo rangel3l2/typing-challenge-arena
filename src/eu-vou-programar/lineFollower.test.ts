@@ -40,8 +40,9 @@ describe("seguidor de linha em blocos", () => {
     expect(code).toContain('cor_ev3_porta_4 = ev3.color("4")');
     expect(code).toContain('cor_ev3_porta_2 = ev3.color("2")');
     expect(code).toContain("while True:");
-    expect(code).not.toMatch(/motors\.set_power\(1,\s*-/);
-    expect(code).toMatch(/motors\.set_power\(2,\s*-/);
+    expect(code).toContain("motors.set_power(1, 0.32)");
+    expect(code).toContain("motors.set_power(2, 0.32)");
+    expect(code).not.toMatch(/motors\.set_power\([12],\s*-/);
     const metrics = {
       success: world.success,
       position: { x: Math.round(world.robot.x), y: Math.round(world.robot.y) },

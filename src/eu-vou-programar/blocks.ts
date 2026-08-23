@@ -319,10 +319,10 @@ export function createExampleBlocks(example: EV3Example = "avancar") {
     const stopOnRed = logic("ou", colorIs("4", "vermelho"), colorIs("2", "vermelho"));
     const lineOnLeft = logic("e", colorIs("4", "preto"), colorIs("2", "branco"));
     const lineOnRight = logic("e", colorIs("4", "branco"), colorIs("2", "preto"));
-    const correctRight = motorSpeeds(8, -42);
-    const correctLeft = motorSpeeds(42, -8);
-    const forward = motorSpeeds(32, -32);
-    const finish = motorSpeeds(20, -20, block("ev3_wait", field("SECONDS", 1.5), motorSpeeds(0, 0, block("ev3_wait", field("SECONDS", 3.2)))));
+    const correctRight = motorSpeeds(8, 42);
+    const correctLeft = motorSpeeds(42, 8);
+    const forward = motorSpeeds(32, 32);
+    const finish = motorSpeeds(20, 20, block("ev3_wait", field("SECONDS", 1.5), motorSpeeds(0, 0, block("ev3_wait", field("SECONDS", 3.2)))));
     const chooseRight = `<block type="ev3_if_else">${value("CONDITION", lineOnRight)}${statement("DO", correctRight)}${statement("ELSE", forward)}</block>`;
     const chooseLeft = `<block type="ev3_if_else">${value("CONDITION", lineOnLeft)}${statement("DO", correctLeft)}${statement("ELSE", chooseRight)}</block>`;
     const follow = `<block type="ev3_if_else">${value("CONDITION", stopOnRed)}${statement("DO", finish)}${statement("ELSE", chooseLeft)}${next(block("ev3_wait", field("SECONDS", 0.02)))}</block>`;

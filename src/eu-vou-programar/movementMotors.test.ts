@@ -121,7 +121,7 @@ describe("bloco de motores de movimento", () => {
 });
 
 describe("simulação dos motores escolhidos", () => {
-  it("espelha o motor C nos comandos diretos como acontece no robô físico", () => {
+  it("usa a mesma direção nos dois motores como no LEGO MINDSTORMS", () => {
     const hardware = cloneHardware(EMPTY_HARDWARE);
     hardware.motors.B = "large";
     hardware.motors.C = "large";
@@ -130,19 +130,19 @@ describe("simulação dos motores escolhidos", () => {
     const world = createWorld(hardware);
     const runner = createRunner(parseProgram(`
 motors.set_power(1, 0.5)
-motors.set_power(2, -0.5)
+motors.set_power(2, 0.5)
 utils.sleep(1)
 `));
 
     stepRunner(runner, world, 0.016, () => undefined);
 
     expect(world.robot.motorPowers.B).toBe(0.5);
-    expect(world.robot.motorPowers.C).toBe(-0.5);
+    expect(world.robot.motorPowers.C).toBe(0.5);
     expect(world.robot.leftPower).toBe(0.5);
     expect(world.robot.rightPower).toBe(0.5);
   });
 
-  it("avança com o bloco B horário e o bloco C anti-horário", () => {
+  it("avança com os blocos B e C no sentido horário", () => {
     const workspace = new Blockly.Workspace();
     const start = workspace.newBlock("ev3_start");
     const leftMotor = workspace.newBlock("ev3_motor_start");
@@ -150,7 +150,7 @@ utils.sleep(1)
     leftMotor.setFieldValue("B", "PORT");
     leftMotor.setFieldValue("horário", "DIRECTION");
     rightMotor.setFieldValue("C", "PORT");
-    rightMotor.setFieldValue("anti-horário", "DIRECTION");
+    rightMotor.setFieldValue("horário", "DIRECTION");
     start.nextConnection?.connect(leftMotor.previousConnection);
     leftMotor.nextConnection?.connect(rightMotor.previousConnection);
 
@@ -173,16 +173,35 @@ utils.sleep(1)
     const world = createWorld(hardware);
     const runner = createRunner(parseProgram(`
 motors.set_power(0, 0.75)
-motors.set_power(1, -0.75)
+motors.set_power(1, 0.75)
 utils.sleep(1)
 `));
 
     stepRunner(runner, world, 0.016, () => undefined);
 
     expect(world.robot.motorPowers.A).toBe(0.75);
-    expect(world.robot.motorPowers.B).toBe(-0.75);
+    expect(world.robot.motorPowers.B).toBe(0.75);
     expect(world.robot.leftPower).toBe(0.75);
     expect(world.robot.rightPower).toBe(0.75);
+  });
+
+  it("gira sobre o próprio eixo quando os motores usam sentidos opostos", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motorMounts.A = { role: "left-wheel" };
+    hardware.motorMounts.B = { role: "right-wheel" };
+    const world = createWorld(hardware);
+    const runner = createRunner(parseProgram(`
+motors.set_power(0, 0.5)
+motors.set_power(1, -0.5)
+utils.sleep(1)
+`));
+
+    stepRunner(runner, world, 0.016, () => undefined);
+
+    expect(world.robot.leftPower).toBe(0.5);
+    expect(world.robot.rightPower).toBe(-0.5);
   });
 
   it("aciona um acessório sem movimentar as rodas", () => {
@@ -264,13 +283,11 @@ motors.set_power(motor_movimento_direito, 0.5)
   it("conclui a primeira missão ao terminar 5,8 rotações parado dentro do objetivo", () => {
     const world = createWorld();
     const runner = createRunner(parseProgram(`
-motor_movimento_esquerdo = 1
-motor_movimento_direito = 2
-motors.set_power(motor_movimento_esquerdo, 0.5)
-motors.set_power(motor_movimento_direito, 0.5)
+motors.set_power(1, 0.5)
+motors.set_power(2, 0.5)
 utils.sleep(8.352)
-motors.set_power(motor_movimento_esquerdo, 0)
-motors.set_power(motor_movimento_direito, 0)
+motors.set_power(1, 0)
+motors.set_power(2, 0)
 `));
 
     for (let step = 0; step < 500 && !runner.finished; step += 1) {

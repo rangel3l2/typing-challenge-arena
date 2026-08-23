@@ -55,7 +55,7 @@ interface SensorPlacement {
 const DRAG_TYPE = "application/x-euvou-ev3-piece";
 const MOTOR_ROLE_OPTIONS: Array<{ role: MotorRole; icon: string; name: string; description: string }> = [
   { role: "left-wheel", icon: "←", name: "Roda esquerda", description: "Move o lado esquerdo do carrinho." },
-  { role: "right-wheel", icon: "→", name: "Roda direita", description: "Move o lado direito e fica espelhado." },
+  { role: "right-wheel", icon: "→", name: "Roda direita", description: "Move o lado direito do robô." },
   { role: "accessory", icon: "⚙", name: "Acessório", description: "Funciona pelo código sem mover as rodas." },
   { role: "unassigned", icon: "○", name: "Sem função", description: "Fica conectado para você definir depois." },
 ];

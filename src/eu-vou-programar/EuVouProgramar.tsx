@@ -47,9 +47,9 @@ const examples = {
 # Acenda o LED dourado
 leds.set_rgb(0, 223, 153, 32)
 
-# Os motores ficam espelhados: B horário e C anti-horário avançam
+# Como no MINDSTORMS, os dois motores no mesmo sentido avançam
 motors.set_power(1, 0.6)
-motors.set_power(2, -0.6)
+motors.set_power(2, 0.6)
 utils.sleep(3.6)
 
 # Pare ao chegar na estrela
@@ -58,9 +58,9 @@ motors.set_power(2, 0)
 print("Cheguei na estrela!")`,
   curva: `from sbot import motors, utils
 
-# Potências diferentes fazem uma curva; C usa o sentido espelhado
+# Potências diferentes fazem uma curva
 motors.set_power(1, 0.55)
-motors.set_power(2, -0.30)
+motors.set_power(2, 0.30)
 utils.sleep(1.4)
 
 motors.set_power(1, 0)
@@ -74,7 +74,7 @@ print(f"Distância: {distancia} mm")
 
 if distancia > 500:
     motors.set_power(1, 0.5)
-    motors.set_power(2, -0.5)
+    motors.set_power(2, 0.5)
     utils.sleep(1)
 else:
     print("Obstáculo muito perto!")
@@ -91,7 +91,7 @@ while True:
 
     if (cor_esquerda == "vermelho") or (cor_direita == "vermelho"):
         motors.set_power(1, 0.20)
-        motors.set_power(2, -0.20)
+        motors.set_power(2, 0.20)
         utils.sleep(1.5)
         motors.set_power(1, 0)
         motors.set_power(2, 0)
@@ -99,14 +99,14 @@ while True:
     else:
         if (cor_esquerda == "preto") and (cor_direita == "branco"):
             motors.set_power(1, 0.08)
-            motors.set_power(2, -0.42)
+            motors.set_power(2, 0.42)
         else:
             if (cor_esquerda == "branco") and (cor_direita == "preto"):
                 motors.set_power(1, 0.42)
-                motors.set_power(2, -0.08)
+                motors.set_power(2, 0.08)
             else:
                 motors.set_power(1, 0.32)
-                motors.set_power(2, -0.32)
+                motors.set_power(2, 0.32)
     utils.sleep(0.02)`,
 };
 
@@ -1167,11 +1167,11 @@ export default function EuVouProgramar() {
               <button onClick={() => loadExample("avancar")}><span>↑</span><strong>Seguir reto</strong><small>Controle os dois motores.</small></button>
               <button onClick={() => loadExample("curva")}><span>↗</span><strong>Fazer curva</strong><small>Use potências diferentes.</small></button>
               <button onClick={() => loadExample("sensor")}><span>◔</span><strong>Usar sensor</strong><small>Meça antes de avançar.</small></button>
-              <button onClick={() => loadExample("seguidor")}><span>⌁</span><strong>Seguir linha</strong><small>Use dois sensores e os motores espelhados.</small></button>
+              <button onClick={() => loadExample("seguidor")}><span>⌁</span><strong>Seguir linha</strong><small>Use dois sensores e controle os dois motores.</small></button>
             </div>
             <div className="command-list">
               <div><code>motors.set_power(1, 0.6)</code><span>Servo da porta B entre −1 e 1</span></div>
-              <div><code>motors.set_power(2, -0.6)</code><span>Servo C espelhado para o robô avançar</span></div>
+              <div><code>motors.set_power(2, 0.6)</code><span>Servo C no mesmo sentido para o robô avançar</span></div>
               <div><code>utils.sleep(2)</code><span>Espere pelo tempo da simulação</span></div>
               <div><code>arduino.measure_ultrasound_distance(2, 3)</code><span>Distância frontal em milímetros</span></div>
               <div><code>leds.set_rgb(0, 48, 145, 81)</code><span>Mude a luz do robô</span></div>

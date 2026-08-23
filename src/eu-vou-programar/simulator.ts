@@ -569,12 +569,9 @@ export function stepRunner(
         else {
           const driveMotors = getDriveMotorPorts(world.hardware);
           if (port === driveMotors?.left) world.robot.leftPower = power;
-          // Os dois motores de tração ficam espelhados no robô físico. Por
-          // isso, o mesmo sentido de giro dos dois eixos move uma roda para a
-          // frente e a outra para trás. Os blocos diretos de Motor representam
-          // o giro do eixo; já os blocos de Movimento acima representam o
-          // sentido do carrinho e não precisam desta conversão.
-          if (port === driveMotors?.right) world.robot.rightPower = -power;
+          // Como no LEGO MINDSTORMS EV3, a mesma potência e o mesmo sentido
+          // nos motores esquerdo e direito movem a base em linha reta.
+          if (port === driveMotors?.right) world.robot.rightPower = power;
         }
       }
     } else if (node.kind === "sleep") {
