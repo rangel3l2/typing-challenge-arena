@@ -27,6 +27,7 @@ export interface AuditPose extends ArenaPoint { angle: number }
 interface AuditAction {
   id: string;
   label: string;
+  anchor: ArenaPoint;
   pose: AuditPose;
   holdSeconds: number;
   kind: "hazard" | "goal";
@@ -37,6 +38,8 @@ export interface ArenaAutopilotState {
   driveMode: AuditDriveMode;
   driveChecks: number;
   lastDriveCommand: string;
+  lineWaypoints: number;
+  lastRouteUsedLine: boolean;
   actions: AuditAction[];
   actionIndex: number;
   route: ArenaPoint[];
@@ -230,13 +233,13 @@ function hazardAction(world: WorldState, hazard: OBRHazard): AuditAction | undef
   const holdSeconds = hazard.requiredSeconds ?? 0.12;
   if (hazard.kind === "sensor-gate") {
     const pose = nearbyClearPose(world, hazard, hazard.radius, hazard.requiredHeading ?? 0);
-    return pose ? { id: hazard.id, label: hazard.label, pose, holdSeconds, kind: "hazard" } : undefined;
+    return pose ? { id: hazard.id, label: hazard.label, anchor: hazard, pose, holdSeconds, kind: "hazard" } : undefined;
   }
   const requiredColour = hazard.kind === "timed-stop" ? hazard.requiredColour ?? "branco" : undefined;
   const pose = requiredColour
     ? findPose(world, hazard, hazard.radius, hazard.requiredHeading, requiredColour)
     : nearbyClearPose(world, hazard, hazard.radius, hazard.requiredHeading);
-  return pose ? { id: hazard.id, label: hazard.label, pose, holdSeconds, kind: "hazard" } : undefined;
+  return pose ? { id: hazard.id, label: hazard.label, anchor: hazard, pose, holdSeconds, kind: "hazard" } : undefined;
 }
 
 function goalAction(world: WorldState): AuditAction | undefined {
@@ -248,6 +251,7 @@ function goalAction(world: WorldState): AuditAction | undefined {
   return pose ? {
     id: "goal",
     label: goal.label,
+    anchor: goal,
     pose,
     holdSeconds: Math.max(0.12, goal.holdSeconds + 0.12),
     kind: "goal",
@@ -356,24 +360,145 @@ export function planAuditRoute(world: WorldState, start: ArenaPoint, target: Are
   return undefined;
 }
 
+interface TrackNode extends ArenaPoint { id: number; neighbours: number[] }
+
+function sampleTrack(path: ArenaPoint[], spacing = 10) {
+  const samples: ArenaPoint[] = [];
+  for (let index = 1; index < path.length; index += 1) {
+    const start = path[index - 1];
+    const end = path[index];
+    const distance = Math.hypot(end.x - start.x, end.y - start.y);
+    const steps = Math.max(1, Math.ceil(distance / spacing));
+    for (let step = index === 1 ? 0 : 1; step <= steps; step += 1) {
+      const amount = step / steps;
+      samples.push({ x: start.x + (end.x - start.x) * amount, y: start.y + (end.y - start.y) * amount });
+    }
+  }
+  return samples;
+}
+
+function createTrackGraph(world: WorldState) {
+  const nodes: TrackNode[] = [];
+  const paths = [world.layout.mainPath, world.layout.exitPath, ...world.layout.branches].filter((path) => path.length > 1);
+  for (const path of paths) {
+    const sampled = sampleTrack(path);
+    let previousId: number | undefined;
+    for (const point of sampled) {
+      let node = nodes.find((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) <= 1);
+      if (!node) {
+        node = { ...point, id: nodes.length, neighbours: [] };
+        nodes.push(node);
+      }
+      if (previousId !== undefined && previousId !== node.id) {
+        if (!nodes[previousId].neighbours.includes(node.id)) nodes[previousId].neighbours.push(node.id);
+        if (!node.neighbours.includes(previousId)) node.neighbours.push(previousId);
+      }
+      previousId = node.id;
+    }
+  }
+  // Connect crossings and shared ends that land between two sampled points.
+  for (let left = 0; left < nodes.length; left += 1) {
+    for (let right = left + 1; right < nodes.length; right += 1) {
+      if (Math.hypot(nodes[left].x - nodes[right].x, nodes[left].y - nodes[right].y) > 10.5) continue;
+      if (!nodes[left].neighbours.includes(right)) nodes[left].neighbours.push(right);
+      if (!nodes[right].neighbours.includes(left)) nodes[right].neighbours.push(left);
+    }
+  }
+  return nodes;
+}
+
+function nearestTrackNode(world: WorldState, nodes: TrackNode[], point: ArenaPoint) {
+  return nodes.filter((node) => robotPositionIsClear(world, node.x, node.y)).reduce<TrackNode | undefined>((nearest, node) => !nearest
+    || Math.hypot(node.x - point.x, node.y - point.y) < Math.hypot(nearest.x - point.x, nearest.y - point.y) ? node : nearest, undefined);
+}
+
+function trackRoute(world: WorldState, nodes: TrackNode[], start: ArenaPoint, target: ArenaPoint) {
+  const first = nearestTrackNode(world, nodes, start);
+  const last = nearestTrackNode(world, nodes, target);
+  if (!first || !last) return undefined;
+  const open = new MinHeap();
+  const costs = new Map<number, number>([[first.id, 0]]);
+  const previous = new Map<number, number>();
+  const visited = new Set<number>();
+  open.push({ key: String(first.id), score: 0 });
+  while (open.size) {
+    const currentId = Number(open.pop()!.key);
+    if (visited.has(currentId)) continue;
+    if (currentId === last.id) {
+      const ids = [last.id];
+      while (previous.has(ids[ids.length - 1])) ids.push(previous.get(ids[ids.length - 1])!);
+      return ids.reverse().map((id) => ({ x: nodes[id].x, y: nodes[id].y }));
+    }
+    visited.add(currentId);
+    const current = nodes[currentId];
+    const currentCost = costs.get(currentId)!;
+    for (const neighbourId of current.neighbours) {
+      const neighbour = nodes[neighbourId];
+      const nextCost = currentCost + Math.hypot(neighbour.x - current.x, neighbour.y - current.y);
+      if (nextCost >= (costs.get(neighbourId) ?? Number.POSITIVE_INFINITY)) continue;
+      costs.set(neighbourId, nextCost);
+      previous.set(neighbourId, currentId);
+      const heuristic = Math.hypot(neighbour.x - last.x, neighbour.y - last.y);
+      open.push({ key: String(neighbourId), score: nextCost + heuristic });
+    }
+  }
+  return undefined;
+}
+
+function routeAlongTrack(world: WorldState, start: ArenaPoint, anchor: ArenaPoint, target: ArenaPoint) {
+  if (world.layout.arenaStyle === "white") return { route: planAuditRoute(world, start, target), lineWaypoints: 0 };
+  const nodes = createTrackGraph(world);
+  const lineRoute = trackRoute(world, nodes, start, anchor);
+  if (!lineRoute?.length) return { route: planAuditRoute(world, start, target), lineWaypoints: 0 };
+  const route: ArenaPoint[] = [start];
+  const appendConnector = (from: ArenaPoint, to: ArenaPoint) => {
+    const connector = planAuditRoute(world, from, to);
+    if (!connector) return false;
+    route.push(...connector.slice(1));
+    return true;
+  };
+
+  if (!appendConnector(start, lineRoute[0])) return { route: undefined, lineWaypoints: 0 };
+  let index = 1;
+  while (index < lineRoute.length) {
+    const previousPoint = route[route.length - 1];
+    const point = lineRoute[index];
+    if (robotPositionIsClear(world, point.x, point.y) && segmentIsClear(world, previousPoint, point)) {
+      route.push(point);
+      index += 1;
+      continue;
+    }
+    let rejoin = index + 1;
+    while (rejoin < lineRoute.length && !robotPositionIsClear(world, lineRoute[rejoin].x, lineRoute[rejoin].y)) rejoin += 1;
+    // An obstacle can occupy the physical end of the drawn line. In that
+    // case the robot stops at the last safe black point and continues toward
+    // the action pose instead of trying to drive through the obstacle.
+    if (rejoin >= lineRoute.length) break;
+    if (!appendConnector(previousPoint, lineRoute[rejoin])) return { route: undefined, lineWaypoints: 0 };
+    index = rejoin + 1;
+  }
+  if (!appendConnector(route[route.length - 1], target)) return { route: undefined, lineWaypoints: 0 };
+  return { route, lineWaypoints: lineRoute.length };
+}
+
 export function createArenaAutopilot(world: WorldState, driveMode: AuditDriveMode = "movement"): ArenaAutopilotState {
   const actions: AuditAction[] = [];
   for (const hazardId of world.layout.challenge.requiredHazards) {
     const hazard = world.layout.hazards.find((item) => item.id === hazardId);
     if (!hazard) return {
-      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", lineWaypoints: 0, lastRouteUsedLine: false, actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
       message: "Falha de catálogo", error: `A etapa ${hazardId} não existe na arena.`,
     };
     const action = hazardAction(world, hazard);
     if (!action) return {
-      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", lineWaypoints: 0, lastRouteUsedLine: false, actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
       message: "Alvo inalcançável", error: `Nenhuma posição válida permite concluir “${hazard.label}”.`,
     };
     actions.push(action);
   }
   const finish = goalAction(world);
   if (!finish) return {
-    status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions, actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+    status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", lineWaypoints: 0, lastRouteUsedLine: false, actions, actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
     message: "Objetivo inalcançável", error: `Nenhuma posição válida permite concluir “${world.layout.challenge.goal.label}”.`,
   };
   actions.push(finish);
@@ -382,6 +507,8 @@ export function createArenaAutopilot(world: WorldState, driveMode: AuditDriveMod
     driveMode,
     driveChecks: 0,
     lastDriveCommand: "",
+    lineWaypoints: 0,
+    lastRouteUsedLine: false,
     actions,
     actionIndex: 0,
     route: [],
@@ -398,6 +525,15 @@ function fail(state: ArenaAutopilotState, error: string) {
   state.message = "Auditoria interrompida nesta missão";
 }
 
+function confirmSuccess(world: WorldState, state: ArenaAutopilotState) {
+  if (world.layout.arenaStyle === "obr" && state.lineWaypoints === 0) {
+    fail(state, "A missão chegou ao objetivo sem percorrer a linha preta obrigatória.");
+    return;
+  }
+  state.status = "passed";
+  state.message = world.layout.challenge.successMessage;
+}
+
 export function stepArenaAutopilot(
   world: WorldState,
   state: ArenaAutopilotState,
@@ -406,8 +542,7 @@ export function stepArenaAutopilot(
 ) {
   if (state.status !== "running") return;
   if (world.success) {
-    state.status = "passed";
-    state.message = world.layout.challenge.successMessage;
+    confirmSuccess(world, state);
     return;
   }
   if (world.competition.roundOver) {
@@ -424,12 +559,14 @@ export function stepArenaAutopilot(
 
   if (!state.route.length) {
     if (!verifyDriveBlocks(world, state)) return;
-    const route = planAuditRoute(world, world.robot, action.pose);
-    if (!route) {
+    const planned = routeAlongTrack(world, world.robot, action.anchor, action.pose);
+    if (!planned.route) {
       fail(state, `Não existe passagem física livre até “${action.label}”.`);
       return;
     }
-    state.route = route;
+    state.route = planned.route;
+    state.lineWaypoints += planned.lineWaypoints;
+    state.lastRouteUsedLine = planned.lineWaypoints > 0;
     state.routeIndex = 1;
   }
 
@@ -468,8 +605,7 @@ export function stepArenaAutopilot(
     : world.competition.scoredHazards.includes(action.id);
   if (actionComplete) {
     if (action.kind === "goal") {
-      state.status = "passed";
-      state.message = world.layout.challenge.successMessage;
+      confirmSuccess(world, state);
       return;
     }
     state.actionIndex += 1;

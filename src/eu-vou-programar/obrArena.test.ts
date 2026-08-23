@@ -112,6 +112,8 @@ describe("catálogo de objetivos da arena", () => {
     expect(createOBRLayout(7, "beginner").challenge.successCriteria.join(" ")).toContain("Não encoste em nenhum obstáculo");
     expect(createOBRLayout(6, "beginner").challenge.successCriteria.join(" ")).toContain("apontado para a direita");
     expect(createOBRLayout(9, "beginner").challenge.successCriteria.join(" ")).toContain("apontado para baixo");
+    expect(createOBRLayout(0, "easy").challenge.successCriteria.join(" ")).toContain("Siga a linha preta durante o percurso");
+    expect(createOBRLayout(0, "beginner").challenge.successCriteria.join(" ")).not.toContain("Siga a linha preta durante o percurso");
   });
 
   it("não cobra orientação oculta nas missões iniciais do nível muito fácil", () => {

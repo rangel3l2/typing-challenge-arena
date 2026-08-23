@@ -45,6 +45,8 @@ interface AuditView {
   groundColour: string;
   driveChecks: number;
   lastDriveCommand: string;
+  lineWaypoints: number;
+  lastRouteUsedLine: boolean;
   error: string;
 }
 
@@ -71,6 +73,8 @@ function initialView(world: WorldState, autopilot: ArenaAutopilotState): AuditVi
     groundColour: sensorColor(world, "3"),
     driveChecks: autopilot.driveChecks,
     lastDriveCommand: autopilot.lastDriveCommand,
+    lineWaypoints: autopilot.lineWaypoints,
+    lastRouteUsedLine: autopilot.lastRouteUsedLine,
     error: autopilot.error,
   };
 }
@@ -116,6 +120,8 @@ export default function ArenaAudit() {
       groundColour: sensorColor(world, "3"),
       driveChecks: autopilot.driveChecks,
       lastDriveCommand: autopilot.lastDriveCommand,
+      lineWaypoints: autopilot.lineWaypoints,
+      lastRouteUsedLine: autopilot.lastRouteUsedLine,
       error: autopilot.error,
     });
   }, []);
@@ -274,6 +280,8 @@ export default function ArenaAudit() {
             <div><dt>Sensor de chão</dt><dd>{view.groundColour}</dd></div>
             <div><dt>Tipo de bloco</dt><dd>{currentDriveMode.label}</dd></div>
             <div><dt>Comandos conferidos</dt><dd>{view.driveChecks}</dd></div>
+            <div><dt>Seguimento da linha</dt><dd>{currentWorld.layout.arenaStyle === "white" ? "Pista branca, sem linha" : view.lastRouteUsedLine ? "Linha preta obrigatória" : "Trecho autorizado fora da linha"}</dd></div>
+            <div><dt>Pontos da linha percorridos</dt><dd>{view.lineWaypoints}</dd></div>
           </dl>
           {view.lastDriveCommand && <div className="arena-audit-command"><span>Último comando Python</span><code>{view.lastDriveCommand}</code></div>}
           <div className="arena-audit-event"><span>Último evento</span><p>{view.lastEvent}</p></div>

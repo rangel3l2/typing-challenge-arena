@@ -98,6 +98,10 @@ function buildSuccessCriteria(options: LayoutOptions, hazards: OBRHazard[], chal
     return withPeriod(`${options.requireHazardOrder ? `Etapa ${index + 1}: ` : ""}${rule}`);
   });
 
+  if ((options.arenaStyle ?? "obr") === "obr") {
+    criteria.unshift("Siga a linha preta durante o percurso. Saia dela somente quando a missão exigir um desvio, gap, estacionamento, portal ou entrada na sala de resgate e, quando houver continuação, retorne à linha preta.");
+  }
+
   if (options.maxCollisions !== undefined) {
     criteria.push(options.maxCollisions === 0
       ? "Não encoste em nenhum obstáculo."

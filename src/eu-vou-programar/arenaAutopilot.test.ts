@@ -26,6 +26,8 @@ describe("auditoria automática das arenas", () => {
           failures.push(`${layoutLabel(level, challenge)}: ${autopilot.error || autopilot.message}`);
         } else if (autopilot.driveChecks < 3) {
           failures.push(`${layoutLabel(level, challenge)}: nenhum comando de ${mode.label} foi confirmado.`);
+        } else if (world.layout.arenaStyle === "obr" && autopilot.lineWaypoints === 0) {
+          failures.push(`${layoutLabel(level, challenge)}: a rota ignorou completamente a linha preta.`);
         } else if (world.competition.collisionCount || world.competition.victimTouches) {
           failures.push(`${layoutLabel(level, challenge)}: terminou com ${world.competition.collisionCount} colisões e ${world.competition.victimTouches} toques.`);
         }
