@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AUDIT_DRIVE_MODES,
   createArenaAutopilot,
   createAuditHardware,
   stepArenaAutopilot,
 } from "./arenaAutopilot";
-import type { ArenaAutopilotState } from "./arenaAutopilot";
+import type { ArenaAutopilotState, AuditDriveMode } from "./arenaAutopilot";
 import { ARENA_CHALLENGE_COUNT } from "./obrArena";
 import type { ArenaLevel } from "./obrArena";
 import { createWorld, drawWorld, sensorColor } from "./simulator";
@@ -20,6 +21,7 @@ const LEVELS: { id: ArenaLevel; name: string }[] = [
 interface MissionResult {
   key: string;
   cycle: number;
+  driveMode: AuditDriveMode;
   level: ArenaLevel;
   challenge: number;
   title: string;
@@ -29,6 +31,7 @@ interface MissionResult {
 }
 
 interface AuditView {
+  driveModeIndex: number;
   levelIndex: number;
   challengeIndex: number;
   cycle: number;
@@ -40,18 +43,21 @@ interface AuditView {
   hazardsTotal: number;
   lastEvent: string;
   groundColour: string;
+  driveChecks: number;
+  lastDriveCommand: string;
   error: string;
 }
 
 const hardware = createAuditHardware();
 
-function createMission(levelIndex: number, challengeIndex: number) {
+function createMission(driveModeIndex: number, levelIndex: number, challengeIndex: number) {
   const world = createWorld(hardware, challengeIndex, LEVELS[levelIndex].id);
-  return { world, autopilot: createArenaAutopilot(world) };
+  return { world, autopilot: createArenaAutopilot(world, AUDIT_DRIVE_MODES[driveModeIndex].id) };
 }
 
 function initialView(world: WorldState, autopilot: ArenaAutopilotState): AuditView {
   return {
+    driveModeIndex: 0,
     levelIndex: 0,
     challengeIndex: 0,
     cycle: 1,
@@ -63,15 +69,18 @@ function initialView(world: WorldState, autopilot: ArenaAutopilotState): AuditVi
     hazardsTotal: world.layout.challenge.requiredHazards.length,
     lastEvent: world.competition.lastEvent,
     groundColour: sensorColor(world, "3"),
+    driveChecks: autopilot.driveChecks,
+    lastDriveCommand: autopilot.lastDriveCommand,
     error: autopilot.error,
   };
 }
 
 export default function ArenaAudit() {
-  const initial = useRef(createMission(0, 0));
+  const initial = useRef(createMission(0, 0, 0));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef(initial.current.world);
   const autopilotRef = useRef(initial.current.autopilot);
+  const driveModeIndexRef = useRef(0);
   const levelIndexRef = useRef(0);
   const challengeIndexRef = useRef(0);
   const cycleRef = useRef(1);
@@ -93,6 +102,7 @@ export default function ArenaAudit() {
     const world = worldRef.current;
     const autopilot = autopilotRef.current;
     setView({
+      driveModeIndex: driveModeIndexRef.current,
       levelIndex: levelIndexRef.current,
       challengeIndex: challengeIndexRef.current,
       cycle: cycleRef.current,
@@ -104,12 +114,15 @@ export default function ArenaAudit() {
       hazardsTotal: world.layout.challenge.requiredHazards.length,
       lastEvent: world.competition.lastEvent,
       groundColour: sensorColor(world, "3"),
+      driveChecks: autopilot.driveChecks,
+      lastDriveCommand: autopilot.lastDriveCommand,
       error: autopilot.error,
     });
   }, []);
 
-  const startMission = useCallback((levelIndex: number, challengeIndex: number) => {
-    const next = createMission(levelIndex, challengeIndex);
+  const startMission = useCallback((driveModeIndex: number, levelIndex: number, challengeIndex: number) => {
+    const next = createMission(driveModeIndex, levelIndex, challengeIndex);
+    driveModeIndexRef.current = driveModeIndex;
     levelIndexRef.current = levelIndex;
     challengeIndexRef.current = challengeIndex;
     worldRef.current = next.world;
@@ -125,7 +138,8 @@ export default function ArenaAudit() {
     setResults([]);
     setLastCycle([]);
     setFailureHistory([]);
-    startMission(0, 0);
+    driveModeIndexRef.current = 0;
+    startMission(0, 0, 0);
   }, [startMission]);
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
@@ -147,28 +161,32 @@ export default function ArenaAudit() {
         if (transitionAtRef.current && now >= transitionAtRef.current) {
           const lastMission = challengeIndexRef.current === ARENA_CHALLENGE_COUNT - 1;
           const lastLevel = levelIndexRef.current === LEVELS.length - 1;
+          const lastDriveMode = driveModeIndexRef.current === AUDIT_DRIVE_MODES.length - 1;
           if (lastMission && lastLevel) {
-            if (loopRef.current) {
+            if (!lastDriveMode) {
+              startMission(driveModeIndexRef.current + 1, 0, 0);
+            } else if (loopRef.current) {
               setLastCycle(resultsRef.current);
               resultsRef.current = [];
               setResults([]);
               cycleRef.current += 1;
-              startMission(0, 0);
+              startMission(0, 0, 0);
             } else {
               transitionAtRef.current = Number.POSITIVE_INFINITY;
             }
           } else if (lastMission) {
-            startMission(levelIndexRef.current + 1, 0);
+            startMission(driveModeIndexRef.current, levelIndexRef.current + 1, 0);
           } else {
-            startMission(levelIndexRef.current, challengeIndexRef.current + 1);
+            startMission(driveModeIndexRef.current, levelIndexRef.current, challengeIndexRef.current + 1);
           }
         } else if (!transitionAtRef.current) {
           stepArenaAutopilot(world, autopilot, realDelta * speedRef.current);
           if (autopilot.status !== "running" && !resultRecordedRef.current) {
             resultRecordedRef.current = true;
             const result: MissionResult = {
-              key: `${world.layout.level}-${world.layout.challenge.number}`,
+              key: `${autopilot.driveMode}-${world.layout.level}-${world.layout.challenge.number}`,
               cycle: cycleRef.current,
+              driveMode: autopilot.driveMode,
               level: world.layout.level,
               challenge: world.layout.challenge.number,
               title: world.layout.challenge.title,
@@ -181,7 +199,7 @@ export default function ArenaAudit() {
             if (result.status === "failed") {
               setFailureHistory((current) => [...current, result].slice(-20));
             }
-            transitionAtRef.current = now + 850;
+            transitionAtRef.current = now + Math.max(180, 850 / speedRef.current);
           }
         }
       }
@@ -202,8 +220,10 @@ export default function ArenaAudit() {
   const passed = results.filter((result) => result.status === "passed").length;
   const failed = results.filter((result) => result.status === "failed").length;
   const completed = passed + failed;
-  const progress = (completed / (LEVELS.length * ARENA_CHALLENGE_COUNT)) * 100;
+  const totalChecks = AUDIT_DRIVE_MODES.length * LEVELS.length * ARENA_CHALLENGE_COUNT;
+  const progress = (completed / totalChecks) * 100;
   const currentLevel = LEVELS[view.levelIndex];
+  const currentDriveMode = AUDIT_DRIVE_MODES[view.driveModeIndex];
   const displayedResults = results.length ? results : lastCycle;
 
   return (
@@ -211,8 +231,8 @@ export default function ArenaAudit() {
       <header className="arena-audit-header">
         <div>
           <span className="arena-audit-kicker">QA AUTOMÁTICO · CICLO {view.cycle}</span>
-          <h1>Auditoria das 40 arenas</h1>
-          <p>O robô percorre objetivos, sensores, gaps, portais e obstáculos usando as mesmas regras do jogo.</p>
+          <h1>Auditoria dupla das 40 arenas</h1>
+          <p>Cada missão é executada com o bloco rosa Movimento e novamente com os blocos azuis Motor.</p>
         </div>
         <div className="arena-audit-controls">
           <label>Velocidade
@@ -228,7 +248,7 @@ export default function ArenaAudit() {
       </header>
 
       <section className="arena-audit-progress" aria-label="Progresso da auditoria">
-        <div><strong>{completed}/40</strong><span>testadas</span></div>
+        <div><strong>{completed}/{totalChecks}</strong><span>testadas</span></div>
         <div><strong className="passed">{passed}</strong><span>aprovadas</span></div>
         <div><strong className={failed ? "failed" : ""}>{failed}</strong><span>falhas</span></div>
         <div className="arena-audit-progress-bar"><i style={{ width: `${progress}%` }} /></div>
@@ -236,8 +256,8 @@ export default function ArenaAudit() {
 
       <section className="arena-audit-main">
         <div className="arena-audit-canvas-card">
-          <div className="arena-audit-mission-title">
-            <span>{currentLevel.name} · missão {view.challengeIndex + 1}/10</span>
+          <div className="arena-audit-mission-title" data-drive-mode={currentDriveMode.id}>
+            <span>{currentDriveMode.shortLabel} · {currentLevel.name} · missão {view.challengeIndex + 1}/10</span>
             <strong aria-label="Missão atual">{currentWorld.layout.challenge.title}</strong>
             <em className={`status-${view.status}`}>{view.status === "running" ? "EXECUTANDO" : view.status === "passed" ? "APROVADA" : "FALHOU"}</em>
           </div>
@@ -252,7 +272,10 @@ export default function ArenaAudit() {
             <div><dt>Tempo</dt><dd>{view.elapsed.toFixed(1)} s</dd></div>
             <div><dt>Restante</dt><dd>{view.remaining.toFixed(1)} s</dd></div>
             <div><dt>Sensor de chão</dt><dd>{view.groundColour}</dd></div>
+            <div><dt>Tipo de bloco</dt><dd>{currentDriveMode.label}</dd></div>
+            <div><dt>Comandos conferidos</dt><dd>{view.driveChecks}</dd></div>
           </dl>
+          {view.lastDriveCommand && <div className="arena-audit-command"><span>Último comando Python</span><code>{view.lastDriveCommand}</code></div>}
           <div className="arena-audit-event"><span>Último evento</span><p>{view.lastEvent}</p></div>
           {view.error && <output aria-label="Resultado da auditoria" className="arena-audit-error">{view.error}</output>}
           {!view.error && <output aria-label="Resultado da auditoria" className="arena-audit-ok">Nenhum bloqueio detectado nesta missão.</output>}
@@ -265,24 +288,25 @@ export default function ArenaAudit() {
           ? <output>Nenhuma falha encontrada desde o início desta auditoria.</output>
           : <ol>{failureHistory.map((result, index) => (
             <li key={`${result.cycle}-${result.key}-${index}`}>
-              <strong>Ciclo {result.cycle} · {LEVELS.find((level) => level.id === result.level)?.name} {result.challenge}</strong>
+              <strong>Ciclo {result.cycle} · {AUDIT_DRIVE_MODES.find((mode) => mode.id === result.driveMode)?.shortLabel} · {LEVELS.find((level) => level.id === result.level)?.name} {result.challenge}</strong>
               <span>{result.title}: {result.error || "a missão não foi concluída"}</span>
             </li>
           ))}</ol>}
       </section>
 
       <section className="arena-audit-results">
-        <h2>Mapa das missões</h2>
-        <div>
-          {LEVELS.flatMap((level) => Array.from({ length: ARENA_CHALLENGE_COUNT }, (_, index) => {
-            const key = `${level.id}-${index + 1}`;
-            const result = displayedResults.find((item) => item.key === key);
-            const active = level.id === currentLevel.id && index === view.challengeIndex;
-            return <article key={key} className={`${result?.status ?? (active ? "active" : "pending")}`} title={result?.error || result?.title}>
-              <span>{level.name}</span><strong>{index + 1}</strong><small>{result?.status === "passed" ? "✓" : result?.status === "failed" ? "!" : active ? "●" : "—"}</small>
-            </article>;
-          }))}
-        </div>
+        <h2>Mapa dos 80 testes</h2>
+        {AUDIT_DRIVE_MODES.map((driveMode, driveModeIndex) => <div className="arena-audit-mode-results" key={driveMode.id} data-drive-mode={driveMode.id}>
+          <h3>{driveMode.label}</h3>
+          <div>{LEVELS.flatMap((level) => Array.from({ length: ARENA_CHALLENGE_COUNT }, (_, index) => {
+              const key = `${driveMode.id}-${level.id}-${index + 1}`;
+              const result = displayedResults.find((item) => item.key === key);
+              const active = driveModeIndex === view.driveModeIndex && level.id === currentLevel.id && index === view.challengeIndex;
+              return <article key={key} className={`${result?.status ?? (active ? "active" : "pending")}`} title={result?.error || result?.title}>
+                <span>{level.name}</span><strong>{index + 1}</strong><small>{result?.status === "passed" ? "✓" : result?.status === "failed" ? "!" : active ? "●" : "—"}</small>
+              </article>;
+            }))}</div>
+        </div>)}
       </section>
     </main>
   );

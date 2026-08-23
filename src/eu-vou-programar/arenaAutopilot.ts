@@ -3,14 +3,24 @@ import type { HardwareConfig, SensorPort } from "./hardware";
 import type { ArenaPoint, ArenaRect, OBRHazard } from "./obrArena";
 import {
   advanceWorld,
+  createRunner,
+  parseProgram,
   robotPositionIsClear,
   sensorColor,
+  stepRunner,
 } from "./simulator";
 import type { LogLevel, WorldState } from "./simulator";
 
 const GRID_SIZE = 6;
 const MOVE_SPEED = 105;
 const GROUND_SENSOR_PORT: SensorPort = "3";
+
+export type AuditDriveMode = "movement" | "motor";
+
+export const AUDIT_DRIVE_MODES: { id: AuditDriveMode; label: string; shortLabel: string }[] = [
+  { id: "movement", label: "Movimento (bloco rosa)", shortLabel: "Rosa · Movimento" },
+  { id: "motor", label: "Motor (bloco azul)", shortLabel: "Azul · Motor" },
+];
 
 export interface AuditPose extends ArenaPoint { angle: number }
 
@@ -24,6 +34,9 @@ interface AuditAction {
 
 export interface ArenaAutopilotState {
   status: "running" | "passed" | "failed";
+  driveMode: AuditDriveMode;
+  driveChecks: number;
+  lastDriveCommand: string;
   actions: AuditAction[];
   actionIndex: number;
   route: ArenaPoint[];
@@ -31,6 +44,59 @@ export interface ArenaAutopilotState {
   holdElapsed: number;
   message: string;
   error: string;
+}
+
+function powerLiteral(power: number) {
+  return String(Math.round(Math.max(-1, Math.min(1, power)) * 100) / 100);
+}
+
+export function auditDriveProgram(mode: AuditDriveMode, leftPower: number, rightPower: number) {
+  const left = powerLiteral(leftPower);
+  const right = powerLiteral(rightPower);
+  if (mode === "movement") {
+    return [
+      "motor_movimento_esquerdo = 1",
+      "motor_movimento_direito = 2",
+      `motors.set_power(motor_movimento_esquerdo, ${left})`,
+      `motors.set_power(motor_movimento_direito, ${right})`,
+    ].join("\n");
+  }
+  return [
+    `motors.set_power(1, ${left})`,
+    `motors.set_power(2, ${right})`,
+  ].join("\n");
+}
+
+function executeDriveCommand(world: WorldState, mode: AuditDriveMode, leftPower: number, rightPower: number) {
+  const code = auditDriveProgram(mode, leftPower, rightPower);
+  const runner = createRunner(parseProgram(code));
+  stepRunner(runner, world, 0, () => undefined);
+  const expectedLeft = Number(powerLiteral(leftPower));
+  const expectedRight = Number(powerLiteral(rightPower));
+  const valid = runner.finished
+    && Math.abs(world.robot.leftPower - expectedLeft) < 0.001
+    && Math.abs(world.robot.rightPower - expectedRight) < 0.001
+    && Math.abs(world.robot.motorPowers.B - expectedLeft) < 0.001
+    && Math.abs(world.robot.motorPowers.C - expectedRight) < 0.001;
+  return { valid, code };
+}
+
+function verifyDriveBlocks(world: WorldState, state: ArenaAutopilotState) {
+  const checks = [
+    { left: 0.5, right: 0.5, label: "avançar" },
+    { left: -0.35, right: 0.35, label: "girar" },
+    { left: 0, right: 0, label: "parar" },
+  ];
+  for (const check of checks) {
+    const result = executeDriveCommand(world, state.driveMode, check.left, check.right);
+    state.lastDriveCommand = `${check.label}: ${result.code.split("\n").slice(-2).join(" | ")}`;
+    if (!result.valid) {
+      fail(state, `${AUDIT_DRIVE_MODES.find((mode) => mode.id === state.driveMode)?.label} não comandou corretamente as duas rodas ao ${check.label}.`);
+      return false;
+    }
+    state.driveChecks += 1;
+  }
+  return true;
 }
 
 interface HeapEntry { key: string; score: number }
@@ -214,7 +280,9 @@ function nearestGridPoint(world: WorldState, point: ArenaPoint) {
 
 function segmentIsClear(world: WorldState, start: ArenaPoint, end: ArenaPoint) {
   const distance = Math.hypot(end.x - start.x, end.y - start.y);
-  const steps = Math.max(1, Math.ceil(distance / 3));
+  // Subpixel sampling matters in narrow passages: a 3 px stride could jump
+  // over the tiny collision arc at the corner of a rectangular obstacle.
+  const steps = Math.max(1, Math.ceil(distance / 0.5));
   for (let step = 0; step <= steps; step += 1) {
     const amount = step / steps;
     if (!robotPositionIsClear(world, start.x + (end.x - start.x) * amount, start.y + (end.y - start.y) * amount)) return false;
@@ -272,12 +340,10 @@ export function planAuditRoute(world: WorldState, start: ArenaPoint, target: Are
 
     for (const neighbour of neighbours) {
       const next = { x: point.x + neighbour.x, y: point.y + neighbour.y };
+      const currentWorld = { x: point.x * GRID_SIZE, y: point.y * GRID_SIZE };
       const nextWorld = { x: next.x * GRID_SIZE, y: next.y * GRID_SIZE };
       if (!robotPositionIsClear(world, nextWorld.x, nextWorld.y)) continue;
-      if (neighbour.x && neighbour.y) {
-        if (!robotPositionIsClear(world, (point.x + neighbour.x) * GRID_SIZE, point.y * GRID_SIZE)
-          || !robotPositionIsClear(world, point.x * GRID_SIZE, (point.y + neighbour.y) * GRID_SIZE)) continue;
-      }
+      if (!segmentIsClear(world, currentWorld, nextWorld)) continue;
       const nextKey = pointKey(next.x, next.y);
       const nextCost = currentCost + neighbour.cost;
       if (nextCost >= (costs.get(nextKey) ?? Number.POSITIVE_INFINITY)) continue;
@@ -290,29 +356,32 @@ export function planAuditRoute(world: WorldState, start: ArenaPoint, target: Are
   return undefined;
 }
 
-export function createArenaAutopilot(world: WorldState): ArenaAutopilotState {
+export function createArenaAutopilot(world: WorldState, driveMode: AuditDriveMode = "movement"): ArenaAutopilotState {
   const actions: AuditAction[] = [];
   for (const hazardId of world.layout.challenge.requiredHazards) {
     const hazard = world.layout.hazards.find((item) => item.id === hazardId);
     if (!hazard) return {
-      status: "failed", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
       message: "Falha de catálogo", error: `A etapa ${hazardId} não existe na arena.`,
     };
     const action = hazardAction(world, hazard);
     if (!action) return {
-      status: "failed", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+      status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions: [], actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
       message: "Alvo inalcançável", error: `Nenhuma posição válida permite concluir “${hazard.label}”.`,
     };
     actions.push(action);
   }
   const finish = goalAction(world);
   if (!finish) return {
-    status: "failed", actions, actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
+    status: "failed", driveMode, driveChecks: 0, lastDriveCommand: "", actions, actionIndex: 0, route: [], routeIndex: 0, holdElapsed: 0,
     message: "Objetivo inalcançável", error: `Nenhuma posição válida permite concluir “${world.layout.challenge.goal.label}”.`,
   };
   actions.push(finish);
   return {
     status: "running",
+    driveMode,
+    driveChecks: 0,
+    lastDriveCommand: "",
     actions,
     actionIndex: 0,
     route: [],
@@ -354,6 +423,7 @@ export function stepArenaAutopilot(
   state.message = action.label;
 
   if (!state.route.length) {
+    if (!verifyDriveBlocks(world, state)) return;
     const route = planAuditRoute(world, world.robot, action.pose);
     if (!route) {
       fail(state, `Não existe passagem física livre até “${action.label}”.`);
@@ -378,7 +448,7 @@ export function stepArenaAutopilot(
     world.robot.rightPower = 0;
     advanceWorld(world, delta, emit);
     if (world.competition.collisionCount > 0 || world.competition.victimTouches > 0) {
-      fail(state, `A rota automática colidiu ao se aproximar de “${action.label}”.`);
+      fail(state, `A rota automática colidiu em (${world.robot.x.toFixed(1)}, ${world.robot.y.toFixed(1)}) ao se aproximar de “${action.label}”.`);
       return;
     }
     if (movement >= distance - 0.001) state.routeIndex += 1;
