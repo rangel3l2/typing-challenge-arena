@@ -31,6 +31,22 @@ export function unlockAllBeginnerMissions(current: MissionUnlocks, missionCount:
   return { ...current, beginner: missionCount };
 }
 
+export function resolveBasicKnowledgeConfirmation(
+  explicitlyConfirmed: boolean,
+  unlocks: MissionUnlocks,
+  completed: Array<{ arena_level: string; challenge_number: number }>,
+  missionCount: number,
+) {
+  if (explicitlyConfirmed) return true;
+  if (unlocks.beginner < missionCount) return false;
+  const completedBeginner = new Set(completed
+    .filter((row) => row.arena_level === "beginner")
+    .map((row) => row.challenge_number));
+  // Backward compatibility for confirmations saved by the previous version,
+  // where the choice was represented only by all beginner missions unlocked.
+  return completedBeginner.size < missionCount;
+}
+
 export function normalizeMissionUnlocks(value: unknown, missionCount: number): MissionUnlocks {
   const source = value && typeof value === "object" ? value as Partial<Record<ArenaLevel, unknown>> : {};
   const maximum = Math.max(0, missionCount);

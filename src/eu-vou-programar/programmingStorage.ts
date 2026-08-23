@@ -7,6 +7,7 @@ export const PROGRAMMING_STORAGE_KEYS = {
   challenge: "eu-vou-programar:arena-challenge",
   unlockedMissions: "eu-vou-programar:unlocked-missions-v1",
   completedMissions: "eu-vou-programar:completed-missions-v1",
+  basicKnowledgeConfirmed: "eu-vou-programar:basic-knowledge-confirmed-v1",
   draftUpdatedAt: "eu-vou-programar:draft-updated-at",
 } as const;
 

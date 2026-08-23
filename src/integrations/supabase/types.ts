@@ -107,7 +107,9 @@ export type Database = {
       programming_progress: {
         Row: {
           arena_level: string
+          basic_knowledge_confirmed: boolean
           challenge_points: number
+          completed_missions: Json
           created_at: string
           current_challenge: number
           hardware_config: Json
@@ -122,7 +124,9 @@ export type Database = {
         }
         Insert: {
           arena_level?: string
+          basic_knowledge_confirmed?: boolean
           challenge_points?: number
+          completed_missions?: Json
           created_at?: string
           current_challenge?: number
           hardware_config?: Json
@@ -137,7 +141,9 @@ export type Database = {
         }
         Update: {
           arena_level?: string
+          basic_knowledge_confirmed?: boolean
           challenge_points?: number
+          completed_missions?: Json
           created_at?: string
           current_challenge?: number
           hardware_config?: Json

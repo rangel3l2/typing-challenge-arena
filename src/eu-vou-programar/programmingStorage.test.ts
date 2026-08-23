@@ -13,6 +13,7 @@ describe("armazenamento separado do Eu Vou Programar", () => {
   it("mantém fase, desbloqueios e código independentes para cada jogador", () => {
     writeProgrammingStorage("jogador-a", "challenge", "7");
     writeProgrammingStorage("jogador-a", "unlockedMissions", JSON.stringify({ beginner: 7 }));
+    writeProgrammingStorage("jogador-a", "basicKnowledgeConfirmed", "true");
     writeProgrammingStorage("jogador-a", "code", "print('A')");
     writeProgrammingStorage("jogador-b", "challenge", "2");
     writeProgrammingStorage("jogador-b", "unlockedMissions", JSON.stringify({ beginner: 2 }));
@@ -20,6 +21,8 @@ describe("armazenamento separado do Eu Vou Programar", () => {
 
     expect(readProgrammingStorage("jogador-a", "challenge")).toBe("7");
     expect(readProgrammingStorage("jogador-a", "code")).toBe("print('A')");
+    expect(readProgrammingStorage("jogador-a", "basicKnowledgeConfirmed")).toBe("true");
+    expect(readProgrammingStorage("jogador-b", "basicKnowledgeConfirmed")).toBeNull();
     expect(readProgrammingStorage("jogador-b", "challenge")).toBe("2");
     expect(readProgrammingStorage("jogador-b", "code")).toBe("print('B')");
   });

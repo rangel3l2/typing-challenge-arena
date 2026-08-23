@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, unlockAllBeginnerMissions, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, resolveBasicKnowledgeConfirmation, unlockAllBeginnerMissions, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
 
 describe("ordem das missões", () => {
   it("começa com as missões 1 e 2 do Muito Fácil acessíveis", () => {
@@ -38,6 +38,15 @@ describe("ordem das missões", () => {
 
     expect(skipped.beginner).toBe(10);
     expect(isArenaLevelPlayable(skipped, "easy", 10)).toBe(true);
+  });
+
+  it("recupera a confirmação antiga sem confundir com dez missões concluídas", () => {
+    const skipped = { ...initialMissionUnlocks(), beginner: 10 };
+    const allCompleted = Array.from({ length: 10 }, (_, index) => ({ arena_level: "beginner", challenge_number: index + 1 }));
+
+    expect(resolveBasicKnowledgeConfirmation(false, skipped, [], 10)).toBe(true);
+    expect(resolveBasicKnowledgeConfirmation(false, skipped, allCompleted, 10)).toBe(false);
+    expect(resolveBasicKnowledgeConfirmation(true, skipped, allCompleted, 10)).toBe(true);
   });
 
   it("mantém Médio e Avançado com cadeado até concluir o nível anterior", () => {

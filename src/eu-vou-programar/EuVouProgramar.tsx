@@ -13,7 +13,7 @@ import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel, OBRChallenge } from "./obrArena";
 import { createArenaAutopilot, createAuditHardware, stepArenaAutopilot } from "./arenaAutopilot";
 import type { ArenaAutopilotState } from "./arenaAutopilot";
-import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, unlockAllBeginnerMissions, unlockFromCompletedMissions } from "./missionProgress";
+import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, resolveBasicKnowledgeConfirmation, unlockAllBeginnerMissions, unlockFromCompletedMissions } from "./missionProgress";
 import { migrateLegacyProgrammingStorage, readProgrammingStorage, removeProgrammingStorage, writeProgrammingStorage } from "./programmingStorage";
 import {
   cloneHardware,
@@ -147,14 +147,18 @@ function missionKey(level: ArenaLevel, challengeNumber: number) {
   return `${level}:${challengeNumber}`;
 }
 
-function parseCompletedMissionKeys(value: string | null) {
+function parseCompletedMissionKeys(value: unknown) {
   if (!value) return new Set<string>();
   try {
-    const parsed = JSON.parse(value);
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
     return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : []);
   } catch {
     return new Set<string>();
   }
+}
+
+function isMissingCloudProgressionColumns(error: { code?: string; message?: string } | null) {
+  return Boolean(error && (error.code === "42703" || error.message?.includes("basic_knowledge_confirmed") || error.message?.includes("completed_missions")));
 }
 
 function hasChallengeHardware(config: HardwareConfig, requirement: OBRChallenge["hardwareRequirement"]) {
@@ -208,6 +212,7 @@ export default function EuVouProgramar() {
   const [challengeIndex, setChallengeIndex] = useState(0);
   const [unlockedMissions, setUnlockedMissions] = useState(initialMissionUnlocks);
   const [completedMissionKeys, setCompletedMissionKeys] = useState<Set<string>>(() => new Set());
+  const [basicKnowledgeConfirmed, setBasicKnowledgeConfirmed] = useState(false);
   const [basicGateOpen, setBasicGateOpen] = useState(false);
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
   const [previewMessage, setPreviewMessage] = useState("");
@@ -295,6 +300,7 @@ export default function EuVouProgramar() {
       const savedChallenge = Number.parseInt(readProgrammingStorage(sessionId, "challenge") || "0", 10);
       const savedUnlocks = readProgrammingStorage(sessionId, "unlockedMissions");
       const savedCompletedMissions = readProgrammingStorage(sessionId, "completedMissions");
+      const savedBasicKnowledgeConfirmed = readProgrammingStorage(sessionId, "basicKnowledgeConfirmed") === "true";
       const localUpdatedAt = Date.parse(readProgrammingStorage(sessionId, "draftUpdatedAt") || "") || 0;
 
       let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
@@ -304,6 +310,7 @@ export default function EuVouProgramar() {
       let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "beginner";
       let nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
       let nextUnlocks = initialMissionUnlocks();
+      let nextBasicKnowledgeConfirmed = savedBasicKnowledgeConfirmed;
       const nextCompletedMissionKeys = parseCompletedMissionKeys(savedCompletedMissions);
 
       if (savedUnlocks) {
@@ -322,19 +329,34 @@ export default function EuVouProgramar() {
         }
       }
 
-      const [progressResult, scoresResult] = await Promise.all([
-        supabase
+      const loadProgrammingProgress = async () => {
+        const currentResult = await supabase
+          .from("programming_progress")
+          .select("program_xml, python_code, hardware_config, arena_level, program_mode, current_challenge, unlocked_missions, completed_missions, basic_knowledge_confirmed, tile_points, challenge_points, total_points, updated_at")
+          .eq("session_id", sessionId)
+          .maybeSingle();
+        if (!isMissingCloudProgressionColumns(currentResult.error)) return currentResult;
+        const legacyResult = await supabase
           .from("programming_progress")
           .select("program_xml, python_code, hardware_config, arena_level, program_mode, current_challenge, unlocked_missions, tile_points, challenge_points, total_points, updated_at")
           .eq("session_id", sessionId)
-          .maybeSingle(),
+          .maybeSingle();
+        return { ...legacyResult, data: legacyResult.data ? { ...legacyResult.data, basic_knowledge_confirmed: false, completed_missions: [] } : null };
+      };
+
+      const [progressResult, scoresResult] = await Promise.all([
+        loadProgrammingProgress(),
         supabase
           .from("programming_scores")
           .select("arena_level, challenge_number")
           .eq("session_id", sessionId),
       ]);
       const { data, error } = progressResult;
-      if (data) nextUnlocks = mergeMissionUnlocks(nextUnlocks, data.unlocked_missions, ARENA_CHALLENGE_COUNT);
+      if (data) {
+        nextUnlocks = mergeMissionUnlocks(nextUnlocks, data.unlocked_missions, ARENA_CHALLENGE_COUNT);
+        nextBasicKnowledgeConfirmed ||= data.basic_knowledge_confirmed;
+        for (const key of parseCompletedMissionKeys(data.completed_missions)) nextCompletedMissionKeys.add(key);
+      }
       for (const row of scoresResult.data ?? []) {
         if (isArenaLevel(row.arena_level) && row.challenge_number >= 1 && row.challenge_number <= ARENA_CHALLENGE_COUNT) {
           nextCompletedMissionKeys.add(missionKey(row.arena_level, row.challenge_number));
@@ -348,6 +370,7 @@ export default function EuVouProgramar() {
           : [];
       });
       nextUnlocks = unlockFromCompletedMissions(nextUnlocks, completedRows, ARENA_CHALLENGE_COUNT);
+      nextBasicKnowledgeConfirmed = resolveBasicKnowledgeConfirmation(nextBasicKnowledgeConfirmed, nextUnlocks, completedRows, ARENA_CHALLENGE_COUNT);
 
       if (cancelled) return;
 
@@ -391,6 +414,7 @@ export default function EuVouProgramar() {
       setChallengeIndex(accessibleChallenge);
       setUnlockedMissions(nextUnlocks);
       setCompletedMissionKeys(nextCompletedMissionKeys);
+      setBasicKnowledgeConfirmed(nextBasicKnowledgeConfirmed);
       setBasicGateOpen(nextArena === "easy" && !isArenaLevelPlayable(nextUnlocks, "easy", ARENA_CHALLENGE_COUNT));
       worldRef.current = createWorld(nextHardware, accessibleChallenge, nextArena);
       setStorageReady(true);
@@ -415,6 +439,7 @@ export default function EuVouProgramar() {
     writeProgrammingStorage(sessionId, "challenge", String(challengeIndex));
     writeProgrammingStorage(sessionId, "unlockedMissions", JSON.stringify(unlockedMissions));
     writeProgrammingStorage(sessionId, "completedMissions", JSON.stringify([...completedMissionKeys]));
+    writeProgrammingStorage(sessionId, "basicKnowledgeConfirmed", String(basicKnowledgeConfirmed));
     writeProgrammingStorage(sessionId, "draftUpdatedAt", updatedAt);
     setSyncStatus("saving");
 
@@ -430,7 +455,7 @@ export default function EuVouProgramar() {
         };
       }
       const bestScore = bestProgressScoreRef.current;
-      const { error } = await supabase.from("programming_progress").upsert({
+      const progressPayload = {
         session_id: sessionId,
         program_xml: programXml,
         python_code: code,
@@ -439,11 +464,20 @@ export default function EuVouProgramar() {
         program_mode: programMode,
         current_challenge: challengeIndex + 1,
         unlocked_missions: unlockedMissions as unknown as Json,
+        completed_missions: [...completedMissionKeys] as unknown as Json,
+        basic_knowledge_confirmed: basicKnowledgeConfirmed,
         tile_points: bestScore.tilePoints,
         challenge_points: bestScore.challengePoints,
         total_points: bestScore.totalPoints,
         updated_at: updatedAt,
-      });
+      };
+      let { error } = await supabase.from("programming_progress").upsert(progressPayload);
+      if (isMissingCloudProgressionColumns(error)) {
+        const { basic_knowledge_confirmed: ignoredConfirmation, completed_missions: ignoredCompletedMissions, ...legacyPayload } = progressPayload;
+        void ignoredConfirmation;
+        void ignoredCompletedMissions;
+        ({ error } = await supabase.from("programming_progress").upsert(legacyPayload));
+      }
 
       if (!cancelled) setSyncStatus(error ? "offline" : "saved");
     }, 1200);
@@ -452,7 +486,7 @@ export default function EuVouProgramar() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [arenaLevel, challengeIndex, code, completedMissionKeys, hardware, programMode, programXml, sessionId, status, storageReady, unlockedMissions]);
+  }, [arenaLevel, basicKnowledgeConfirmed, challengeIndex, code, completedMissionKeys, hardware, programMode, programXml, sessionId, status, storageReady, unlockedMissions]);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -720,6 +754,7 @@ export default function EuVouProgramar() {
 
   const confirmBasicSkills = useCallback(() => {
     setUnlockedMissions((current) => unlockAllBeginnerMissions(current, ARENA_CHALLENGE_COUNT));
+    setBasicKnowledgeConfirmed(true);
     setBasicGateOpen(false);
     runningRef.current = false;
     runnerRef.current = null;
@@ -1181,6 +1216,12 @@ export default function EuVouProgramar() {
               <span aria-hidden="true">⚡</span>
               <div><strong>Já sabe o básico?</strong><small>Veja a missão Fácil 1 e confirme se consegue fazê-la.</small></div>
               <button type="button" onClick={() => changeArenaLevel("easy")}>Eu já sei <b>→</b></button>
+            </section>
+          )}
+          {basicKnowledgeConfirmed && (arenaLevel === "beginner" || arenaLevel === "easy") && (
+            <section className="basic-confirmed-card" role="status" aria-label="Conhecimentos básicos confirmados e salvos">
+              <span aria-hidden="true">✓</span>
+              <div><strong>Básico confirmado</strong><small>Esta escolha está salva no seu perfil e será restaurada em outros dispositivos.</small></div>
             </section>
           )}
 
