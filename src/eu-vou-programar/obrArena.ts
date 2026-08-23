@@ -175,7 +175,7 @@ const beginnerLayouts: OBRLayout[] = [
 const easyLayouts: OBRLayout[] = [
   makeLayout("easy", 1, "Parada de precisão", "Siga a linha e pare completamente sobre a pequena estação vermelha por 3 segundos.", "Não use apenas tempo: leia a cor vermelha para decidir a hora de parar.",
     [{x:70,y:510},{x:230,y:510},{x:280,y:460},{x:280,y:370},{x:400,y:370},{x:455,y:315},{x:610,y:315}],
-    { floorMarkers:[m("e1-red","PARE","vermelho",610,315,32,36)], goal:goal(610,315,"Pare 3 segundos na estação vermelha",3), timeLimit:90 }),
+    { floorMarkers:[m("e1-red","PARE","vermelho",610,315,32,80)], goal:{...goal(610,315,"Pare 3 segundos na estação vermelha",3),radius:45}, timeLimit:90 }),
   makeLayout("easy", 2, "Duas cores, uma decisão", "Depois de ler o azul, escolha o ramo de cima na próxima bifurcação; quando a linha terminar, saia dela e encontre a ilha amarela.", "O azul não é a chegada: ele ativa uma etapa. Guarde essa informação para decidir no cruzamento e depois navegue fora da linha.",
     [{x:70,y:510},{x:350,y:510},{x:350,y:380},{x:480,y:380}],
     { branches:[[{x:350,y:510},{x:525,y:510}]], floorMarkers:[m("e2-blue","ATIVE","azul",180,510,36,30),m("e2-wrong","X","vermelho",525,510,32,36),m("e2-launch","SAIA","prata",480,380,38,34),m("e2-yellow","FIM","amarelo",585,275,44,44)], hazards:[h("e2-blue-check","Comando azul memorizado",180,510),h("e2-launch-check","Ramo correto concluído",480,380)], requiredHazards:["e2-blue-check","e2-launch-check"], requireHazardOrder:true, goal:goal(585,275,"Após o azul, saia da linha e pare na ilha amarela",3), timeLimit:130 }),

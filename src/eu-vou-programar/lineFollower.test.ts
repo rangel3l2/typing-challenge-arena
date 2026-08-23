@@ -102,4 +102,55 @@ while True:
     expect(passedRightAngle).toBe(true);
     expect(reachedRed).toBe(true);
   });
+
+  it("permite que os dois sensores detectem a estação vermelha e concluam a parada", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motorMounts.A = { role: "left-wheel" };
+    hardware.motorMounts.B = { role: "right-wheel" };
+    hardware.sensors["1"] = "color";
+    hardware.sensors["2"] = "color";
+    hardware.sensorMounts["1"] = { position: "front-left", aim: "ground" };
+    hardware.sensorMounts["2"] = { position: "front-right", aim: "ground" };
+    const world = createWorld(hardware, 0, "easy");
+    const runner = createRunner(parseProgram(`
+velocidade_motor_A = 40
+velocidade_motor_B = 40
+while True:
+    cor_ev3_porta_1 = ev3.color("1")
+    cor_ev3_porta_2 = ev3.color("2")
+    if ((cor_ev3_porta_1 == "branco") and (cor_ev3_porta_2 == "branco")):
+        motors.set_power(0, velocidade_motor_A / 100)
+        motors.set_power(1, velocidade_motor_B / 100)
+    else:
+        if ((cor_ev3_porta_1 == "preto") and (cor_ev3_porta_2 == "branco")):
+            motors.set_power(0, velocidade_motor_A / 100)
+            motors.set_power(1, -1 * velocidade_motor_B / 100)
+        if ((cor_ev3_porta_1 == "branco") and (cor_ev3_porta_2 == "preto")):
+            motors.set_power(0, -1 * velocidade_motor_A / 100)
+            motors.set_power(1, velocidade_motor_B / 100)
+    if ((cor_ev3_porta_1 == "vermelho") and (cor_ev3_porta_2 == "vermelho")):
+        utils.sleep(0.5)
+        motors.set_power(0, 0)
+        motors.set_power(1, 0)
+    `));
+    let bothSensorsSawRed = false;
+
+    for (let step = 0; step < 6000 && !world.success; step += 1) {
+      stepRunner(runner, world, 0.02, () => undefined);
+      advanceWorld(world, 0.02, () => undefined);
+      bothSensorsSawRed ||= sensorColor(world, "1") === "vermelho" && sensorColor(world, "2") === "vermelho";
+    }
+
+    const metrics = {
+      colours: [sensorColor(world, "1"), sensorColor(world, "2")],
+      position: { x: world.robot.x, y: world.robot.y, angle: world.robot.angle },
+      powers: [world.robot.leftPower, world.robot.rightPower],
+    };
+    expect(bothSensorsSawRed, JSON.stringify(metrics)).toBe(true);
+    expect(world.success, JSON.stringify(metrics)).toBe(true);
+    expect(world.robot.leftPower).toBe(0);
+    expect(world.robot.rightPower).toBe(0);
+  });
 });
