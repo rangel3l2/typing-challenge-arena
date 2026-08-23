@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { initialMissionUnlocks, mergeMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, unlockAllBeginnerMissions, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
 
 describe("ordem das missões", () => {
-  it("começa somente com a missão 1 liberada em cada nível", () => {
-    expect(initialMissionUnlocks()).toEqual({ beginner: 0, easy: 0, medium: 0, hard: 0 });
+  it("começa com as missões 1 e 2 do Muito Fácil acessíveis", () => {
+    expect(initialMissionUnlocks()).toEqual({ beginner: 1, easy: 0, medium: 0, hard: 0 });
+    expect(highestAccessibleMission(initialMissionUnlocks(), "beginner", 10)).toBe(1);
   });
 
   it("libera a missão seguinte depois do sucesso atual", () => {
@@ -24,8 +25,31 @@ describe("ordem das missões", () => {
     expect(unlocked.easy).toBe(2);
   });
 
+  it("não libera a terceira Muito Fácil quando apenas a missão 2 foi concluída", () => {
+    const unlocked = unlockFromCompletedMissions(initialMissionUnlocks(), [
+      { arena_level: "beginner", challenge_number: 2 },
+    ], 10);
+
+    expect(unlocked.beginner).toBe(1);
+  });
+
+  it("usa o teste de conhecimentos para liberar todo o básico e autorizar o Fácil", () => {
+    const skipped = unlockAllBeginnerMissions(initialMissionUnlocks(), 10);
+
+    expect(skipped.beginner).toBe(10);
+    expect(isArenaLevelPlayable(skipped, "easy", 10)).toBe(true);
+  });
+
+  it("mantém Médio e Avançado com cadeado até concluir o nível anterior", () => {
+    const initial = initialMissionUnlocks();
+    expect(isArenaLevelUnlocked(initial, "easy", 10)).toBe(true);
+    expect(isArenaLevelUnlocked(initial, "medium", 10)).toBe(false);
+    expect(isArenaLevelUnlocked({ ...initial, easy: 10 }, "medium", 10)).toBe(true);
+    expect(isArenaLevelUnlocked({ ...initial, medium: 10 }, "hard", 10)).toBe(true);
+  });
+
   it("normaliza progresso local fora dos limites", () => {
-    expect(normalizeMissionUnlocks({ beginner: "4", easy: 15, medium: -2, hard: "3" }, 10)).toEqual({ beginner: 4, easy: 9, medium: 0, hard: 3 });
+    expect(normalizeMissionUnlocks({ beginner: "4", easy: 15, medium: -2, hard: "3" }, 10)).toEqual({ beginner: 4, easy: 10, medium: 0, hard: 3 });
   });
 
   it("mescla desbloqueios locais e remotos sem rebaixar o jogador", () => {

@@ -11,7 +11,9 @@ import { copyTextToClipboard } from "./editorClipboard";
 import { pythonToBlocks, PythonBlocksError } from "./pythonBlocks";
 import { ARENA_CHALLENGE_COUNT, getArenaChallenges } from "./obrArena";
 import type { ArenaLevel, OBRChallenge } from "./obrArena";
-import { initialMissionUnlocks, mergeMissionUnlocks, normalizeMissionUnlocks, unlockFromCompletedMissions, unlockMissionAfterSuccess } from "./missionProgress";
+import { createArenaAutopilot, createAuditHardware, stepArenaAutopilot } from "./arenaAutopilot";
+import type { ArenaAutopilotState } from "./arenaAutopilot";
+import { highestAccessibleMission, initialMissionUnlocks, isArenaLevelPlayable, isArenaLevelUnlocked, mergeMissionUnlocks, normalizeMissionUnlocks, unlockAllBeginnerMissions, unlockFromCompletedMissions } from "./missionProgress";
 import { migrateLegacyProgrammingStorage, readProgrammingStorage, removeProgrammingStorage, writeProgrammingStorage } from "./programmingStorage";
 import {
   cloneHardware,
@@ -115,6 +117,7 @@ type EditorTab = "blocks" | "code" | "console";
 type ProgramMode = "blocks" | "code";
 type SyncStatus = "loading" | "local" | "saving" | "saved" | "offline";
 type CopyStatus = "idle" | "working" | "code" | "image" | "shared" | "downloaded" | "error";
+type PreviewPhase = "idle" | "playing" | "returning";
 
 const ARENA_LEVELS: Record<ArenaLevel, { number: number; name: string; short: string; description: string }> = {
   beginner: { number: 1, name: "Nível muito fácil", short: "Muito Fácil", description: "Pista branca sem linha-guia" },
@@ -140,6 +143,20 @@ function isProgramMode(value: unknown): value is ProgramMode {
   return value === "blocks" || value === "code";
 }
 
+function missionKey(level: ArenaLevel, challengeNumber: number) {
+  return `${level}:${challengeNumber}`;
+}
+
+function parseCompletedMissionKeys(value: string | null) {
+  if (!value) return new Set<string>();
+  try {
+    const parsed = JSON.parse(value);
+    return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
 function hasChallengeHardware(config: HardwareConfig, requirement: OBRChallenge["hardwareRequirement"]) {
   if (requirement !== "dual-outward-colour") return true;
   return (["left", "right"] as const).every((side) => SENSOR_PORTS.some((port) => {
@@ -163,6 +180,10 @@ export default function EuVouProgramar() {
   const blockEditorRef = useRef<BlockEditorHandle>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const copyResetTimerRef = useRef(0);
+  const completedMissionKeysRef = useRef(new Set<string>());
+  const previewWorldRef = useRef<WorldState | null>(null);
+  const previewAutopilotRef = useRef<ArenaAutopilotState | null>(null);
+  const previewReturnAtRef = useRef(0);
 
   const [programXml, setProgramXml] = useState(() => createEmptyBlocks());
   const [code, setCode] = useState(EMPTY_BLOCK_CODE);
@@ -186,6 +207,10 @@ export default function EuVouProgramar() {
   const [arenaLevel, setArenaLevel] = useState<ArenaLevel>("beginner");
   const [challengeIndex, setChallengeIndex] = useState(0);
   const [unlockedMissions, setUnlockedMissions] = useState(initialMissionUnlocks);
+  const [completedMissionKeys, setCompletedMissionKeys] = useState<Set<string>>(() => new Set());
+  const [basicGateOpen, setBasicGateOpen] = useState(false);
+  const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
+  const [previewMessage, setPreviewMessage] = useState("");
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [identityName, setIdentityName] = useState(playerName || "");
   const [identitySaving, setIdentitySaving] = useState(false);
@@ -269,6 +294,7 @@ export default function EuVouProgramar() {
       const savedArena = readProgrammingStorage(sessionId, "arena");
       const savedChallenge = Number.parseInt(readProgrammingStorage(sessionId, "challenge") || "0", 10);
       const savedUnlocks = readProgrammingStorage(sessionId, "unlockedMissions");
+      const savedCompletedMissions = readProgrammingStorage(sessionId, "completedMissions");
       const localUpdatedAt = Date.parse(readProgrammingStorage(sessionId, "draftUpdatedAt") || "") || 0;
 
       let nextBlocks = savedBlocks?.startsWith("<xml") ? savedBlocks : createEmptyBlocks();
@@ -278,6 +304,7 @@ export default function EuVouProgramar() {
       let nextArena: ArenaLevel = isArenaLevel(savedArena) ? savedArena : "beginner";
       let nextChallenge = Number.isFinite(savedChallenge) ? Math.max(0, Math.min(ARENA_CHALLENGE_COUNT - 1, savedChallenge)) : 0;
       let nextUnlocks = initialMissionUnlocks();
+      const nextCompletedMissionKeys = parseCompletedMissionKeys(savedCompletedMissions);
 
       if (savedUnlocks) {
         try {
@@ -308,7 +335,19 @@ export default function EuVouProgramar() {
       ]);
       const { data, error } = progressResult;
       if (data) nextUnlocks = mergeMissionUnlocks(nextUnlocks, data.unlocked_missions, ARENA_CHALLENGE_COUNT);
-      nextUnlocks = unlockFromCompletedMissions(nextUnlocks, scoresResult.data ?? [], ARENA_CHALLENGE_COUNT);
+      for (const row of scoresResult.data ?? []) {
+        if (isArenaLevel(row.arena_level) && row.challenge_number >= 1 && row.challenge_number <= ARENA_CHALLENGE_COUNT) {
+          nextCompletedMissionKeys.add(missionKey(row.arena_level, row.challenge_number));
+        }
+      }
+      const completedRows = [...nextCompletedMissionKeys].flatMap((key) => {
+        const [level, number] = key.split(":");
+        const challengeNumber = Number(number);
+        return isArenaLevel(level) && Number.isInteger(challengeNumber)
+          ? [{ arena_level: level, challenge_number: challengeNumber }]
+          : [];
+      });
+      nextUnlocks = unlockFromCompletedMissions(nextUnlocks, completedRows, ARENA_CHALLENGE_COUNT);
 
       if (cancelled) return;
 
@@ -338,7 +377,11 @@ export default function EuVouProgramar() {
       }
 
       hardwareRef.current = nextHardware;
-      const accessibleChallenge = Math.min(nextChallenge, nextUnlocks[nextArena]);
+      if (!isArenaLevelUnlocked(nextUnlocks, nextArena, ARENA_CHALLENGE_COUNT)) {
+        nextArena = isArenaLevelPlayable(nextUnlocks, "easy", ARENA_CHALLENGE_COUNT) ? "easy" : "beginner";
+      }
+      const accessibleChallenge = Math.min(nextChallenge, highestAccessibleMission(nextUnlocks, nextArena, ARENA_CHALLENGE_COUNT));
+      completedMissionKeysRef.current = nextCompletedMissionKeys;
       setHardware(nextHardware);
       setProgramXml(nextBlocks);
       setCode(nextCode);
@@ -347,6 +390,8 @@ export default function EuVouProgramar() {
       setArenaLevel(nextArena);
       setChallengeIndex(accessibleChallenge);
       setUnlockedMissions(nextUnlocks);
+      setCompletedMissionKeys(nextCompletedMissionKeys);
+      setBasicGateOpen(nextArena === "easy" && !isArenaLevelPlayable(nextUnlocks, "easy", ARENA_CHALLENGE_COUNT));
       worldRef.current = createWorld(nextHardware, accessibleChallenge, nextArena);
       setStorageReady(true);
       setSyncStatus(error ? "offline" : data ? "saved" : "local");
@@ -369,6 +414,7 @@ export default function EuVouProgramar() {
     writeProgrammingStorage(sessionId, "arena", arenaLevel);
     writeProgrammingStorage(sessionId, "challenge", String(challengeIndex));
     writeProgrammingStorage(sessionId, "unlockedMissions", JSON.stringify(unlockedMissions));
+    writeProgrammingStorage(sessionId, "completedMissions", JSON.stringify([...completedMissionKeys]));
     writeProgrammingStorage(sessionId, "draftUpdatedAt", updatedAt);
     setSyncStatus("saving");
 
@@ -406,11 +452,44 @@ export default function EuVouProgramar() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [arenaLevel, challengeIndex, code, hardware, programMode, programXml, sessionId, status, storageReady, unlockedMissions]);
+  }, [arenaLevel, challengeIndex, code, completedMissionKeys, hardware, programMode, programXml, sessionId, status, storageReady, unlockedMissions]);
 
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  const stopMissionPreview = useCallback(() => {
+    previewWorldRef.current = null;
+    previewAutopilotRef.current = null;
+    previewReturnAtRef.current = 0;
+    setPreviewPhase("idle");
+    setPreviewMessage("");
+  }, []);
+
+  const startMissionPreview = useCallback((level: ArenaLevel, index: number) => {
+    runningRef.current = false;
+    runnerRef.current = null;
+    setRunning(false);
+    const previewWorld = createWorld(createAuditHardware(), index, level);
+    const autopilot = createArenaAutopilot(previewWorld, "movement");
+    previewWorldRef.current = previewWorld;
+    previewAutopilotRef.current = autopilot;
+    previewReturnAtRef.current = 0;
+    setPreviewPhase("playing");
+    setPreviewMessage(autopilot.message || "Observe o caminho até o objetivo.");
+  }, []);
+
+  const recordMissionCompletion = useCallback((level: ArenaLevel, challengeNumber: number) => {
+    const nextCompleted = new Set(completedMissionKeysRef.current);
+    nextCompleted.add(missionKey(level, challengeNumber));
+    completedMissionKeysRef.current = nextCompleted;
+    setCompletedMissionKeys(nextCompleted);
+    const completedRows = [...nextCompleted].map((key) => {
+      const [arenaLevel, number] = key.split(":");
+      return { arena_level: arenaLevel, challenge_number: Number(number) };
+    });
+    setUnlockedMissions((current) => unlockFromCompletedMissions(current, completedRows, ARENA_CHALLENGE_COUNT));
+  }, []);
 
   const saveProgrammingScore = useCallback(async (world: WorldState) => {
     const name = playerName?.trim();
@@ -468,6 +547,7 @@ export default function EuVouProgramar() {
       previous = now;
       const world = worldRef.current;
       const runner = runnerRef.current;
+      let displayWorld = world;
 
       if (runningRef.current && runner) {
         try {
@@ -483,7 +563,7 @@ export default function EuVouProgramar() {
             setRunning(false);
             setStatus("success");
             setCelebrating(true);
-            setUnlockedMissions((current) => unlockMissionAfterSuccess(current, world.layout.level, world.layout.challenge.number, ARENA_CHALLENGE_COUNT));
+            recordMissionCompletion(world.layout.level, world.layout.challenge.number);
             addLog(world.layout.challenge.successMessage, "success");
             void saveProgrammingScore(world);
           } else if (world.competition.roundOver) {
@@ -509,15 +589,37 @@ export default function EuVouProgramar() {
         }
       }
 
-      if (canvasRef.current) drawWorld(canvasRef.current, world);
-      if (expandedCanvasRef.current) drawWorld(expandedCanvasRef.current, world);
+      const previewWorld = previewWorldRef.current;
+      const previewAutopilot = previewAutopilotRef.current;
+      if (previewWorld && previewAutopilot) {
+        if (previewAutopilot.status === "running") {
+          stepArenaAutopilot(previewWorld, previewAutopilot, realDelta * 6);
+        }
+        if (previewAutopilot.status !== "running" && !previewReturnAtRef.current) {
+          previewReturnAtRef.current = now + 850;
+          setPreviewPhase("returning");
+          setPreviewMessage(previewAutopilot.status === "passed" ? "Agora é sua vez! Voltando à partida…" : "A prévia terminou. Voltando à partida…");
+        } else if (previewReturnAtRef.current && now >= previewReturnAtRef.current) {
+          previewWorldRef.current = null;
+          previewAutopilotRef.current = null;
+          previewReturnAtRef.current = 0;
+          setPreviewPhase("idle");
+          setPreviewMessage("");
+        } else {
+          displayWorld = previewWorld;
+        }
+      }
+
+      if (canvasRef.current) drawWorld(canvasRef.current, displayWorld);
+      if (expandedCanvasRef.current) drawWorld(expandedCanvasRef.current, displayWorld);
       if (now - telemetryAt > 120) {
         telemetryAt = now;
+        if (previewAutopilot?.status === "running") setPreviewMessage(previewAutopilot.message);
         setTelemetry({
-          left: Math.round(world.robot.leftPower * 100),
-          right: Math.round(world.robot.rightPower * 100),
-          ultrasound: Math.round(sensorDistance(world) * 0.5),
-          bumped: world.bumped,
+          left: Math.round(displayWorld.robot.leftPower * 100),
+          right: Math.round(displayWorld.robot.rightPower * 100),
+          ultrasound: Math.round(sensorDistance(displayWorld) * 0.5),
+          bumped: displayWorld.bumped,
         });
         setCompetitionView({
           remaining: world.competition.remaining,
@@ -536,9 +638,10 @@ export default function EuVouProgramar() {
 
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [addLog, playerName, saveProgrammingScore]);
+  }, [addLog, playerName, recordMissionCompletion, saveProgrammingScore]);
 
   const resetSimulation = useCallback((showLog = true) => {
+    stopMissionPreview();
     runningRef.current = false;
     setRunning(false);
     runnerRef.current = null;
@@ -550,7 +653,7 @@ export default function EuVouProgramar() {
       setLogs([]);
       addLog("Desafio reiniciado. O robô voltou à posição de partida.");
     }
-  }, [addLog, arenaLevel, challengeIndex]);
+  }, [addLog, arenaLevel, challengeIndex, stopMissionPreview]);
 
   const clearProgramForMissionChange = useCallback(() => {
     setProgramXml(createEmptyBlocks());
@@ -562,7 +665,17 @@ export default function EuVouProgramar() {
   }, []);
 
   const changeArenaLevel = useCallback((nextLevel: ArenaLevel) => {
-    if (nextLevel === arenaLevel) return;
+    if (!isArenaLevelUnlocked(unlockedMissions, nextLevel, ARENA_CHALLENGE_COUNT)) {
+      const prerequisite = nextLevel === "medium" ? "Fácil" : "Médio";
+      addLog(`O nível ${ARENA_LEVELS[nextLevel].short} será liberado quando você concluir as 10 missões do nível ${prerequisite}.`, "warning");
+      return;
+    }
+    const playable = isArenaLevelPlayable(unlockedMissions, nextLevel, ARENA_CHALLENGE_COUNT);
+    if (nextLevel === arenaLevel) {
+      if (!playable && nextLevel === "easy") setBasicGateOpen(true);
+      else startMissionPreview(nextLevel, challengeIndex);
+      return;
+    }
     runningRef.current = false;
     setRunning(false);
     runnerRef.current = null;
@@ -573,13 +686,23 @@ export default function EuVouProgramar() {
     clearProgramForMissionChange();
     setArenaLevel(nextLevel);
     setChallengeIndex(0);
+    setBasicGateOpen(nextLevel === "easy" && !playable);
     setLogs([]);
     addLog(`${ARENA_LEVELS[nextLevel].name}: ${ARENA_LEVELS[nextLevel].description}.`);
-  }, [addLog, arenaLevel, clearProgramForMissionChange]);
+    if (playable) startMissionPreview(nextLevel, 0);
+    else stopMissionPreview();
+  }, [addLog, arenaLevel, challengeIndex, clearProgramForMissionChange, startMissionPreview, stopMissionPreview, unlockedMissions]);
 
   const changeArenaChallenge = useCallback((nextIndex: number) => {
-    const normalized = Math.max(0, Math.min(unlockedMissions[arenaLevel], ARENA_CHALLENGE_COUNT - 1, Math.trunc(nextIndex)));
-    if (normalized === challengeIndex) return;
+    if (!isArenaLevelPlayable(unlockedMissions, arenaLevel, ARENA_CHALLENGE_COUNT)) {
+      if (arenaLevel === "easy") setBasicGateOpen(true);
+      return;
+    }
+    const normalized = Math.max(0, Math.min(highestAccessibleMission(unlockedMissions, arenaLevel, ARENA_CHALLENGE_COUNT), Math.trunc(nextIndex)));
+    if (normalized === challengeIndex) {
+      startMissionPreview(arenaLevel, normalized);
+      return;
+    }
     runningRef.current = false;
     setRunning(false);
     runnerRef.current = null;
@@ -592,9 +715,52 @@ export default function EuVouProgramar() {
     setLogs([]);
     const nextChallenge = getArenaChallenges(arenaLevel)[normalized];
     addLog(`Desafio ${normalized + 1}: ${nextChallenge.title}. ${nextChallenge.objective}`);
-  }, [addLog, arenaLevel, challengeIndex, clearProgramForMissionChange, unlockedMissions]);
+    startMissionPreview(arenaLevel, normalized);
+  }, [addLog, arenaLevel, challengeIndex, clearProgramForMissionChange, startMissionPreview, unlockedMissions]);
+
+  const confirmBasicSkills = useCallback(() => {
+    setUnlockedMissions((current) => unlockAllBeginnerMissions(current, ARENA_CHALLENGE_COUNT));
+    setBasicGateOpen(false);
+    runningRef.current = false;
+    runnerRef.current = null;
+    setRunning(false);
+    setArenaLevel("easy");
+    setChallengeIndex(0);
+    worldRef.current = createWorld(hardwareRef.current, 0, "easy");
+    successHandledRef.current = false;
+    setCelebrating(false);
+    setStatus("ready");
+    clearProgramForMissionChange();
+    setLogs([]);
+    addLog("Teste de conhecimentos confirmado: todas as missões do Muito Fácil foram liberadas e o Fácil 1 está pronto.", "success");
+    startMissionPreview("easy", 0);
+  }, [addLog, clearProgramForMissionChange, startMissionPreview]);
+
+  const returnToBeginnerPath = useCallback(() => {
+    setBasicGateOpen(false);
+    if (arenaLevel !== "beginner") changeArenaLevel("beginner");
+  }, [arenaLevel, changeArenaLevel]);
+
+  const continueAfterSuccess = useCallback(() => {
+    setCelebrating(false);
+    setEditorTab("blocks");
+    setProgramMode("blocks");
+    if (challengeIndex < ARENA_CHALLENGE_COUNT - 1) {
+      changeArenaChallenge(challengeIndex + 1);
+      return;
+    }
+    const nextLevel: ArenaLevel | null = arenaLevel === "beginner" ? "easy" : arenaLevel === "easy" ? "medium" : arenaLevel === "medium" ? "hard" : null;
+    if (nextLevel) changeArenaLevel(nextLevel);
+    else addLog("Você concluiu todas as missões do Eu Vou Programar!", "success");
+  }, [addLog, arenaLevel, challengeIndex, changeArenaChallenge, changeArenaLevel]);
 
   const runProgram = useCallback(() => {
+    if (!isArenaLevelPlayable(unlockedMissions, arenaLevel, ARENA_CHALLENGE_COUNT)) {
+      if (arenaLevel === "easy") setBasicGateOpen(true);
+      addLog("Confirme primeiro se você já domina o básico ou volte para o nível Muito Fácil.", "warning");
+      return;
+    }
+    stopMissionPreview();
     if (status === "paused" && runnerRef.current) {
       runningRef.current = true;
       setRunning(true);
@@ -636,7 +802,7 @@ export default function EuVouProgramar() {
       setLogs([]);
       addLog(error instanceof ProgramError ? error.message : "Não foi possível ler o código.", "error");
     }
-  }, [addLog, blockProgramReady, code, programMode, status]);
+  }, [addLog, arenaLevel, blockProgramReady, code, programMode, status, stopMissionPreview, unlockedMissions]);
 
   const pauseProgram = () => {
     runningRef.current = false;
@@ -719,6 +885,7 @@ export default function EuVouProgramar() {
             : editorTab === "blocks" ? "Print" : "Copiar";
 
   const updateHardware = (nextHardware: HardwareConfig) => {
+    stopMissionPreview();
     const normalized = normalizeHardware(nextHardware);
     hardwareRef.current = normalized;
     setHardware(normalized);
@@ -759,6 +926,14 @@ export default function EuVouProgramar() {
   const movementMotorPorts = getDriveMotorPorts(hardware) ?? { left: "B" as const, right: "C" as const };
   const challengeOptions = getArenaChallenges(arenaLevel);
   const activeChallenge = challengeOptions[challengeIndex] ?? challengeOptions[0];
+  const highestUnlockedChallenge = highestAccessibleMission(unlockedMissions, arenaLevel, ARENA_CHALLENGE_COUNT);
+  const levelPlayable = isArenaLevelPlayable(unlockedMissions, arenaLevel, ARENA_CHALLENGE_COUNT);
+  const successContinueLabel = challengeIndex < ARENA_CHALLENGE_COUNT - 1
+    ? `Ir para a missão ${challengeIndex + 2}`
+    : arenaLevel === "beginner" ? "Ir para o nível Fácil"
+      : arenaLevel === "easy" ? "Ir para o nível Médio"
+        : arenaLevel === "medium" ? "Ir para o nível Avançado"
+          : "Finalizar jornada";
   const challengeHardwareReady = hasChallengeHardware(hardware, activeChallenge.hardwareRequirement);
   const missionHardwareReady = activeChallenge.hardwareRequirement ? challengeHardwareReady : isRobotReady(hardware);
   const challengeStepsComplete = activeChallenge.requiredHazards.length
@@ -952,7 +1127,7 @@ export default function EuVouProgramar() {
             {running ? (
               <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
             ) : (
-              <button className="run-button" onClick={runProgram} disabled={programMode === "blocks" && !blockProgramReady}><span>▶</span> {status === "paused" ? "Continuar" : programMode === "blocks" && !blockProgramReady ? "Monte uma pilha" : "Executar código"}</button>
+              <button className="run-button" onClick={runProgram} disabled={!levelPlayable || (programMode === "blocks" && !blockProgramReady)}><span>▶</span> {!levelPlayable ? "Confirme o básico" : status === "paused" ? "Continuar" : programMode === "blocks" && !blockProgramReady ? "Monte uma pilha" : "Executar código"}</button>
             )}
           </div>
         </section>
@@ -973,10 +1148,11 @@ export default function EuVouProgramar() {
 
           {!arenaHidden && <section className="arena-panel" aria-label="Arena do robô">
           <div className="arena-toolbar">
-            <div><span className={`live-dot ${running ? "pulsing" : ""}`} /> {arenaLevel === "beginner" ? "Pista de treino" : "Arena OBR"} <small>{competitionView.layoutName}</small></div>
+            <div><span className={`live-dot ${running || previewPhase === "playing" ? "pulsing" : ""}`} /> {previewPhase !== "idle" ? "Demonstração do trajeto" : arenaLevel === "beginner" ? "Pista de treino" : "Arena OBR"} <small>{competitionView.layoutName}</small></div>
             <div className="arena-toolbar-actions">
+              <button className="expand-arena-button preview-route-button" type="button" onClick={() => startMissionPreview(arenaLevel, challengeIndex)} disabled={!levelPlayable || previewPhase !== "idle"} aria-label="Ver novamente o trajeto da missão"><span>▶</span> Ver trajeto</button>
               <button className="expand-arena-button legend-arena-button" type="button" onClick={() => setLegendOpen(true)} aria-label="Abrir legenda da arena"><span>?</span> Legenda</button>
-              <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} aria-label="Abrir arena em tela cheia"><span>⛶</span> Tela cheia</button>
+              <button className="expand-arena-button" type="button" onClick={() => setArenaExpanded(true)} disabled={basicGateOpen} aria-label="Abrir arena em tela cheia"><span>⛶</span> Tela cheia</button>
               <div className="speed-control" aria-label="Velocidade da simulação">
                 <button onClick={() => changeSpeed(-1)} disabled={speed === 0.5} aria-label="Diminuir velocidade">−</button>
                 <strong>{speed}×</strong>
@@ -986,30 +1162,43 @@ export default function EuVouProgramar() {
           </div>
 
           <div className="arena-level-picker" role="group" aria-label="Escolha o nível da arena">
-            {(Object.keys(ARENA_LEVELS) as ArenaLevel[]).map((level) => (
-              <button key={level} type="button" className={arenaLevel === level ? `active level-${level}` : `level-${level}`} onClick={() => changeArenaLevel(level)} aria-pressed={arenaLevel === level}>
-                <span>{ARENA_LEVELS[level].number}</span>
-                <b>{ARENA_LEVELS[level].short}</b>
-                <small>{ARENA_LEVELS[level].description}</small>
-              </button>
-            ))}
+            {(Object.keys(ARENA_LEVELS) as ArenaLevel[]).map((level) => {
+              const unlocked = isArenaLevelUnlocked(unlockedMissions, level, ARENA_CHALLENGE_COUNT);
+              const needsCheck = level === "easy" && !isArenaLevelPlayable(unlockedMissions, level, ARENA_CHALLENGE_COUNT);
+              const prerequisite = level === "medium" ? "Conclua o Fácil" : level === "hard" ? "Conclua o Médio" : ARENA_LEVELS[level].description;
+              return (
+                <button key={level} type="button" className={`${arenaLevel === level ? "active " : ""}level-${level}${!unlocked ? " is-locked" : ""}${needsCheck ? " needs-check" : ""}`} onClick={() => changeArenaLevel(level)} aria-pressed={arenaLevel === level} aria-label={!unlocked ? `${ARENA_LEVELS[level].short} bloqueado. ${prerequisite}` : needsCheck ? `${ARENA_LEVELS[level].short}. Faça a verificação do básico para começar` : ARENA_LEVELS[level].short} disabled={!unlocked}>
+                  <span>{unlocked ? ARENA_LEVELS[level].number : "🔒"}</span>
+                  <b>{ARENA_LEVELS[level].short}{needsCheck ? " · teste" : ""}</b>
+                  <small>{unlocked ? ARENA_LEVELS[level].description : prerequisite}</small>
+                </button>
+              );
+            })}
           </div>
 
+          {arenaLevel === "beginner" && unlockedMissions.beginner < ARENA_CHALLENGE_COUNT && (
+            <section className="basic-skip-card" aria-label="Teste de conhecimentos básicos">
+              <span aria-hidden="true">⚡</span>
+              <div><strong>Já sabe o básico?</strong><small>Veja a missão Fácil 1 e confirme se consegue fazê-la.</small></div>
+              <button type="button" onClick={() => changeArenaLevel("easy")}>Eu já sei <b>→</b></button>
+            </section>
+          )}
+
           <div className="arena-challenge-picker" aria-label="Escolha o objetivo da arena">
-            <button type="button" onClick={() => changeArenaChallenge(challengeIndex - 1)} disabled={challengeIndex === 0} aria-label="Objetivo anterior">‹</button>
+            <button type="button" onClick={() => changeArenaChallenge(challengeIndex - 1)} disabled={!levelPlayable || challengeIndex === 0} aria-label="Objetivo anterior">‹</button>
             <label>
               <span>Objetivo {challengeIndex + 1} de {ARENA_CHALLENGE_COUNT}</span>
               <select value={challengeIndex} onChange={(event) => changeArenaChallenge(Number(event.target.value))} aria-label={`Objetivo do nível ${ARENA_LEVELS[arenaLevel].short}`}>
-                {challengeOptions.map((challenge, index) => <option key={challenge.title} value={index} disabled={index > unlockedMissions[arenaLevel]}>{index > unlockedMissions[arenaLevel] ? "🔒 " : ""}{index + 1}. {challenge.title}</option>)}
+                {challengeOptions.map((challenge, index) => <option key={challenge.title} value={index} disabled={!levelPlayable || index > highestUnlockedChallenge}>{!levelPlayable || index > highestUnlockedChallenge ? "🔒 " : ""}{index + 1}. {challenge.title}</option>)}
               </select>
             </label>
-            <button type="button" onClick={() => changeArenaChallenge(challengeIndex + 1)} disabled={challengeIndex === ARENA_CHALLENGE_COUNT - 1 || challengeIndex >= unlockedMissions[arenaLevel]} aria-label="Próximo objetivo" title={challengeIndex >= unlockedMissions[arenaLevel] && challengeIndex < ARENA_CHALLENGE_COUNT - 1 ? "Conclua esta missão para liberar a próxima" : undefined}>›</button>
+            <button type="button" onClick={() => changeArenaChallenge(challengeIndex + 1)} disabled={!levelPlayable || challengeIndex === ARENA_CHALLENGE_COUNT - 1 || challengeIndex >= highestUnlockedChallenge} aria-label="Próximo objetivo" title={challengeIndex >= highestUnlockedChallenge && challengeIndex < ARENA_CHALLENGE_COUNT - 1 ? "Conclua esta missão para liberar a próxima" : undefined}>›</button>
           </div>
 
           <div className="arena-mission-progress" role="navigation" aria-label="Progresso das missões">
             {challengeOptions.map((challenge, index) => {
-              const locked = index > unlockedMissions[arenaLevel];
-              const completed = index < unlockedMissions[arenaLevel];
+              const locked = !levelPlayable || index > highestUnlockedChallenge;
+              const completed = completedMissionKeys.has(missionKey(arenaLevel, index + 1));
               return (
                 <button
                   key={challenge.title}
@@ -1036,12 +1225,31 @@ export default function EuVouProgramar() {
 
           <div className="arena">
             <canvas ref={canvasRef} aria-label={arenaLevel === "beginner" ? "Pista branca sem linha: robô, pontos e objetivo" : "Arena OBR: robô, linha, ladrilhos e desafios"} />
+            {previewPhase !== "idle" && (
+              <div className={`mission-preview-overlay phase-${previewPhase}`} role="status" aria-live="polite">
+                <span><i /> Demonstração — não vale pontos</span>
+                <strong>{previewPhase === "returning" ? "Agora é sua vez" : "Observe o caminho"}</strong>
+                <small>{previewMessage}</small>
+                {previewPhase === "playing" && <button type="button" onClick={stopMissionPreview}>Pular demonstração</button>}
+              </div>
+            )}
+            {basicGateOpen && (
+              <div className="basic-knowledge-gate" role="dialog" aria-modal="true" aria-labelledby="basic-gate-title">
+                <span className="gate-icon" aria-hidden="true">⚡</span>
+                <small>Teste rápido · antes do nível Fácil</small>
+                <strong id="basic-gate-title">Você já sabe o básico?</strong>
+                <p>Observe a missão Fácil 1. Se você consegue programar o robô para seguir a linha até o objetivo, pode começar por aqui.</p>
+                <button className="confirm-basic-button" type="button" onClick={confirmBasicSkills}>Sim, consigo fazer essa missão</button>
+                <button className="beginner-path-button" type="button" onClick={returnToBeginnerPath}>Quero aprender no Muito Fácil</button>
+                <small>Ao confirmar, todas as missões do Muito Fácil ficam disponíveis. No Fácil, cada missão continua sendo liberada uma por vez.</small>
+              </div>
+            )}
             {celebrating && (
               <div className="success-pop" role="status">
                 <div className="success-stars">★ <span>★</span> ★</div>
                 <strong>{activeChallenge.title} concluído!</strong>
                 <p>{activeChallenge.successMessage}</p>
-                <button onClick={() => { setCelebrating(false); setEditorTab("blocks"); setProgramMode("blocks"); if (challengeIndex < ARENA_CHALLENGE_COUNT - 1) changeArenaChallenge(challengeIndex + 1); }}>{challengeIndex < ARENA_CHALLENGE_COUNT - 1 ? `Ir para a missão ${challengeIndex + 2}` : "Continuar aprendendo"}</button>
+                <button onClick={continueAfterSuccess}>{successContinueLabel}</button>
               </div>
             )}
           </div>
@@ -1050,7 +1258,7 @@ export default function EuVouProgramar() {
             <div><span>⚙</span><small>Motor esquerdo</small><strong>{telemetry.left}%</strong></div>
             <div><span>⚙</span><small>Motor direito</small><strong>{telemetry.right}%</strong></div>
             <div><span>◔</span><small>{telemetryUltrasonicPort ? `Ultrassom P${telemetryUltrasonicPort}${telemetryUltrasonicMount ? ` · ${SENSOR_POSITION_DEFINITIONS[telemetryUltrasonicMount.position].shortName}` : ""}` : "Sem ultrassom"}</small><strong>{telemetryUltrasonicPort ? `${telemetry.ultrasound} cm` : "—"}</strong></div>
-            <div><span>{telemetry.bumped ? "!" : "●"}</span><small>Estado</small><strong className={`status-${status}`}>{telemetry.bumped ? "Tocou!" : statusLabels[status]}</strong></div>
+            <div><span>{telemetry.bumped ? "!" : "●"}</span><small>Estado</small><strong className={`status-${status}`}>{previewPhase !== "idle" ? "Demonstração" : telemetry.bumped ? "Tocou!" : statusLabels[status]}</strong></div>
           </div>
 
           <section className="robot-connections" aria-label="Portas conectadas ao robô">
@@ -1109,7 +1317,7 @@ export default function EuVouProgramar() {
                 {running ? (
                   <button className="pause-button" onClick={pauseProgram}><span>Ⅱ</span> Pausar</button>
                 ) : (
-                  <button className="run-button" onClick={runProgram} disabled={programMode === "blocks" && !blockProgramReady}><span>▶</span> {status === "paused" ? "Continuar" : programMode === "blocks" && !blockProgramReady ? "Monte uma pilha" : "Executar código"}</button>
+                  <button className="run-button" onClick={runProgram} disabled={!levelPlayable || (programMode === "blocks" && !blockProgramReady)}><span>▶</span> {!levelPlayable ? "Confirme o básico" : status === "paused" ? "Continuar" : programMode === "blocks" && !blockProgramReady ? "Monte uma pilha" : "Executar código"}</button>
                 )}
                 <button className="hide-expanded-arena-button" type="button" onClick={() => { setArenaExpanded(false); setArenaHidden(true); }}>Ocultar arena</button>
               </div>
