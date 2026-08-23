@@ -970,7 +970,14 @@ export function restartRound(world: WorldState) {
 
 export function advanceWorld(world: WorldState, delta: number, emit: (message: string, level?: LogLevel) => void) {
   const robot = world.robot;
-  const linearVelocity = ((robot.leftPower + robot.rightPower) / 2) * 112;
+  const averagePower = (robot.leftPower + robot.rightPower) / 2;
+  const pointTurnPower = robot.leftPower * robot.rightPower < 0
+    ? Math.min(Math.abs(robot.leftPower), Math.abs(robot.rightPower))
+    : 0;
+  // No conjunto físico, a deformação dos pneus e a roda de apoio fazem um
+  // giro no lugar avançar alguns milímetros. Esse pequeno arrasto impede que
+  // um seguidor de linha idealizado fique preso para sempre no mesmo ponto.
+  const linearVelocity = (averagePower + pointTurnPower * 0.02) * 112;
   const angularVelocity = (robot.rightPower - robot.leftPower) * 2.25;
   const nextAngle = robot.angle + angularVelocity * delta;
   const nextX = robot.x + Math.cos(nextAngle) * linearVelocity * delta;

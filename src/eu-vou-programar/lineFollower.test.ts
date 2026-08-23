@@ -1,7 +1,7 @@
 import * as Blockly from "blockly";
 import { describe, expect, it } from "vitest";
 import { createExampleBlocks, generatePython, registerEV3Blocks } from "./blocks";
-import { createLineFollowerHardware } from "./hardware";
+import { cloneHardware, createLineFollowerHardware, EMPTY_HARDWARE } from "./hardware";
 import type { ArenaPoint } from "./obrArena";
 import { advanceWorld, createRunner, createWorld, parseProgram, sensorColor, stepRunner } from "./simulator";
 
@@ -55,5 +55,51 @@ describe("seguidor de linha em blocos", () => {
     expect(runner.finished).toBe(false);
 
     workspace.dispose();
+  });
+
+  it("reproduz as correções por giro do EV3 a 30% e supera a curva de 90 graus", () => {
+    const hardware = cloneHardware(EMPTY_HARDWARE);
+    hardware.motors.A = "large";
+    hardware.motors.B = "large";
+    hardware.motorMounts.A = { role: "left-wheel" };
+    hardware.motorMounts.B = { role: "right-wheel" };
+    hardware.sensors["1"] = "color";
+    hardware.sensors["2"] = "color";
+    hardware.sensorMounts["1"] = { position: "front-left", aim: "ground" };
+    hardware.sensorMounts["2"] = { position: "front-right", aim: "ground" };
+    const world = createWorld(hardware, 0, "easy");
+    const runner = createRunner(parseProgram(`
+velocidade_motor_A = 30
+velocidade_motor_B = 30
+while True:
+    cor_ev3_porta_1 = ev3.color("1")
+    cor_ev3_porta_2 = ev3.color("2")
+    if ((cor_ev3_porta_1 == "branco") and (cor_ev3_porta_2 == "branco")):
+        motors.set_power(0, velocidade_motor_A / 100)
+        motors.set_power(1, velocidade_motor_B / 100)
+    else:
+        cor_ev3_porta_1 = ev3.color("1")
+        cor_ev3_porta_2 = ev3.color("2")
+        if ((cor_ev3_porta_1 == "preto") and (cor_ev3_porta_2 == "branco")):
+            motors.set_power(0, velocidade_motor_A / 100)
+            motors.set_power(1, -1 * velocidade_motor_B / 100)
+        cor_ev3_porta_1 = ev3.color("1")
+        cor_ev3_porta_2 = ev3.color("2")
+        if ((cor_ev3_porta_1 == "branco") and (cor_ev3_porta_2 == "preto")):
+            motors.set_power(0, -1 * velocidade_motor_A / 100)
+            motors.set_power(1, velocidade_motor_B / 100)
+    `));
+    let passedRightAngle = false;
+    let reachedRed = false;
+
+    for (let step = 0; step < 4500 && !reachedRed; step += 1) {
+      stepRunner(runner, world, 0.02, () => undefined);
+      advanceWorld(world, 0.02, () => undefined);
+      passedRightAngle ||= world.robot.x > 320 && world.robot.y < 390;
+      reachedRed = sensorColor(world, "1") === "vermelho" || sensorColor(world, "2") === "vermelho";
+    }
+
+    expect(passedRightAngle).toBe(true);
+    expect(reachedRed).toBe(true);
   });
 });
