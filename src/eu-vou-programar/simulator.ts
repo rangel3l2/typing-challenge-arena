@@ -819,6 +819,14 @@ function circleHitsArenaRect(x: number, y: number, radius: number, rectangle: Ar
   return (x - closestX) ** 2 + (y - closestY) ** 2 < radius ** 2;
 }
 
+export function robotPositionIsClear(world: WorldState, x: number, y: number, avoidVictims = true) {
+  if (x - ROBOT_RADIUS < WALL_MARGIN || x + ROBOT_RADIUS > WORLD_WIDTH - WALL_MARGIN
+    || y - ROBOT_RADIUS < WALL_MARGIN || y + ROBOT_RADIUS > WORLD_HEIGHT - WALL_MARGIN) return false;
+  if (world.obstacles.some((obstacle) => circleHitsRectangle(x, y, ROBOT_RADIUS, obstacle))) return false;
+  if (rescueWallRectangles(world.layout).some((wall) => circleHitsArenaRect(x, y, ROBOT_RADIUS, wall))) return false;
+  return !avoidVictims || !world.victims.some((victim) => !victim.rescued && Math.hypot(x - victim.x, y - victim.y) < ROBOT_RADIUS + 10);
+}
+
 function robotIsInsideRoom(world: WorldState) {
   if (world.layout.arenaStyle === "white") return false;
   const room = world.layout.rescueRoom;
