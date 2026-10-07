@@ -11,6 +11,7 @@ import Sobre from "./pages/Sobre";
 import Provisionamento from "./pages/Provisionamento";
 import NotFound from "./pages/NotFound";
 import RouteMetadata from "./components/RouteMetadata";
+import AndroidUpdater from "./components/AndroidUpdater";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AndroidUpdater />
       <BrowserRouter>
         <RouteMetadata />
         <Routes>

@@ -11,9 +11,14 @@
     "audit:arenas": "node scripts/run-arena-audit.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "android:web": "vite build && node scripts/prepare-android-web.mjs",
+    "android:sync": "cap sync android",
+    "android:apk": "npm run android:web && npm run android:sync && cd android && gradlew.bat assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "8.4.0",
+    "@capacitor/core": "8.4.0",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@hookform/resolvers": "^3.10.0",
@@ -72,6 +77,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.4.0",
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
