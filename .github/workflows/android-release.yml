@@ -82,7 +82,7 @@ jobs:
           npm run android:web
           npx cap sync android
           cd android
-          ./gradlew --no-daemon assembleRelease
+          bash ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/eu-vou-programar.apk"
 
       - name: Publish GitHub release
