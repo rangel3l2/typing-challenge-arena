@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to validate without publishing a release
+        required: true
+        default: "1.2.7"
+        type: string
 
 permissions:
   contents: write
@@ -40,6 +47,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         run: |
           set -euo pipefail
           test -n "$ANDROID_KEYSTORE_BASE64"
@@ -48,15 +56,15 @@ jobs:
           test -n "$ANDROID_KEY_PASSWORD"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-key.jks
 
-          if [[ "$GITHUB_REF_NAME" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          version="${RELEASE_VERSION#v}"
+          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
             patch="${BASH_REMATCH[3]}"
           else
-            echo "Expected a MAJOR.MINOR.PATCH tag (optional v prefix), got $GITHUB_REF_NAME"
+            echo "Expected a MAJOR.MINOR.PATCH version, got $RELEASE_VERSION"
             exit 1
           fi
-          version="${GITHUB_REF_NAME#v}"
           if (( major >= 1000 || minor >= 1000 || patch >= 1000 )); then
             echo "Each version component must be below 1000"
             exit 1
@@ -78,6 +86,7 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/eu-vou-programar.apk"
 
       - name: Publish GitHub release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
